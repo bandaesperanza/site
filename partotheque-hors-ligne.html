@@ -283,13 +283,14 @@
     padding-top: 12px;
     border-top: 1px dashed var(--rule);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 8px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     color: var(--ink-soft);
+    line-height: 1.6;
   }
   .sync-summary button {
     font-family: 'IBM Plex Mono', monospace;
@@ -605,6 +606,9 @@
     updateNetStatus();
     renderFilterButtons();
     searchInput.focus();
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
     refreshCachedIds().then(loadCatalog);
   }
 
@@ -821,8 +825,23 @@
   async function renderSyncSummary() {
     const rows = await idbGetAll('pdfs').catch(() => []);
     const totalBytes = rows.reduce((sum, r) => sum + (r.size ? parseInt(r.size, 10) : 0), 0);
+
+    let quotaLine = '';
+    if (navigator.storage && navigator.storage.estimate) {
+      try {
+        const { usage, quota } = await navigator.storage.estimate();
+        if (typeof usage === 'number' && typeof quota === 'number' && quota > 0) {
+          const pct = Math.round((usage / quota) * 100);
+          quotaLine = `<div>Stockage navigateur : ${formatSize(usage)} / ${formatSize(quota)} (${pct}%)</div>`;
+        }
+      } catch (e) { /* estimation indisponible : on l'ignore simplement */ }
+    }
+
     syncSummary.innerHTML = `
-      <span>${rows.length} PDF en local · ${formatSize(totalBytes)} utilisés</span>
+      <div>
+        <div>${rows.length} PDF en local · ${formatSize(totalBytes)} utilisés</div>
+        ${quotaLine}
+      </div>
       ${rows.length > 0 ? '<button type="button" id="clear-all-btn">🗑 Tout retirer du hors-ligne</button>' : ''}
     `;
     const clearAllBtn = document.getElementById('clear-all-btn');
@@ -840,23 +859,42 @@
     const btn = syncList.querySelector(`[data-sync="${filterId}"]`);
     if (btn) btn.disabled = true;
     let done = 0;
-    const updateProgress = () => { if (btn) btn.textContent = `⏳ ${done}/${toDownload.length}…`; };
+    let failed = 0;
+    let quotaExceeded = false;
+    const updateProgress = () => {
+      if (btn) btn.textContent = `⏳ ${done}/${toDownload.length}${failed ? ' (' + failed + ' échec' + (failed > 1 ? 's' : '') + ')' : ''}…`;
+    };
     updateProgress();
 
-    const CONCURRENT = 3;
+    // Concurrence réduite (2 au lieu de 3) : sur iPhone/Safari, moins de
+    // requêtes simultanées limite le risque que iOS mette l'onglet en veille
+    // pendant une longue synchro.
+    const CONCURRENT = 2;
     let idx = 0;
     async function worker() {
       while (idx < toDownload.length) {
+        if (quotaExceeded) { idx = toDownload.length; return; } // on arrête tout le monde
         const f = toDownload[idx++];
         try {
           const params = new URLSearchParams({ alt: 'media', key: CONFIG.API_KEY });
           const res = await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}?` + params.toString());
           if (res.ok) {
             const blob = await res.blob();
-            await idbPut('pdfs', { id: f.id, name: f.name, folderPath: f.folderPath, size: f.size, blob, cachedAt: Date.now() });
-            cachedIds.add(f.id);
+            try {
+              await idbPut('pdfs', { id: f.id, name: f.name, folderPath: f.folderPath, size: f.size, blob, cachedAt: Date.now() });
+              cachedIds.add(f.id);
+            } catch (idbErr) {
+              failed++;
+              if (idbErr && (idbErr.name === 'QuotaExceededError' || /quota/i.test(idbErr.message || ''))) {
+                quotaExceeded = true;
+              }
+            }
+          } else {
+            failed++;
           }
-        } catch (e) { /* on continue avec les suivants même si celui-ci échoue */ }
+        } catch (e) {
+          failed++; // erreur réseau : on continue avec les suivants
+        }
         done++;
         updateProgress();
       }
@@ -865,6 +903,12 @@
 
     renderSyncPanel();
     applyFilters(searchInput.value.trim());
+
+    if (quotaExceeded) {
+      netStatusEl.textContent = `⚠ Stockage plein sur l'appareil : ${done - failed}/${toDownload.length} téléchargés avant blocage. Libère de l'espace puis relance "Synchroniser".`;
+    } else if (failed > 0) {
+      netStatusEl.textContent = `⚠ ${failed} téléchargement${failed > 1 ? 's ont' : ' a'} échoué${failed > 1 ? '' : ''} (réseau). Relance "Synchroniser" pour réessayer juste ce qui manque.`;
+    }
   }
 
   async function clearInstrument(filterId) {
