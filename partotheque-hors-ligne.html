@@ -848,6 +848,39 @@
     if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllOffline);
   }
 
+  // fetch() avec timeout + tentatives automatiques (backoff), pour distinguer
+  // un vrai blocage (quota API dépassé, fichier non partagé) d'un simple
+  // aléa réseau — et pour ne pas rester bloqué indéfiniment sur une requête
+  // qui ne répond pas (fréquent en 4G/faible réseau).
+  async function fetchWithRetry(url, { maxRetries = 3, timeoutMs = 25000 } = {}) {
+    let lastErr;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) return res;
+        if (res.status !== 403 && res.status !== 429 && res.status < 500) {
+          return res; // erreur définitive (404, fichier non partagé...) : inutile de réessayer
+        }
+        let reason = 'HTTP ' + res.status;
+        try {
+          const body = await res.clone().json();
+          if (body.error?.message) reason = res.status + ' — ' + body.error.message;
+        } catch (e) { /* pas de corps JSON exploitable */ }
+        lastErr = new Error(reason);
+      } catch (e) {
+        clearTimeout(timer);
+        lastErr = (e.name === 'AbortError') ? new Error('délai dépassé (réseau trop lent)') : e;
+      }
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 800 * Math.pow(2, attempt)));
+      }
+    }
+    throw lastErr || new Error('échec après plusieurs tentatives');
+  }
+
   async function syncInstrument(filterId) {
     const filter = FILTERS.find(f => f.id === filterId);
     if (!filter || !fileIndex) return;
@@ -861,23 +894,24 @@
     let done = 0;
     let failed = 0;
     let quotaExceeded = false;
+    let lastErrorMessage = '';
     const updateProgress = () => {
       if (btn) btn.textContent = `⏳ ${done}/${toDownload.length}${failed ? ' (' + failed + ' échec' + (failed > 1 ? 's' : '') + ')' : ''}…`;
     };
     updateProgress();
 
-    // Concurrence réduite (2 au lieu de 3) : sur iPhone/Safari, moins de
-    // requêtes simultanées limite le risque que iOS mette l'onglet en veille
-    // pendant une longue synchro.
-    const CONCURRENT = 2;
+    // Une seule requête à la fois : plus lent, mais beaucoup plus fiable
+    // sur réseau mobile (moins de risque de saturer la connexion ou de
+    // déclencher des limites de débit côté API).
+    const CONCURRENT = 1;
     let idx = 0;
     async function worker() {
       while (idx < toDownload.length) {
-        if (quotaExceeded) { idx = toDownload.length; return; } // on arrête tout le monde
+        if (quotaExceeded) { idx = toDownload.length; return; }
         const f = toDownload[idx++];
         try {
           const params = new URLSearchParams({ alt: 'media', key: CONFIG.API_KEY });
-          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}?` + params.toString());
+          const res = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${f.id}?` + params.toString());
           if (res.ok) {
             const blob = await res.blob();
             try {
@@ -885,15 +919,18 @@
               cachedIds.add(f.id);
             } catch (idbErr) {
               failed++;
+              lastErrorMessage = (idbErr && idbErr.message) || 'stockage local indisponible';
               if (idbErr && (idbErr.name === 'QuotaExceededError' || /quota/i.test(idbErr.message || ''))) {
                 quotaExceeded = true;
               }
             }
           } else {
             failed++;
+            lastErrorMessage = 'HTTP ' + res.status;
           }
         } catch (e) {
-          failed++; // erreur réseau : on continue avec les suivants
+          failed++;
+          lastErrorMessage = (e && e.message) || 'erreur réseau';
         }
         done++;
         updateProgress();
@@ -907,7 +944,7 @@
     if (quotaExceeded) {
       netStatusEl.textContent = `⚠ Stockage plein sur l'appareil : ${done - failed}/${toDownload.length} téléchargés avant blocage. Libère de l'espace puis relance "Synchroniser".`;
     } else if (failed > 0) {
-      netStatusEl.textContent = `⚠ ${failed} téléchargement${failed > 1 ? 's ont' : ' a'} échoué${failed > 1 ? '' : ''} (réseau). Relance "Synchroniser" pour réessayer juste ce qui manque.`;
+      netStatusEl.textContent = `⚠ ${failed}/${done} téléchargement${failed > 1 ? 's ont' : ' a'} échoué${failed > 1 ? '' : ''}. Dernière erreur : ${lastErrorMessage}. Relance "Synchroniser" pour réessayer juste ce qui manque.`;
     }
   }
 
