@@ -1,0 +1,16 @@
+<convert2exe>
+    <uacLevel>asInvoker</uacLevel>
+    <iconfile>C:\Users\GDG343\AppData\Local\Vbsedit\x64\computer.ico</iconfile>
+    <folder>G:\Mon Drive\10 - Partitions\_Système de Gestion\Source Devellopement\Gestion Partitions V2_executable</folder>
+    <dependencies />
+    <mode>console</mode>
+    <appName>Gestion Partitions V3</appName>
+    <bits>32</bits>
+    <silent>no</silent>
+    <unicode>no</unicode>
+    <regfreecom>no</regfreecom>
+    <custom_description>My Description</custom_description>
+    <custom_copyright>© My Company Name 2025</custom_copyright>
+    <custom_productName>My Product Name</custom_productName>
+    <custom_version>1.0.0.1</custom_version>
+</convert2exe>
