@@ -303,6 +303,35 @@
     padding: 0;
   }
 
+  .debug-toggle {
+    margin-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    display: block;
+  }
+  .debug-log {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #1c231d;
+    color: #cfe0d2;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .debug-log.hidden { display: none; }
+  .debug-toggle.hidden { display: none; }
+
   /* --- Results ------------------------------------------------------------ */
   .results { display: flex; flex-direction: column; gap: 10px; }
 
@@ -431,6 +460,8 @@
       <div class="sync-panel-label">Synchroniser par instrument</div>
       <div id="sync-list"></div>
       <div class="sync-summary" id="sync-summary"></div>
+      <button type="button" id="debug-toggle-btn" class="debug-toggle">🔧 Journal technique</button>
+      <pre class="debug-log hidden" id="debug-log"></pre>
     </div>
 
     <div class="status-line" id="status-line"></div>
@@ -468,6 +499,8 @@
   const syncPanel          = document.getElementById('sync-panel');
   const syncList             = document.getElementById('sync-list');
   const syncSummary            = document.getElementById('sync-summary');
+  const debugToggleBtn         = document.getElementById('debug-toggle-btn');
+  const debugLogEl             = document.getElementById('debug-log');
   const refreshBtn                = document.getElementById('refresh-btn');
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
 
@@ -852,7 +885,23 @@
   // un vrai blocage (quota API dépassé, fichier non partagé) d'un simple
   // aléa réseau — et pour ne pas rester bloqué indéfiniment sur une requête
   // qui ne répond pas (fréquent en 4G/faible réseau).
-  async function fetchWithRetry(url, { maxRetries = 3, timeoutMs = 25000 } = {}) {
+  const debugLines = [];
+  function logDebug(msg) {
+    const t = new Date().toLocaleTimeString('fr-FR');
+    debugLines.push(`[${t}] ${msg}`);
+    if (debugLines.length > 300) debugLines.shift();
+    if (debugLogEl) {
+      debugLogEl.textContent = debugLines.join('\n');
+      debugLogEl.scrollTop = debugLogEl.scrollHeight;
+    }
+  }
+  if (debugToggleBtn) {
+    debugToggleBtn.addEventListener('click', () => {
+      debugLogEl.classList.toggle('hidden');
+    });
+  }
+
+  async function fetchWithRetry(url, { maxRetries = 3, timeoutMs = 25000, label = '' } = {}) {
     let lastErr;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const controller = new AbortController();
@@ -870,9 +919,11 @@
           if (body.error?.message) reason = res.status + ' — ' + body.error.message;
         } catch (e) { /* pas de corps JSON exploitable */ }
         lastErr = new Error(reason);
+        logDebug(`${label} — tentative ${attempt + 1}/${maxRetries + 1} : ${reason}`);
       } catch (e) {
         clearTimeout(timer);
         lastErr = (e.name === 'AbortError') ? new Error('délai dépassé (réseau trop lent)') : e;
+        logDebug(`${label} — tentative ${attempt + 1}/${maxRetries + 1} : ${lastErr.message}`);
       }
       if (attempt < maxRetries) {
         await new Promise(r => setTimeout(r, 800 * Math.pow(2, attempt)));
@@ -911,15 +962,17 @@
         const f = toDownload[idx++];
         try {
           const params = new URLSearchParams({ alt: 'media', key: CONFIG.API_KEY });
-          const res = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${f.id}?` + params.toString());
+          const res = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${f.id}?` + params.toString(), { label: f.name });
           if (res.ok) {
             const blob = await res.blob();
             try {
               await idbPut('pdfs', { id: f.id, name: f.name, folderPath: f.folderPath, size: f.size, blob, cachedAt: Date.now() });
               cachedIds.add(f.id);
+              logDebug(`✓ ${f.name} — ${formatSize(blob.size)}`);
             } catch (idbErr) {
               failed++;
               lastErrorMessage = (idbErr && idbErr.message) || 'stockage local indisponible';
+              logDebug(`✗ ${f.name} — stockage : ${lastErrorMessage}`);
               if (idbErr && (idbErr.name === 'QuotaExceededError' || /quota/i.test(idbErr.message || ''))) {
                 quotaExceeded = true;
               }
@@ -927,10 +980,12 @@
           } else {
             failed++;
             lastErrorMessage = 'HTTP ' + res.status;
+            logDebug(`✗ ${f.name} — HTTP ${res.status} (définitif)`);
           }
         } catch (e) {
           failed++;
           lastErrorMessage = (e && e.message) || 'erreur réseau';
+          logDebug(`✗ ${f.name} — abandon après tentatives : ${lastErrorMessage}`);
         }
         done++;
         updateProgress();
@@ -943,8 +998,10 @@
 
     if (quotaExceeded) {
       netStatusEl.textContent = `⚠ Stockage plein sur l'appareil : ${done - failed}/${toDownload.length} téléchargés avant blocage. Libère de l'espace puis relance "Synchroniser".`;
+      debugLogEl.classList.remove('hidden');
     } else if (failed > 0) {
       netStatusEl.textContent = `⚠ ${failed}/${done} téléchargement${failed > 1 ? 's ont' : ' a'} échoué${failed > 1 ? '' : ''}. Dernière erreur : ${lastErrorMessage}. Relance "Synchroniser" pour réessayer juste ce qui manque.`;
+      debugLogEl.classList.remove('hidden');
     }
   }
 
