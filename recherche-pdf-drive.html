@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partothèque — BANDA ESPERANZA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<script>
+  // ==========================================================================
+  // CONFIGURATION — MODIFIEZ CES VALEURS AVANT UTILISATION
+  // ==========================================================================
+  const CONFIG = {
+    // Chemin du catalogue, relatif à cette page (généré par
+    // generer-catalogue-local.html, à placer à côté de cette page sur le site).
+    CATALOG_URL: './catalogue.json',
+  };
+  // ==========================================================================
+</script>
+
+<style>
+  :root {
+    --paper: #F6F3EC;
+    --card: #FFFFFF;
+    --ink: #212B24;
+    --ink-soft: #5B6660;
+    --rule: #DCD5C4;
+    --stamp: #A85C2E;
+    --stamp-soft: #EFDFCB;
+    --focus: #2B4A3F;
+    --gold: #D9A24B;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    background: linear-gradient(135deg, #2B4A3F 0%, #1A2E27 100%);
+    color: var(--paper);
+    padding: 36px 32px 30px;
+    border-radius: 10px;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  header::before {
+    content: '𝄞';
+    position: absolute;
+    right: -10px;
+    top: -30px;
+    font-size: 180px;
+    line-height: 1;
+    color: rgba(246, 243, 236, 0.06);
+    font-family: serif;
+    pointer-events: none;
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+    position: relative;
+  }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 34px;
+    margin: 0 0 8px;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    position: relative;
+  }
+
+  .sub {
+    color: rgba(246, 243, 236, 0.72);
+    font-size: 14px;
+    line-height: 1.5;
+    position: relative;
+    max-width: 46ch;
+  }
+
+  /* --- Setup card ------------------------------------------------------ */
+  .setup {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 28px 28px 24px;
+  }
+  .setup h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 19px;
+    margin: 0 0 4px;
+  }
+  .setup p { color: var(--ink-soft); font-size: 14px; margin: 0 0 18px; }
+  .setup ol { margin: 0; padding-left: 20px; }
+  .setup li { font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
+  .setup code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--stamp-soft);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+  .setup a { color: var(--stamp); }
+
+  /* --- Search ------------------------------------------------------------ */
+  .search-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .search-field {
+    flex: 1;
+    position: relative;
+  }
+
+  .search-field input {
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    padding: 13px 14px;
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    background: var(--card);
+    color: var(--ink);
+  }
+  .search-field input:focus {
+    outline: none;
+    border-color: var(--stamp);
+    box-shadow: 0 0 0 3px var(--stamp-soft);
+  }
+  .search-field input::placeholder { color: #9AA39C; }
+
+  .status-line {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 14px 2px 20px;
+    min-height: 16px;
+  }
+
+  /* --- Filter pills ------------------------------------------------------- */
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .filter-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .filter-btn:hover { border-color: var(--gold); color: var(--ink); }
+  .filter-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .filter-btn.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  #refresh-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+    align-self: stretch;
+  }
+  #refresh-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* --- Results ------------------------------------------------------------ */
+  .results { display: flex; flex-direction: column; gap: 10px; }
+
+  .card-result {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--gold);
+    border-radius: 3px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    box-shadow: 0 1px 2px rgba(33, 43, 36, 0.04);
+    transition: box-shadow 0.12s, border-color 0.12s;
+  }
+  .card-result:hover {
+    box-shadow: 0 3px 10px rgba(33, 43, 36, 0.08);
+    border-left-color: var(--stamp);
+  }
+
+  .card-result .icon {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--stamp);
+    border: 1px solid var(--stamp-soft);
+    background: var(--stamp-soft);
+    border-radius: 3px;
+    padding: 4px 6px;
+    letter-spacing: 0.06em;
+    margin-top: 2px;
+  }
+
+  .card-result .meta { flex: 1; min-width: 0; }
+
+  .card-result .name {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 16px;
+    margin: 0 0 4px;
+    word-break: break-word;
+  }
+
+  .card-result .detail {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .card-result .links {
+    display: flex;
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .card-result .links a {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--focus);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .card-result .links a:hover { border-bottom-color: var(--focus); }
+
+  .empty-state, .error-state {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    background: var(--card);
+    border: 1px dashed var(--rule);
+    border-radius: 4px;
+    padding: 28px;
+    text-align: center;
+  }
+  .error-state { color: #A03B2A; border-color: #E3B6A8; background: #FBEEEA; }
+
+  .hidden { display: none !important; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Partothèque</div>
+    <h1>Banda Esperanza</h1>
+    <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
+  </header>
+
+  <!-- Écran d'erreur (visible seulement si catalogue.json est introuvable) -->
+  <div id="setup-screen" class="setup hidden">
+    <h2>Catalogue introuvable</h2>
+    <p>Impossible de charger <code id="catalog-url-shown"></code>.</p>
+    <ol>
+      <li>Ouvrez <code>generer-catalogue-local.html</code> dans Chrome ou Edge sur un ordinateur pour générer un <code>catalogue.json</code> à partir du dossier des partitions synchronisé par Google Drive.</li>
+      <li>Déposez ce fichier à côté de cette page (même dossier) sur votre hébergement (GitHub Pages), avec le dossier des partitions correspondant.</li>
+      <li>Rechargez cette page.</li>
+    </ol>
+  </div>
+
+  <!-- Écran principal -->
+  <div id="app-screen" class="hidden">
+    <div class="filter-row" id="filter-row"></div>
+    <div class="search-row">
+      <div class="search-field">
+        <input type="text" id="search-input" placeholder="Chercher un PDF par nom…" autocomplete="off">
+      </div>
+      <button type="button" id="refresh-btn" class="filter-btn" title="Recharger le catalogue (relancez d'abord le script Apps Script si des fichiers ont changé)">↻ Actualiser</button>
+    </div>
+    <div class="status-line" id="status-line"></div>
+    <div class="results" id="results"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let debounceTimer = null;
+  let activeFilterId = 'tous';
+
+  // Cache local de tous les PDF listés dans le catalogue.
+  // Construit une seule fois au chargement (puis sur clic "Actualiser"),
+  // ce qui évite de refaire des appels réseau à chaque frappe.
+  let fileIndex = null;        // Array<file> une fois chargé
+  let basePath = 'partitions';
+  let isIndexing = false;
+
+  const FILTERS = [
+    { id: 'tous',       label: 'Tous',       keywords: null },
+    { id: 'picolo',     label: 'Picolo',     keywords: ['picolo', 'piccolo', 'flute', 'flûte'] },
+    { id: 'clarinette', label: 'Clarinette', keywords: ['clarinette'] },
+    { id: 'saxoalto',   label: 'Saxo alto',  keywords: ['saxo alto'] },
+    { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
+    { id: 'trompette',  label: 'Trompette',  keywords: ['trompette'] },
+    { id: 'trombone',   label: 'Trombone',   keywords: ['trombone'] },
+    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton'] },
+    { id: 'souba',      label: 'Souba',      keywords: ['souba'] },
+  ];
+
+  const setupScreen = document.getElementById('setup-screen');
+  const appScreen    = document.getElementById('app-screen');
+  const searchInput  = document.getElementById('search-input');
+  const filterRow    = document.getElementById('filter-row');
+  const statusLine   = document.getElementById('status-line');
+  const resultsEl    = document.getElementById('results');
+
+  function buildFileUrl(f) {
+    const segments = [basePath, ...(f.folderPath || []), f.name];
+    return segments.map(s => encodeURIComponent(s)).join('/');
+  }
+
+  function renderFilterButtons() {
+    filterRow.innerHTML = FILTERS.map(f => `
+      <button type="button" class="filter-btn${f.id === activeFilterId ? ' active' : ''}" data-filter-id="${f.id}">${f.label}</button>
+    `).join('');
+
+    filterRow.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeFilterId = btn.dataset.filterId;
+        filterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+        applyFilters(searchInput.value.trim());
+      });
+    });
+  }
+
+  function init() {
+    appScreen.classList.remove('hidden');
+    renderFilterButtons();
+    searchInput.focus();
+    loadIndex();
+  }
+
+  // Filtrage instantané : aucun appel réseau, on filtre le cache local.
+  searchInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => applyFilters(searchInput.value.trim()), 120);
+  });
+
+  document.getElementById('refresh-btn').addEventListener('click', () => loadIndex(true));
+
+  function formatSize(bytes) {
+    if (!bytes) return '—';
+    const n = parseInt(bytes, 10);
+    if (n < 1024) return n + ' o';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' Ko';
+    return (n / (1024 * 1024)).toFixed(1) + ' Mo';
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('fr-FR', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+  }
+
+  // Charge le catalogue pré-généré (fichier catalogue.json produit par le
+  // script generer-catalogue.gs) en une seule requête — plus de parcours
+  // récursif de dossiers, plus de gestion de raccourcis/quotas ici : tout
+  // ça a déjà été fait une fois par le script, avec les pleins accès du
+  // compte Drive.
+  async function loadIndex(forceRefresh = false) {
+    if (isIndexing) return;
+    if (fileIndex && !forceRefresh) {
+      applyFilters(searchInput.value.trim());
+      return;
+    }
+
+    isIndexing = true;
+    const refreshBtn = document.getElementById('refresh-btn');
+    refreshBtn.disabled = true;
+    statusLine.textContent = 'Chargement du catalogue…';
+    resultsEl.innerHTML = '';
+
+    try {
+      const res = await fetch(CONFIG.CATALOG_URL, { cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error('Erreur ' + res.status);
+      }
+      const catalog = await res.json();
+      fileIndex = catalog.files || [];
+      basePath = catalog.basePath || basePath;
+      setupScreen.classList.add('hidden');
+      applyFilters(searchInput.value.trim());
+    } catch (e) {
+      fileIndex = null;
+      setupScreen.classList.remove('hidden');
+      document.getElementById('catalog-url-shown').textContent = CONFIG.CATALOG_URL;
+      renderError('Impossible de charger le catalogue (' + (e.message || e.name || 'erreur réseau') + '). Vérifiez que catalogue.json est bien présent à côté de cette page.');
+    } finally {
+      isIndexing = false;
+      refreshBtn.disabled = false;
+    }
+  }
+
+  function normalize(str) {
+    // Insensible à la casse et aux accents, pour un filtrage plus tolérant.
+    return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  // Filtrage instantané dans le cache local : pas d'appel réseau.
+  function applyFilters(term) {
+    if (!fileIndex) return;
+
+    // Ni instrument choisi, ni recherche tapée : on n'affiche rien plutôt
+    // que de déverser tout le catalogue.
+    if (activeFilterId === 'tous' && !term) {
+      renderResults([], term, true);
+      return;
+    }
+
+    const filterKeywords = FILTERS.find(f => f.id === activeFilterId).keywords;
+    const normTerm = term ? normalize(term) : '';
+
+    const files = fileIndex.filter(f => {
+      const normName = normalize(f.name);
+      const normPath = normalize((f.folderPath || []).join(' '));
+      const haystack = normName + ' ' + normPath;
+      if (normTerm && !haystack.includes(normTerm)) return false;
+      if (filterKeywords && !filterKeywords.some(k => haystack.includes(normalize(k)))) return false;
+      return true;
+    });
+
+    renderResults(files, term);
+  }
+
+  function renderResults(files, term, awaitingInput = false) {
+    if (awaitingInput) {
+      statusLine.textContent = '';
+      resultsEl.innerHTML = `<div class="empty-state">Choisis un instrument ou tape le nom d'une partition pour lancer la recherche.</div>`;
+      return;
+    }
+
+    if (files.length === 0) {
+      statusLine.textContent = term
+        ? `Aucun résultat pour « ${term} »`
+        : 'Aucun PDF dans ce dossier';
+      resultsEl.innerHTML = `<div class="empty-state">${
+        term ? 'Aucun fichier ne correspond à cette recherche.' : 'Ce dossier ne contient pas de PDF pour le moment.'
+      }</div>`;
+      return;
+    }
+
+    statusLine.textContent = `${files.length} résultat${files.length > 1 ? 's' : ''}`;
+
+    resultsEl.innerHTML = files.map(f => `
+      <div class="card-result">
+        <div class="icon">PDF</div>
+        <div class="meta">
+          <p class="name">${escapeHtml(f.name)}</p>
+          <div class="detail">
+            ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)} · modifié le ${formatDate(f.modifiedTime)}
+          </div>
+          <div class="links">
+            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener">Ouvrir</a>
+            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" download="${escapeHtml(f.name)}">Télécharger</a>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderError(msg) {
+    statusLine.textContent = '';
+    resultsEl.innerHTML = `<div class="error-state">${escapeHtml(msg)}</div>`;
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  window.addEventListener('load', init);
+})();
+</script>
+
+</body>
+</html>
