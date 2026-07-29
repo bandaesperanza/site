@@ -893,6 +893,9 @@
     if (debugLogEl) {
       debugLogEl.textContent = debugLines.join('\n');
       debugLogEl.scrollTop = debugLogEl.scrollHeight;
+      if (msg.startsWith('✗') && debugLogEl.classList.contains('hidden')) {
+        debugLogEl.classList.remove('hidden');
+      }
     }
   }
   if (debugToggleBtn) {
