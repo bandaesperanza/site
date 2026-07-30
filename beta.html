@@ -6,7 +6,7 @@
 <title>Partothèque — BANDA ESPERANZA</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-180.png">
-<meta name="theme-color" content="#1A2E27">
+<meta name="theme-color" content="#15122E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Partothèque">
@@ -29,15 +29,15 @@
 
 <style>
   :root {
-    --paper: #F6F3EC;
+    --paper: #F5F2EF;
     --card: #FFFFFF;
-    --ink: #212B24;
-    --ink-soft: #5B6660;
-    --rule: #DCD5C4;
-    --stamp: #A85C2E;
-    --stamp-soft: #EFDFCB;
-    --focus: #2B4A3F;
-    --gold: #D9A24B;
+    --ink: #201D3D;
+    --ink-soft: #5B5770;
+    --rule: #DCD5DE;
+    --stamp: #C4302A;
+    --stamp-soft: #F5E1DE;
+    --focus: #2A2560;
+    --gold: #D9574B;
   }
 
   * { box-sizing: border-box; }
@@ -57,7 +57,7 @@
   }
 
   header {
-    background: linear-gradient(135deg, #2B4A3F 0%, #1A2E27 100%);
+    background: linear-gradient(135deg, #2A2560 0%, #15122E 100%);
     color: var(--paper);
     padding: 36px 32px 30px;
     border-radius: 10px;
@@ -76,6 +76,16 @@
     color: rgba(246, 243, 236, 0.06);
     font-family: serif;
     pointer-events: none;
+  }
+
+  .brand-mark {
+    display: block;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    margin-bottom: 14px;
+    position: relative;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   }
 
   .eyebrow {
@@ -170,7 +180,7 @@
     border-color: var(--stamp);
     box-shadow: 0 0 0 3px var(--stamp-soft);
   }
-  .search-field input::placeholder { color: #9AA39C; }
+  .search-field input::placeholder { color: #9B97A8; }
 
   .status-line {
     font-family: 'IBM Plex Mono', monospace;
@@ -315,8 +325,8 @@
     margin-top: 8px;
     max-height: 220px;
     overflow-y: auto;
-    background: #1c231d;
-    color: #cfe0d2;
+    background: #171432;
+    color: #CDD0F0;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10.5px;
     line-height: 1.5;
@@ -375,8 +385,8 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     color: var(--focus);
-    background: #E8F0EA;
-    border: 1px solid #B9D0C0;
+    background: #E7E5F2;
+    border: 1px solid #C7C2DC;
     border-radius: 3px;
     padding: 2px 6px;
     margin-left: 8px;
@@ -422,6 +432,7 @@
 
 <div class="wrap">
   <header>
+    <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
     <div class="eyebrow">Partothèque</div>
     <h1>Banda Esperanza</h1>
     <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
