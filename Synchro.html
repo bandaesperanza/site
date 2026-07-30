@@ -474,7 +474,7 @@
 
   const FILTERS = [
     { id: 'tous',       label: 'Tous',       keywords: null },
-    { id: 'picolo',     label: 'Picolo',     keywords: ['picolo', 'piccolo', 'flute', 'flûte'] },
+    { id: 'picolo',     label: 'Piccolo',    keywords: ['picolo', 'piccolo', 'flute', 'flûte'] },
     { id: 'clarinette', label: 'Clarinette', keywords: ['clarinette'] },
     { id: 'saxoalto',   label: 'Saxo alto',  keywords: ['saxo alto'] },
     { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
@@ -802,14 +802,18 @@
     // considère plus l'appel comme déclenché par un geste utilisateur et
     // bloque le popup silencieusement — c'est ce qui obligeait à passer
     // par "Télécharger" à la place quand le fichier était synchronisé.
+    // En PWA installée (mode standalone), l'ouverture d'un nouvel onglet
+    // peut en plus être purement ignorée par le système (newTab reste
+    // null ou fermé) : dans ce cas on bascule sur une navigation dans
+    // l'onglet courant, qui elle fonctionne toujours.
     let newTab = null;
     if (link.dataset.action !== 'download') {
-      newTab = window.open('', '_blank');
+      try { newTab = window.open('', '_blank'); } catch (err) { newTab = null; }
     }
 
     const row = await idbGet('pdfs', id).catch(() => null);
     if (!row || !row.blob) {
-      if (newTab) newTab.close();
+      if (newTab && !newTab.closed) newTab.close();
       return;
     }
     const url = URL.createObjectURL(row.blob);
@@ -822,10 +826,12 @@
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 15000);
-    } else if (newTab) {
+    } else if (newTab && !newTab.closed) {
       newTab.location.href = url;
     } else {
-      window.open(url, '_blank');
+      // Onglet non disponible (bloqué ou PWA standalone) : on ouvre dans
+      // l'onglet en cours plutôt que de ne rien faire.
+      window.location.href = url;
     }
   });
 
