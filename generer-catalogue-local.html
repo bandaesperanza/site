@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Générateur de catalogue local — Partothèque</title>
+<style>
+  :root {
+    --paper: #F6F3EC;
+    --card: #FFFFFF;
+    --ink: #212B24;
+    --ink-soft: #5B6660;
+    --rule: #DCD5C4;
+    --stamp: #A85C2E;
+    --focus: #2B4A3F;
+    --gold: #D9A24B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  .wrap { max-width: 640px; width: 100%; }
+  h1 {
+    font-family: Georgia, 'Fraunces', serif;
+    font-size: 28px;
+    margin: 0 0 6px;
+    color: var(--focus);
+  }
+  p.lead { color: var(--ink-soft); font-size: 14px; line-height: 1.6; margin: 0 0 28px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    margin: 0 0 14px;
+    font-weight: 600;
+  }
+  label { display: block; font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
+  input[type="text"] {
+    width: 100%;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    margin-bottom: 16px;
+  }
+  button {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 999px;
+    border: 1.5px solid var(--focus);
+    background: var(--focus);
+    color: white;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button.secondary {
+    background: transparent;
+    color: var(--focus);
+  }
+  button.gold {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--ink);
+  }
+  .status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 14px;
+    white-space: pre-wrap;
+    line-height: 1.6;
+  }
+  .warn {
+    background: #FBF1E4;
+    border: 1px solid var(--stamp);
+    color: var(--stamp);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .steps { font-size: 13px; color: var(--ink-soft); line-height: 1.8; padding-left: 20px; margin: 0; }
+  .steps li { margin-bottom: 4px; }
+  code {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+  }
+  #compat-warning { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Générateur de catalogue local</h1>
+  <p class="lead">
+    Lit directement le dossier des partitions synchronisé par Google Drive sur cet ordinateur
+    et génère un fichier <code>catalogue.json</code> — sans passer par l'API Google
+    (donc sans clé, sans quota, sans souci de partage ou de resource key).
+  </p>
+
+  <div id="compat-warning" class="warn">
+    ⚠️ Ce navigateur ne supporte pas la lecture directe de dossiers. Ouvre cette page avec
+    <strong>Chrome</strong> ou <strong>Edge</strong> sur ton ordinateur.
+  </div>
+
+  <div class="card">
+    <h2>1 · Marche à suivre</h2>
+    <ol class="steps">
+      <li>Clique sur "Choisir le dossier des partitions" ci-dessous et sélectionne le dossier
+        Google Drive synchronisé qui contient les PDF (celui avec les sous-dossiers par instrument).</li>
+      <li>Laisse l'analyse se terminer.</li>
+      <li>Clique sur "Télécharger catalogue.json".</li>
+      <li>Copie <strong>le contenu du dossier</strong> que tu as choisi vers ton dépôt GitHub, dans un
+        dossier nommé <code id="basepath-preview">partitions</code> (à côté de la page HTML de l'app).</li>
+      <li>Place le <code>catalogue.json</code> téléchargé à la racine du dépôt (à côté de
+        <code>partotheque-hors-ligne.html</code>).</li>
+      <li>Commit + push comme d'habitude avec GitHub Desktop.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>2 · Nom du dossier de destination sur le site</h2>
+    <label for="base-path">Nom du dossier où tu vas copier les partitions dans le dépôt GitHub :</label>
+    <input type="text" id="base-path" value="partitions">
+    <button type="button" id="pick-btn">📁 Choisir le dossier des partitions</button>
+  </div>
+
+  <div class="card" id="progress-card" style="display:none;">
+    <h2>3 · Analyse en cours</h2>
+    <div class="status" id="status-line">Démarrage…</div>
+  </div>
+
+  <div class="card" id="result-card" style="display:none;">
+    <h2>4 · Résultat</h2>
+    <div class="status" id="result-line"></div>
+    <div style="margin-top:16px;">
+      <button type="button" class="gold" id="download-btn">⬇ Télécharger catalogue.json</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const pickBtn       = document.getElementById('pick-btn');
+  const basePathInput  = document.getElementById('base-path');
+  const basePathPreview = document.getElementById('basepath-preview');
+  const progressCard   = document.getElementById('progress-card');
+  const statusLine      = document.getElementById('status-line');
+  const resultCard       = document.getElementById('result-card');
+  const resultLine         = document.getElementById('result-line');
+  const downloadBtn         = document.getElementById('download-btn');
+  const compatWarning        = document.getElementById('compat-warning');
+
+  if (!window.showDirectoryPicker) {
+    compatWarning.style.display = 'block';
+    pickBtn.disabled = true;
+  }
+
+  basePathInput.addEventListener('input', () => {
+    basePathPreview.textContent = basePathInput.value.trim() || 'partitions';
+  });
+
+  let catalogBlobUrl = null;
+
+  pickBtn.addEventListener('click', async () => {
+    let rootHandle;
+    try {
+      rootHandle = await window.showDirectoryPicker();
+    } catch (e) {
+      return; // annulé par l'utilisateur
+    }
+
+    progressCard.style.display = 'block';
+    resultCard.style.display = 'none';
+    pickBtn.disabled = true;
+    statusLine.textContent = 'Analyse en cours…';
+
+    const files = [];
+    let count = 0;
+    let skipped = 0;
+
+    async function walk(dirHandle, path) {
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (handle.kind === 'directory') {
+          await walk(handle, path.concat(name));
+        } else if (handle.kind === 'file') {
+          if (!name.toLowerCase().endsWith('.pdf')) { skipped++; continue; }
+          try {
+            const file = await handle.getFile();
+            files.push({
+              name,
+              folderPath: path,
+              size: file.size,
+              modifiedTime: file.lastModified ? new Date(file.lastModified).toISOString() : null,
+            });
+            count++;
+            if (count % 25 === 0) {
+              statusLine.textContent = `${count} PDF trouvés jusqu'ici… (dossier en cours : ${path.join(' › ') || '(racine)'})`;
+            }
+          } catch (e) {
+            skipped++;
+          }
+        }
+      }
+    }
+
+    try {
+      await walk(rootHandle, []);
+    } catch (e) {
+      statusLine.textContent = '❌ Erreur pendant l\'analyse : ' + (e.message || e);
+      pickBtn.disabled = false;
+      return;
+    }
+
+    files.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
+    const basePath = (basePathInput.value.trim() || 'partitions').replace(/^\/+|\/+$/g, '');
+    const catalog = {
+      generatedAt: new Date().toISOString(),
+      basePath,
+      files,
+    };
+
+    const json = JSON.stringify(catalog);
+    if (catalogBlobUrl) URL.revokeObjectURL(catalogBlobUrl);
+    const blob = new Blob([json], { type: 'application/json' });
+    catalogBlobUrl = URL.createObjectURL(blob);
+
+    const sizeKb = (json.length / 1024).toFixed(0);
+    statusLine.textContent = `Terminé.`;
+    resultLine.textContent = `${count} PDF trouvés${skipped ? ` (${skipped} fichier(s) non-PDF ignoré(s))` : ''}.\ncatalogue.json : ${sizeKb} Ko.`;
+    resultCard.style.display = 'block';
+    pickBtn.disabled = false;
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!catalogBlobUrl) return;
+    const a = document.createElement('a');
+    a.href = catalogBlobUrl;
+    a.download = 'catalogue.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+</script>
+</body>
+</html>
