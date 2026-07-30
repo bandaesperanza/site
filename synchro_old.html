@@ -795,23 +795,8 @@
     if (!cachedIds.has(id)) return; // pas en local : comportement par défaut du lien
 
     e.preventDefault();
-
-    // Pour "Ouvrir", on ouvre l'onglet tout de suite, de façon synchrone
-    // avec le clic. Si on attend le résultat de idbGet (async) avant
-    // d'appeler window.open, le navigateur (Safari/iOS notamment) ne
-    // considère plus l'appel comme déclenché par un geste utilisateur et
-    // bloque le popup silencieusement — c'est ce qui obligeait à passer
-    // par "Télécharger" à la place quand le fichier était synchronisé.
-    let newTab = null;
-    if (link.dataset.action !== 'download') {
-      newTab = window.open('', '_blank');
-    }
-
     const row = await idbGet('pdfs', id).catch(() => null);
-    if (!row || !row.blob) {
-      if (newTab) newTab.close();
-      return;
-    }
+    if (!row || !row.blob) return;
     const url = URL.createObjectURL(row.blob);
 
     if (link.dataset.action === 'download') {
@@ -822,8 +807,6 @@
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 15000);
-    } else if (newTab) {
-      newTab.location.href = url;
     } else {
       window.open(url, '_blank');
     }
