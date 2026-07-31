@@ -1,7 +1,7 @@
 {
   "name": "Partothèque — Banda Esperanza",
   "short_name": "Partothèque",
-  "start_url": "./partotheque-hors-ligne.html",
+  "start_url": "./beta.html",
   "display": "standalone",
   "background_color": "#1A2E27",
   "theme_color": "#1A2E27",
