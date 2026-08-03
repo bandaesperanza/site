@@ -491,7 +491,7 @@
     { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
     { id: 'trompette',  label: 'Trompette',  keywords: ['trompette'] },
     { id: 'trombone',   label: 'Trombone',   keywords: ['trombone'] },
-    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'] },
+    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'], exclude: ['saxo baryton'] },
     { id: 'souba',      label: 'Souba',      keywords: ['souba'] },
   ];
 
@@ -733,10 +733,11 @@
     return [...(f.folderPath || []), f.name].join('/');
   }
 
-  function matchesInstrument(f, keywords) {
-    if (!keywords) return true;
+  function matchesInstrument(f, filter) {
+    if (!filter || !filter.keywords) return true;
     const hay = normalize(f.name + ' ' + (f.folderPath || []).join(' '));
-    return keywords.some(k => hay.includes(normalize(k)));
+    if (filter.exclude && filter.exclude.some(k => hay.includes(normalize(k)))) return false;
+    return filter.keywords.some(k => hay.includes(normalize(k)));
   }
 
   function applyFilters(term) {
@@ -747,7 +748,7 @@
       return;
     }
 
-    const filterKeywords = FILTERS.find(f => f.id === activeFilterId).keywords;
+    const activeFilter = FILTERS.find(f => f.id === activeFilterId);
     const normTerm = term ? normalize(term) : '';
 
     const files = fileIndex.filter(f => {
@@ -755,7 +756,7 @@
       const normPath = normalize((f.folderPath || []).join(' '));
       const haystack = normName + ' ' + normPath;
       if (normTerm && !haystack.includes(normTerm)) return false;
-      if (filterKeywords && !matchesInstrument(f, filterKeywords)) return false;
+      if (activeFilter.keywords && !matchesInstrument(f, activeFilter)) return false;
       return true;
     });
 
@@ -866,7 +867,7 @@
     const instrumentFilters = FILTERS.filter(f => f.id !== 'tous');
 
     syncList.innerHTML = instrumentFilters.map(f => {
-      const matches = fileIndex.filter(file => matchesInstrument(file, f.keywords));
+      const matches = fileIndex.filter(file => matchesInstrument(file, f));
       const cachedCount = matches.filter(file => cachedIds.has(fileKey(file))).length;
       const allCached = matches.length > 0 && cachedCount === matches.length;
       return `
@@ -975,7 +976,7 @@
     const filter = FILTERS.find(f => f.id === filterId);
     if (!filter || !fileIndex) return;
 
-    const matches = fileIndex.filter(f => matchesInstrument(f, filter.keywords));
+    const matches = fileIndex.filter(f => matchesInstrument(f, filter));
     const toDownload = matches.filter(f => !cachedIds.has(fileKey(f)));
     if (toDownload.length === 0) return;
 
@@ -1046,7 +1047,7 @@
   async function clearInstrument(filterId) {
     const filter = FILTERS.find(f => f.id === filterId);
     if (!filter || !fileIndex) return;
-    const matches = fileIndex.filter(f => matchesInstrument(f, filter.keywords) && cachedIds.has(fileKey(f)));
+    const matches = fileIndex.filter(f => matchesInstrument(f, filter) && cachedIds.has(fileKey(f)));
     for (const f of matches) {
       const key = fileKey(f);
       await idbDelete('pdfs', key).catch(() => {});
