@@ -705,7 +705,7 @@
       if (cached && cached.files) {
         fileIndex = cached.files;
         basePath = cached.basePath || basePath;
-        netStatusEl.textContent = `🔌 Hors-ligne — catalogue du ${formatDate(new Date(cached.fetchedAt).toISOString())}`;
+        netStatusEl.textContent = `🔌 Hors-ligne — catalogue du ${formatDate(new Date(cached.fetchedAt).toISOString())} - Version du 03/08/2026`;
       } else {
         fileIndex = null;
         setupScreen.classList.remove('hidden');
