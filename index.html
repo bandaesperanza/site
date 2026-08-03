@@ -88,6 +88,27 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   }
 
+  .page-reload-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(246, 243, 236, 0.35);
+    background: rgba(246, 243, 236, 0.08);
+    color: var(--paper);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.4s;
+  }
+  .page-reload-btn:hover { background: rgba(246, 243, 236, 0.18); }
+  .page-reload-btn:active { transform: rotate(180deg); }
+
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -441,6 +462,7 @@
 
 <div class="wrap">
   <header>
+    <button type="button" id="page-reload-btn" class="page-reload-btn" title="Recharger la page (F5)" aria-label="Recharger la page">↻</button>
     <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
     <div class="eyebrow">Partothèque</div>
     <h1>Banda Esperanza</h1>
@@ -520,6 +542,13 @@
   const refreshBtn                = document.getElementById('refresh-btn');
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
   const fileModifiedEl                = document.getElementById('file-modified');
+  const pageReloadBtn                 = document.getElementById('page-reload-btn');
+
+  if (pageReloadBtn) {
+    pageReloadBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
+  }
 
   // Affiche la date/heure de dernière modification du fichier HTML
   // lui-même (en-tête HTTP Last-Modified), pour vérifier au moment
