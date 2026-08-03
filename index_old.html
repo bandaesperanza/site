@@ -14,9 +14,14 @@
   // CONFIGURATION — MODIFIEZ CES VALEURS AVANT UTILISATION
   // ==========================================================================
   const CONFIG = {
-    // Chemin du catalogue, relatif à cette page (généré par
-    // generer-catalogue-local.html, à placer à côté de cette page sur le site).
-    CATALOG_URL: './catalogue.json',
+    // Collez ici votre clé API Google Cloud (voir les instructions affichées
+    // dans la page tant que cette valeur n'est pas renseignée)
+    API_KEY: 'AIzaSyCoudkw--qC2sKwUw1dZKa1pzdU13BC-iY',
+
+    // ID du fichier "catalogue.json" généré par le script Apps Script
+    // (generer-catalogue.gs) — pas l'ID du dossier. Voir les instructions
+    // du script pour savoir où le récupérer.
+    CATALOG_FILE_ID: '1kvVr_MVxTg3ObbruxCC0AR1t50Z6cifS',
   };
   // ==========================================================================
 </script>
@@ -282,14 +287,16 @@
     <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
   </header>
 
-  <!-- Écran d'erreur (visible seulement si catalogue.json est introuvable) -->
+  <!-- Écran de configuration (visible tant que CATALOG_FILE_ID n'est pas renseigné) -->
   <div id="setup-screen" class="setup hidden">
-    <h2>Catalogue introuvable</h2>
-    <p>Impossible de charger <code id="catalog-url-shown"></code>.</p>
+    <h2>Configuration requise</h2>
+    <p>Cette page lit un catalogue pré-généré (rapide et fiable) plutôt que de parcourir Drive en direct.</p>
     <ol>
-      <li>Ouvrez <code>generer-catalogue-local.html</code> dans Chrome ou Edge sur un ordinateur pour générer un <code>catalogue.json</code> à partir du dossier des partitions synchronisé par Google Drive.</li>
-      <li>Déposez ce fichier à côté de cette page (même dossier) sur votre hébergement (GitHub Pages), avec le dossier des partitions correspondant.</li>
-      <li>Rechargez cette page.</li>
+      <li>Exécutez une fois le script <code>generer-catalogue.gs</code> (voir ses propres instructions) depuis <a href="https://script.google.com/" target="_blank" rel="noopener">script.google.com</a> : il crée un fichier <code>catalogue.json</code> dans le dossier Drive.</li>
+      <li>Dans le journal d'exécution du script, récupérez l'ID du fichier <code>catalogue.json</code> généré.</li>
+      <li>Collez cet ID dans la constante <code>CONFIG.CATALOG_FILE_ID</code> tout en haut du code source de cette page.</li>
+      <li>Si ce n'est pas déjà fait, renseignez aussi <code>CONFIG.API_KEY</code> (clé API Google Cloud avec l'API Drive activée — voir la documentation Google Cloud Console si besoin).</li>
+      <li>Enregistrez et rechargez la page.</li>
     </ol>
   </div>
 
@@ -316,7 +323,6 @@
   // Construit une seule fois au chargement (puis sur clic "Actualiser"),
   // ce qui évite de refaire des appels réseau à chaque frappe.
   let fileIndex = null;        // Array<file> une fois chargé
-  let basePath = 'partitions';
   let isIndexing = false;
 
   const FILTERS = [
@@ -327,7 +333,7 @@
     { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
     { id: 'trompette',  label: 'Trompette',  keywords: ['trompette'] },
     { id: 'trombone',   label: 'Trombone',   keywords: ['trombone'] },
-    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton'] },
+    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'] },
     { id: 'souba',      label: 'Souba',      keywords: ['souba'] },
   ];
 
@@ -338,9 +344,9 @@
   const statusLine   = document.getElementById('status-line');
   const resultsEl    = document.getElementById('results');
 
-  function buildFileUrl(f) {
-    const segments = [basePath, ...(f.folderPath || []), f.name];
-    return segments.map(s => encodeURIComponent(s)).join('/');
+  function isConfigured() {
+    return CONFIG.API_KEY && !CONFIG.API_KEY.includes('VOTRE_CLE_API')
+      && CONFIG.CATALOG_FILE_ID && !CONFIG.CATALOG_FILE_ID.includes('COLLEZ_ICI');
   }
 
   function renderFilterButtons() {
@@ -358,6 +364,12 @@
   }
 
   function init() {
+    if (!isConfigured()) {
+      setupScreen.classList.remove('hidden');
+      appScreen.classList.add('hidden');
+      return;
+    }
+    setupScreen.classList.add('hidden');
     appScreen.classList.remove('hidden');
     renderFilterButtons();
     searchInput.focus();
@@ -406,20 +418,22 @@
     resultsEl.innerHTML = '';
 
     try {
-      const res = await fetch(CONFIG.CATALOG_URL, { cache: 'no-store' });
+      const params = new URLSearchParams({ alt: 'media', key: CONFIG.API_KEY });
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.CATALOG_FILE_ID}?` + params.toString());
       if (!res.ok) {
-        throw new Error('Erreur ' + res.status);
+        const code = res.status;
+        throw new Error(
+          code === 403 || code === 404
+            ? "le fichier catalogue.json n'est pas accessible (ID incorrect, ou pas partagé publiquement)"
+            : ('Erreur ' + code)
+        );
       }
-      const catalog = await res.json();
-      fileIndex = catalog.files || [];
-      basePath = catalog.basePath || basePath;
-      setupScreen.classList.add('hidden');
+      const files = await res.json();
+      fileIndex = files;
       applyFilters(searchInput.value.trim());
     } catch (e) {
       fileIndex = null;
-      setupScreen.classList.remove('hidden');
-      document.getElementById('catalog-url-shown').textContent = CONFIG.CATALOG_URL;
-      renderError('Impossible de charger le catalogue (' + (e.message || e.name || 'erreur réseau') + '). Vérifiez que catalogue.json est bien présent à côté de cette page.');
+      renderError('Impossible de charger le catalogue (' + (e.message || e.name || 'erreur réseau') + '). Vérifiez CONFIG.CATALOG_FILE_ID, ou régénérez le catalogue via le script generer-catalogue.gs.');
     } finally {
       isIndexing = false;
       refreshBtn.disabled = false;
@@ -485,8 +499,8 @@
             ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)} · modifié le ${formatDate(f.modifiedTime)}
           </div>
           <div class="links">
-            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener">Ouvrir</a>
-            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" download="${escapeHtml(f.name)}">Télécharger</a>
+            <a href="${f.webViewLink}" target="_blank" rel="noopener">Ouvrir</a>
+            ${f.webContentLink ? `<a href="${f.webContentLink}" target="_blank" rel="noopener">Télécharger</a>` : ''}
           </div>
         </div>
       </div>
