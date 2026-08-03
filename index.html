@@ -126,6 +126,15 @@
     min-height: 14px;
   }
 
+  .file-modified {
+    position: relative;
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    color: rgba(246, 243, 236, 0.5);
+  }
+
   /* --- Setup card ------------------------------------------------------ */
   .setup {
     background: var(--card);
@@ -437,6 +446,7 @@
     <h1>Banda Esperanza</h1>
     <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
     <div class="net-status" id="net-status"></div>
+    <div class="file-modified" id="file-modified"></div>
   </header>
 
   <!-- Écran d'erreur (visible seulement si catalogue.json est introuvable) -->
@@ -509,6 +519,24 @@
   const debugLogEl             = document.getElementById('debug-log');
   const refreshBtn                = document.getElementById('refresh-btn');
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
+  const fileModifiedEl                = document.getElementById('file-modified');
+
+  // Affiche la date/heure de dernière modification du fichier HTML
+  // lui-même (en-tête HTTP Last-Modified), pour vérifier au moment
+  // de diffuser le lien qu'on pointe bien vers la bonne version.
+  (function showFileModified() {
+    if (!fileModifiedEl) return;
+    fetch(window.location.href, { method: 'HEAD', cache: 'no-store' })
+      .then((res) => {
+        const lm = res.headers.get('Last-Modified');
+        if (!lm) return;
+        const d = new Date(lm);
+        const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        fileModifiedEl.textContent = `Fichier maj le ${dateStr} à ${timeStr}`;
+      })
+      .catch(() => {});
+  })();
 
   // ---------------------------------------------------------------------
   // IndexedDB : stockage local des PDF (blobs) et du dernier catalogue connu
