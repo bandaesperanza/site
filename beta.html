@@ -13,6 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -340,6 +342,83 @@
     padding: 0;
   }
 
+  .playlist-admin-new-btn { margin-top: 4px; }
+
+  .playlist-admin-editor {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--rule);
+  }
+  .playlist-admin-name-input {
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    padding: 9px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    box-sizing: border-box;
+  }
+  .playlist-admin-name-input:focus { border-color: var(--stamp); outline: none; }
+  .playlist-admin-editor-hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .playlist-admin-folder-list {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 4px 12px;
+    margin-bottom: 14px;
+    background: var(--paper);
+  }
+  .playlist-admin-folder-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+  }
+  .playlist-admin-folder-item:last-child { border-bottom: none; }
+  .playlist-admin-folder-item input { flex-shrink: 0; width: 16px; height: 16px; }
+  .playlist-admin-editor-actions { display: flex; align-items: center; gap: 16px; }
+  .playlist-admin-text-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 6px 2px;
+  }
+  .playlist-admin-export-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--rule);
+  }
+  .playlist-admin-note {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+  .playlist-admin-note code {
+    background: var(--paper);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
   .debug-toggle {
     margin-top: 10px;
     font-family: 'IBM Plex Mono', monospace;
@@ -592,6 +671,7 @@
 
   <!-- Écran principal -->
   <div id="app-screen" class="hidden">
+    <div class="filter-row hidden" id="playlist-row"></div>
     <div class="filter-row" id="filter-row"></div>
     <div class="search-row">
       <div class="search-field">
@@ -599,6 +679,7 @@
       </div>
       <button type="button" id="offline-toggle-btn" class="filter-btn" title="Gérer les partitions disponibles hors-ligne">📥 Hors-ligne</button>
       <button type="button" id="refresh-btn" class="filter-btn" title="Recharger le catalogue depuis Drive">↻ Actualiser</button>
+      <button type="button" id="playlist-admin-toggle-btn" class="filter-btn" title="Créer et gérer les playlists">🎼 Playlists</button>
     </div>
 
     <div class="sync-panel hidden" id="sync-panel">
@@ -607,6 +688,26 @@
       <div class="sync-summary" id="sync-summary"></div>
       <button type="button" id="debug-toggle-btn" class="debug-toggle">🔧 Journal technique</button>
       <pre class="debug-log hidden" id="debug-log"></pre>
+    </div>
+
+    <div class="sync-panel hidden" id="playlist-admin-panel">
+      <div class="sync-panel-label">Gérer les playlists</div>
+
+      <div id="playlist-admin-list"></div>
+
+      <div id="playlist-admin-editor" class="playlist-admin-editor hidden">
+        <input type="text" id="playlist-admin-name-input" class="playlist-admin-name-input" placeholder="Nom de la playlist (ex : Concert de Noël)">
+        <div class="playlist-admin-editor-hint">Dossiers à inclure :</div>
+        <div id="playlist-admin-folder-list" class="playlist-admin-folder-list"></div>
+        <div class="playlist-admin-editor-actions">
+          <button type="button" id="playlist-admin-save-btn" class="sync-row-btn">Enregistrer</button>
+          <button type="button" id="playlist-admin-cancel-btn" class="playlist-admin-text-btn">Annuler</button>
+        </div>
+      </div>
+
+      <button type="button" id="playlist-admin-new-btn" class="filter-btn playlist-admin-new-btn">+ Nouvelle playlist</button>
+
+      <p class="playlist-admin-note">Les changements sont visibles par tous les musiciens immédiatement, pas de fichier à déposer.</p>
     </div>
 
     <div class="status-line" id="status-line"></div>
@@ -643,6 +744,9 @@
   let basePath = 'partitions';
   let isIndexing = false;
   let cachedIds = new Set(); // ids des PDF déjà téléchargés en local (IndexedDB)
+  let playlists = [];
+  let activePlaylistId = 'toutes';
+  let editingPlaylistId = null; // null = création d'une nouvelle playlist
 
   const FILTERS = [
     { id: 'tous',       label: 'Tous',       keywords: null },
@@ -672,6 +776,23 @@
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
   const fileModifiedEl                = document.getElementById('file-modified');
   const pageReloadBtn                 = document.getElementById('page-reload-btn');
+  const playlistRow                   = document.getElementById('playlist-row');
+  const playlistAdminToggleBtn        = document.getElementById('playlist-admin-toggle-btn');
+  const playlistAdminPanel            = document.getElementById('playlist-admin-panel');
+  const playlistAdminList             = document.getElementById('playlist-admin-list');
+  const playlistAdminEditor           = document.getElementById('playlist-admin-editor');
+  const playlistAdminNameInput        = document.getElementById('playlist-admin-name-input');
+  const playlistAdminFolderList       = document.getElementById('playlist-admin-folder-list');
+  const playlistAdminNewBtn           = document.getElementById('playlist-admin-new-btn');
+  const playlistAdminSaveBtn          = document.getElementById('playlist-admin-save-btn');
+  const playlistAdminCancelBtn        = document.getElementById('playlist-admin-cancel-btn');
+
+  // Le lecteur PDF et les playlists ne bloquent jamais le reste de
+  // l'appli : si un élément venait à manquer, on désactive juste la
+  // fonctionnalité concernée au lieu de planter tous les scripts.
+  const playlistsReady = !!(playlistRow && playlistAdminToggleBtn && playlistAdminPanel &&
+    playlistAdminList && playlistAdminEditor && playlistAdminNameInput && playlistAdminFolderList &&
+    playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
 
   if (pageReloadBtn) {
     pageReloadBtn.addEventListener('click', () => {
@@ -700,7 +821,7 @@
   // IndexedDB : stockage local des PDF (blobs) et du dernier catalogue connu
   // ---------------------------------------------------------------------
   const DB_NAME = 'partotheque-db';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   let dbPromise = null;
 
   function openDB() {
@@ -711,6 +832,7 @@
         const db = req.result;
         if (!db.objectStoreNames.contains('pdfs')) db.createObjectStore('pdfs', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('catalog')) db.createObjectStore('catalog', { keyPath: 'key' });
+        if (!db.objectStoreNames.contains('playlists')) db.createObjectStore('playlists', { keyPath: 'key' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -784,6 +906,232 @@
   }
 
   // ---------------------------------------------------------------------
+  // Playlists : sélection pour les musiciens + écran d'admin par dossiers
+  // Stockage : Firebase Firestore (lecture publique en temps réel,
+  // écriture réservée au compte admin connecté via Firebase Auth).
+  // ---------------------------------------------------------------------
+  const firebaseConfig = {
+    apiKey: "AIzaSyCzvnfsiLvE0Na_J7SgDMui-fzRbqZjELk",
+    authDomain: "partotheque-banda-esperanza.firebaseapp.com",
+    projectId: "partotheque-banda-esperanza",
+    storageBucket: "partotheque-banda-esperanza.firebasestorage.app",
+    messagingSenderId: "336760436969",
+    appId: "1:336760436969:web:dd111506803b7007601878"
+  };
+
+  const firebaseReady = typeof firebase !== 'undefined';
+  let fbDb = null;
+  if (firebaseReady) {
+    try {
+      firebase.initializeApp(firebaseConfig);
+      fbDb = firebase.firestore();
+      fbDb.enablePersistence().catch(() => {}); // best-effort, ignore si plusieurs onglets ouverts
+    } catch (err) {
+      fbDb = null;
+    }
+  }
+
+  function playlistsDocRef() {
+    return fbDb.collection('partotheque').doc('playlists');
+  }
+
+  function slugifyPlaylistName(str) {
+    const base = normalize(str || '').replace(/[^a-z0-9]+/g, '-').replace(/(^-+|-+$)/g, '');
+    return base || 'playlist';
+  }
+
+  function uniquePlaylistId(name) {
+    const base = slugifyPlaylistName(name);
+    let id = base;
+    let n = 2;
+    while (playlists.some(p => p.id === id && p.id !== editingPlaylistId)) {
+      id = `${base}-${n}`;
+      n++;
+    }
+    return id;
+  }
+
+  // Chaque dossier (et sous-dossier) présent dans le catalogue, à plat,
+  // pour permettre de cocher un dossier entier (ex: "Concert de Noël")
+  // dans l'éditeur de playlist.
+  function getAllFolderPaths() {
+    const set = new Set();
+    (fileIndex || []).forEach(f => {
+      const segs = f.folderPath || [];
+      for (let i = 1; i <= segs.length; i++) set.add(segs.slice(0, i).join(' / '));
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+  }
+
+  function fileInPlaylist(f, playlist) {
+    if (!playlist || !playlist.folders || !playlist.folders.length) return true;
+    const path = (f.folderPath || []).join(' / ');
+    return playlist.folders.some(folder => path === folder || path.startsWith(folder + ' / '));
+  }
+
+  // Écriture dans Firestore : tous les musiciens connectés reçoivent la
+  // mise à jour en direct via subscribeToPlaylists() ci-dessous, pas
+  // besoin de recharger la page.
+  async function savePlaylistsRemote() {
+    if (!firebaseReady || !fbDb) throw new Error('Firebase indisponible');
+    await playlistsDocRef().set({
+      playlists,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  function subscribeToPlaylists() {
+    if (!playlistsReady) return;
+    if (!firebaseReady || !fbDb) {
+      renderPlaylistRow();
+      return;
+    }
+    playlistsDocRef().onSnapshot(
+      (doc) => {
+        const data = doc.exists ? doc.data() : null;
+        playlists = (data && Array.isArray(data.playlists)) ? data.playlists : [];
+        renderPlaylistRow();
+        renderPlaylistAdminList();
+      },
+      () => {
+        // pas de réseau, ou lecture refusée : on continue sans playlists
+        playlists = [];
+        renderPlaylistRow();
+      }
+    );
+  }
+
+  function renderPlaylistRow() {
+    if (!playlistsReady) return;
+    if (!playlists.length) {
+      playlistRow.classList.add('hidden');
+      playlistRow.innerHTML = '';
+      return;
+    }
+    playlistRow.classList.remove('hidden');
+    playlistRow.innerHTML = [
+      `<button type="button" class="filter-btn playlist-btn${activePlaylistId === 'toutes' ? ' active' : ''}" data-playlist-id="toutes">Toutes les partitions</button>`,
+      ...playlists.map(p => `<button type="button" class="filter-btn playlist-btn${p.id === activePlaylistId ? ' active' : ''}" data-playlist-id="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`)
+    ].join('');
+    playlistRow.querySelectorAll('.playlist-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activePlaylistId = btn.dataset.playlistId;
+        playlistRow.querySelectorAll('.playlist-btn').forEach(b => b.classList.toggle('active', b === btn));
+        applyFilters(searchInput.value.trim());
+      });
+    });
+  }
+
+  function renderPlaylistAdminList() {
+    if (!playlistsReady) return;
+    if (!playlists.length) {
+      playlistAdminList.innerHTML = `<div class="playlist-admin-editor-hint">Aucune playlist pour l'instant.</div>`;
+      return;
+    }
+    playlistAdminList.innerHTML = playlists.map(p => `
+      <div class="sync-row">
+        <div class="sync-row-label">${escapeHtml(p.name)}</div>
+        <div class="sync-row-status">${(p.folders || []).length} dossier${(p.folders || []).length > 1 ? 's' : ''}</div>
+        <button type="button" class="sync-row-btn" data-edit-id="${escapeHtml(p.id)}">Modifier</button>
+        <button type="button" class="sync-row-clear" data-delete-id="${escapeHtml(p.id)}">Suppr.</button>
+      </div>
+    `).join('');
+
+    playlistAdminList.querySelectorAll('[data-edit-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = playlists.find(pl => pl.id === btn.dataset.editId);
+        if (p) openPlaylistEditor(p);
+      });
+    });
+    playlistAdminList.querySelectorAll('[data-delete-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const p = playlists.find(pl => pl.id === btn.dataset.deleteId);
+        if (!p) return;
+        if (!confirm(`Supprimer la playlist "${p.name}" ?`)) return;
+        const previous = playlists;
+        playlists = playlists.filter(pl => pl.id !== p.id);
+        if (activePlaylistId === p.id) activePlaylistId = 'toutes';
+        renderPlaylistAdminList();
+        renderPlaylistRow();
+        try {
+          await savePlaylistsRemote();
+        } catch (err) {
+          playlists = previous; // échec : on annule le changement local
+          renderPlaylistAdminList();
+          renderPlaylistRow();
+          alert("Échec de l'enregistrement (pas de réseau ?).");
+        }
+      });
+    });
+  }
+
+  function openPlaylistEditor(playlist) {
+    editingPlaylistId = playlist ? playlist.id : null;
+    playlistAdminNameInput.value = playlist ? playlist.name : '';
+    const selected = new Set(playlist ? playlist.folders : []);
+    const folders = getAllFolderPaths();
+
+    if (!folders.length) {
+      playlistAdminFolderList.innerHTML = `<div class="playlist-admin-editor-hint">Charge d'abord le catalogue (aucun dossier détecté pour l'instant).</div>`;
+    } else {
+      playlistAdminFolderList.innerHTML = folders.map((folder, i) => `
+        <label class="playlist-admin-folder-item" for="pl-folder-${i}">
+          <input type="checkbox" value="${escapeHtml(folder)}" ${selected.has(folder) ? 'checked' : ''} id="pl-folder-${i}">
+          ${escapeHtml(folder)}
+        </label>
+      `).join('');
+    }
+
+    playlistAdminEditor.classList.remove('hidden');
+    playlistAdminNameInput.focus();
+  }
+
+  function closePlaylistEditor() {
+    editingPlaylistId = null;
+    playlistAdminEditor.classList.add('hidden');
+    playlistAdminNameInput.value = '';
+    playlistAdminFolderList.innerHTML = '';
+  }
+
+  if (playlistsReady) {
+    playlistAdminToggleBtn.addEventListener('click', () => {
+      playlistAdminPanel.classList.toggle('hidden');
+      if (!playlistAdminPanel.classList.contains('hidden')) renderPlaylistAdminList();
+    });
+
+    playlistAdminNewBtn.addEventListener('click', () => openPlaylistEditor(null));
+    playlistAdminCancelBtn.addEventListener('click', closePlaylistEditor);
+
+    playlistAdminSaveBtn.addEventListener('click', async () => {
+      const name = playlistAdminNameInput.value.trim();
+      if (!name) { alert('Donne un nom à la playlist.'); return; }
+      const checked = Array.from(playlistAdminFolderList.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.value);
+      if (!checked.length) { alert('Coche au moins un dossier.'); return; }
+
+      const previous = playlists;
+      if (editingPlaylistId) {
+        playlists = playlists.map(pl => pl.id === editingPlaylistId ? { ...pl, name, folders: checked } : pl);
+      } else {
+        playlists = [...playlists, { id: uniquePlaylistId(name), name, folders: checked }];
+      }
+      closePlaylistEditor();
+      renderPlaylistAdminList();
+      renderPlaylistRow();
+
+      playlistAdminSaveBtn.disabled = true;
+      try {
+        await savePlaylistsRemote();
+      } catch (err) {
+        playlists = previous; // échec : on annule le changement local
+        renderPlaylistAdminList();
+        renderPlaylistRow();
+        alert("Échec de l'enregistrement (pas de réseau ?).");
+      }
+      playlistAdminSaveBtn.disabled = false;
+    });
+  }
+
+  // ---------------------------------------------------------------------
   // Réseau / hors-ligne
   // ---------------------------------------------------------------------
   function updateNetStatus() {
@@ -824,6 +1172,7 @@
       navigator.storage.persist().catch(() => {});
     }
     refreshCachedIds().then(loadCatalog);
+    subscribeToPlaylists();
   }
 
   searchInput.addEventListener('input', () => {
@@ -935,9 +1284,11 @@
     }
 
     const activeFilter = FILTERS.find(f => f.id === activeFilterId);
+    const activePlaylist = playlists.find(p => p.id === activePlaylistId) || null;
     const normTerm = term ? normalize(term) : '';
 
     const files = fileIndex.filter(f => {
+      if (activePlaylist && !fileInPlaylist(f, activePlaylist)) return false;
       const normName = normalize(f.name);
       const normPath = normalize((f.folderPath || []).join(' '));
       const haystack = normName + ' ' + normPath;
