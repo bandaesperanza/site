@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Partothèque">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
@@ -88,6 +89,27 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   }
 
+  .page-reload-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(246, 243, 236, 0.35);
+    background: rgba(246, 243, 236, 0.08);
+    color: var(--paper);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.4s;
+  }
+  .page-reload-btn:hover { background: rgba(246, 243, 236, 0.18); }
+  .page-reload-btn:active { transform: rotate(180deg); }
+
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -124,6 +146,15 @@
     letter-spacing: 0.04em;
     color: var(--gold);
     min-height: 14px;
+  }
+
+  .file-modified {
+    position: relative;
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    color: rgba(246, 243, 236, 0.5);
   }
 
   /* --- Setup card ------------------------------------------------------ */
@@ -427,16 +458,125 @@
   }
   .error-state { color: #A03B2A; border-color: #E3B6A8; background: #FBEEEA; }
 
+  /* Lecteur PDF en overlay, avec rotation de page */
+  .pdf-viewer-overlay {
+    position: fixed;
+    inset: 0;
+    background: #12100F;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pdf-viewer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #1c1a19;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+
+  .pdf-viewer-title {
+    color: #F0ECE4;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pdf-viewer-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  .pdf-viewer-actions button {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: #F0ECE4;
+    font-size: 17px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pdf-viewer-actions button:hover { background: rgba(255,255,255,0.14); }
+  .pdf-viewer-actions button:active { transform: scale(0.94); }
+
+  .pdf-viewer-body {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 18px 12px 90px;
+  }
+
+  .pdf-viewer-status {
+    color: #B8B2A8;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    margin-top: 40px;
+  }
+
+  #pdf-canvas {
+    max-width: 100%;
+    height: auto;
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  #pdf-canvas.hidden { display: none; }
+
+  .pdf-viewer-nav {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(28, 26, 25, 0.92);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
+    padding: 8px 18px;
+  }
+
+  .pdf-viewer-nav button {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    color: #F0ECE4;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .pdf-viewer-nav button:disabled { opacity: 0.35; cursor: default; }
+
+  #pdf-page-info {
+    color: #F0ECE4;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    min-width: 60px;
+    text-align: center;
+  }
+
   .hidden { display: none !important; }
 </style>
 
 <div class="wrap">
   <header>
+    <button type="button" id="page-reload-btn" class="page-reload-btn" title="Recharger la page (F5)" aria-label="Recharger la page">↻</button>
     <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
     <div class="eyebrow">Partothèque</div>
     <h1>Banda Esperanza</h1>
     <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
     <div class="net-status" id="net-status"></div>
+    <div class="file-modified" id="file-modified"></div>
   </header>
 
   <!-- Écran d'erreur (visible seulement si catalogue.json est introuvable) -->
@@ -474,6 +614,27 @@
   </div>
 </div>
 
+<div id="pdf-viewer-overlay" class="pdf-viewer-overlay hidden">
+  <div class="pdf-viewer-toolbar">
+    <span class="pdf-viewer-title" id="pdf-viewer-title"></span>
+    <div class="pdf-viewer-actions">
+      <button type="button" id="pdf-rotate-left" title="Pivoter à gauche (-90°)" aria-label="Pivoter à gauche">⟲</button>
+      <button type="button" id="pdf-rotate-right" title="Pivoter à droite (+90°)" aria-label="Pivoter à droite">⟳</button>
+      <button type="button" id="pdf-viewer-download" title="Télécharger" aria-label="Télécharger">⬇</button>
+      <button type="button" id="pdf-viewer-close" title="Fermer" aria-label="Fermer">✕</button>
+    </div>
+  </div>
+  <div class="pdf-viewer-body" id="pdf-viewer-body">
+    <div class="pdf-viewer-status" id="pdf-viewer-status">Chargement…</div>
+    <canvas id="pdf-canvas"></canvas>
+  </div>
+  <div class="pdf-viewer-nav hidden" id="pdf-viewer-nav">
+    <button type="button" id="pdf-prev-page" aria-label="Page précédente">‹</button>
+    <span id="pdf-page-info"></span>
+    <button type="button" id="pdf-next-page" aria-label="Page suivante">›</button>
+  </div>
+</div>
+
 <script>
 (function () {
   let debounceTimer = null;
@@ -491,7 +652,7 @@
     { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
     { id: 'trompette',  label: 'Trompette',  keywords: ['trompette'] },
     { id: 'trombone',   label: 'Trombone',   keywords: ['trombone'] },
-    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'] },
+    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'], exclude: ['saxo baryton'] },
     { id: 'souba',      label: 'Souba',      keywords: ['souba'] },
   ];
 
@@ -509,6 +670,31 @@
   const debugLogEl             = document.getElementById('debug-log');
   const refreshBtn                = document.getElementById('refresh-btn');
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
+  const fileModifiedEl                = document.getElementById('file-modified');
+  const pageReloadBtn                 = document.getElementById('page-reload-btn');
+
+  if (pageReloadBtn) {
+    pageReloadBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
+  }
+
+  // Affiche la date/heure de dernière modification du fichier HTML
+  // lui-même (en-tête HTTP Last-Modified), pour vérifier au moment
+  // de diffuser le lien qu'on pointe bien vers la bonne version.
+  (function showFileModified() {
+    if (!fileModifiedEl) return;
+    fetch(window.location.href, { method: 'HEAD', cache: 'no-store' })
+      .then((res) => {
+        const lm = res.headers.get('Last-Modified');
+        if (!lm) return;
+        const d = new Date(lm);
+        const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        fileModifiedEl.textContent = `Fichier maj le ${dateStr} à ${timeStr}`;
+      })
+      .catch(() => {});
+  })();
 
   // ---------------------------------------------------------------------
   // IndexedDB : stockage local des PDF (blobs) et du dernier catalogue connu
@@ -705,7 +891,7 @@
       if (cached && cached.files) {
         fileIndex = cached.files;
         basePath = cached.basePath || basePath;
-        netStatusEl.textContent = `🔌 Hors-ligne — catalogue du ${formatDate(new Date(cached.fetchedAt).toISOString())}`;
+        netStatusEl.textContent = `🔌 Hors-ligne — catalogue du ${formatDate(new Date(cached.fetchedAt).toISOString())} - Version du 03/08/2026`;
       } else {
         fileIndex = null;
         setupScreen.classList.remove('hidden');
@@ -733,10 +919,11 @@
     return [...(f.folderPath || []), f.name].join('/');
   }
 
-  function matchesInstrument(f, keywords) {
-    if (!keywords) return true;
+  function matchesInstrument(f, filter) {
+    if (!filter || !filter.keywords) return true;
     const hay = normalize(f.name + ' ' + (f.folderPath || []).join(' '));
-    return keywords.some(k => hay.includes(normalize(k)));
+    if (filter.exclude && filter.exclude.some(k => hay.includes(normalize(k)))) return false;
+    return filter.keywords.some(k => hay.includes(normalize(k)));
   }
 
   function applyFilters(term) {
@@ -747,7 +934,7 @@
       return;
     }
 
-    const filterKeywords = FILTERS.find(f => f.id === activeFilterId).keywords;
+    const activeFilter = FILTERS.find(f => f.id === activeFilterId);
     const normTerm = term ? normalize(term) : '';
 
     const files = fileIndex.filter(f => {
@@ -755,7 +942,7 @@
       const normPath = normalize((f.folderPath || []).join(' '));
       const haystack = normName + ' ' + normPath;
       if (normTerm && !haystack.includes(normTerm)) return false;
-      if (filterKeywords && !matchesInstrument(f, filterKeywords)) return false;
+      if (activeFilter.keywords && !matchesInstrument(f, activeFilter)) return false;
       return true;
     });
 
@@ -788,7 +975,7 @@
             ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)}${f.modifiedTime ? ' · modifié le ' + formatDate(f.modifiedTime) : ''}
           </div>
           <div class="links">
-            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" data-action="open" data-id="${escapeHtml(fileKey(f))}">Ouvrir</a>
+            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" data-action="open" data-id="${escapeHtml(fileKey(f))}" data-name="${escapeHtml(f.name)}">Ouvrir</a>
             <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" download="${escapeHtml(f.name)}" data-action="download" data-id="${escapeHtml(fileKey(f))}" data-name="${escapeHtml(f.name)}">Télécharger</a>
           </div>
         </div>
@@ -796,55 +983,182 @@
     `).join('');
   }
 
-  // Ouverture/téléchargement : utilise le blob local si le PDF est
-  // synchronisé (fonctionne hors-ligne), sinon laisse le lien standard
-  // agir normalement (ouvre/télécharge depuis Drive en ligne).
+  // Ouverture : passe par le lecteur PDF intégré (avec rotation), en
+  // utilisant le blob local si le PDF est synchronisé (fonctionne
+  // hors-ligne), sinon le fichier est chargé depuis son URL normale.
+  // Téléchargement : utilise le blob local si synchronisé, sinon laisse
+  // le lien standard agir normalement (télécharge depuis le serveur).
   resultsEl.addEventListener('click', async (e) => {
     const link = e.target.closest('a[data-id]');
     if (!link) return;
     const id = link.dataset.id;
-    if (!cachedIds.has(id)) return; // pas en local : comportement par défaut du lien
+    const name = link.dataset.name || 'Partition';
 
-    e.preventDefault();
-
-    // Pour "Ouvrir", on ouvre l'onglet tout de suite, de façon synchrone
-    // avec le clic. Si on attend le résultat de idbGet (async) avant
-    // d'appeler window.open, le navigateur (Safari/iOS notamment) ne
-    // considère plus l'appel comme déclenché par un geste utilisateur et
-    // bloque le popup silencieusement — c'est ce qui obligeait à passer
-    // par "Télécharger" à la place quand le fichier était synchronisé.
-    // En PWA installée (mode standalone), l'ouverture d'un nouvel onglet
-    // peut en plus être purement ignorée par le système (newTab reste
-    // null ou fermé) : dans ce cas on bascule sur une navigation dans
-    // l'onglet courant, qui elle fonctionne toujours.
-    let newTab = null;
-    if (link.dataset.action !== 'download') {
-      try { newTab = window.open('', '_blank'); } catch (err) { newTab = null; }
-    }
-
-    const row = await idbGet('pdfs', id).catch(() => null);
-    if (!row || !row.blob) {
-      if (newTab && !newTab.closed) newTab.close();
+    if (link.dataset.action === 'open') {
+      e.preventDefault();
+      if (cachedIds.has(id)) {
+        const row = await idbGet('pdfs', id).catch(() => null);
+        if (!row || !row.blob) return;
+        openPdfViewer(URL.createObjectURL(row.blob), name, true);
+      } else {
+        openPdfViewer(link.href, name, false);
+      }
       return;
     }
-    const url = URL.createObjectURL(row.blob);
 
-    if (link.dataset.action === 'download') {
+    if (!cachedIds.has(id)) return; // téléchargement : pas en local, comportement par défaut du lien
+
+    e.preventDefault();
+    const row = await idbGet('pdfs', id).catch(() => null);
+    if (!row || !row.blob) return;
+    const url = URL.createObjectURL(row.blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = row.name || 'partition.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+  });
+
+  // --- Lecteur PDF intégré (rotation, navigation de page) ---------------
+  // NB : le markup #pdf-viewer-overlay est déclaré dans le HTML *avant*
+  // ce <script>, donc il existe déjà dans le DOM à ce stade — sinon
+  // getElementById renverrait null et le moindre .addEventListener
+  // plantait tout le script (et donc toute l'appli, filtres compris).
+  const pdfViewerOverlay = document.getElementById('pdf-viewer-overlay');
+  const pdfViewerTitle   = document.getElementById('pdf-viewer-title');
+  const pdfViewerStatus  = document.getElementById('pdf-viewer-status');
+  const pdfViewerNav     = document.getElementById('pdf-viewer-nav');
+  const pdfCanvas        = document.getElementById('pdf-canvas');
+  const pdfPrevBtn       = document.getElementById('pdf-prev-page');
+  const pdfNextBtn       = document.getElementById('pdf-next-page');
+  const pdfPageInfo      = document.getElementById('pdf-page-info');
+  const pdfRotateLeftBtn  = document.getElementById('pdf-rotate-left');
+  const pdfRotateRightBtn = document.getElementById('pdf-rotate-right');
+  const pdfDownloadBtn   = document.getElementById('pdf-viewer-download');
+  const pdfCloseBtn      = document.getElementById('pdf-viewer-close');
+
+  // Tous les éléments du lecteur doivent être présents pour l'activer ;
+  // sinon on se contente de ne pas le brancher, sans jamais faire
+  // planter le reste de l'appli (filtres, recherche, sync…).
+  const pdfViewerReady = !!(pdfViewerOverlay && pdfViewerTitle && pdfViewerStatus &&
+    pdfViewerNav && pdfCanvas && pdfPrevBtn && pdfNextBtn && pdfPageInfo &&
+    pdfRotateLeftBtn && pdfRotateRightBtn && pdfDownloadBtn && pdfCloseBtn);
+
+  if (pdfViewerReady && typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  let pdfDoc = null;
+  let pdfCurrentUrl = null;
+  let pdfIsBlobUrl = false;
+  let pdfRotation = 0;
+  let pdfPageNum = 1;
+  let pdfDownloadName = 'partition.pdf';
+
+  async function openPdfViewer(url, name, isBlobUrl) {
+    if (!pdfViewerReady) {
+      // Lecteur indisponible : on retombe sur le lien direct plutôt
+      // que de ne rien faire.
+      window.open(url, '_blank');
+      return;
+    }
+
+    pdfCurrentUrl = url;
+    pdfIsBlobUrl = !!isBlobUrl;
+    pdfDownloadName = name || 'partition.pdf';
+    pdfRotation = 0;
+    pdfPageNum = 1;
+    pdfViewerTitle.textContent = name || '';
+    pdfViewerStatus.textContent = 'Chargement…';
+    pdfViewerStatus.classList.remove('hidden');
+    pdfCanvas.classList.add('hidden');
+    pdfViewerNav.classList.add('hidden');
+    pdfViewerOverlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    if (typeof pdfjsLib === 'undefined') {
+      pdfViewerStatus.textContent = "Le lecteur PDF n'a pas pu se charger (pas de réseau ?). Utilise Télécharger à la place.";
+      return;
+    }
+
+    try {
+      const loadingTask = pdfjsLib.getDocument(url);
+      pdfDoc = await loadingTask.promise;
+      pdfViewerStatus.classList.add('hidden');
+      pdfCanvas.classList.remove('hidden');
+      if (pdfDoc.numPages > 1) pdfViewerNav.classList.remove('hidden');
+      await renderPdfPage();
+    } catch (err) {
+      pdfViewerStatus.textContent = "Impossible d'afficher ce PDF ici. Utilise Télécharger à la place.";
+      pdfViewerStatus.classList.remove('hidden');
+      pdfCanvas.classList.add('hidden');
+    }
+  }
+
+  async function renderPdfPage() {
+    if (!pdfDoc) return;
+    const page = await pdfDoc.getPage(pdfPageNum);
+    const baseViewport = page.getViewport({ scale: 1, rotation: pdfRotation });
+    const containerWidth = pdfViewerOverlay.clientWidth - 24;
+    const scale = Math.min(2.4, (containerWidth / baseViewport.width) || 1);
+    const viewport = page.getViewport({ scale, rotation: pdfRotation });
+
+    const ctx = pdfCanvas.getContext('2d');
+    pdfCanvas.width = viewport.width;
+    pdfCanvas.height = viewport.height;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    pdfPageInfo.textContent = `${pdfPageNum} / ${pdfDoc.numPages}`;
+    pdfPrevBtn.disabled = pdfPageNum <= 1;
+    pdfNextBtn.disabled = pdfPageNum >= pdfDoc.numPages;
+  }
+
+  function closePdfViewer() {
+    pdfViewerOverlay.classList.add('hidden');
+    document.body.style.overflow = '';
+    if (pdfIsBlobUrl && pdfCurrentUrl) URL.revokeObjectURL(pdfCurrentUrl);
+    pdfDoc = null;
+    pdfCurrentUrl = null;
+  }
+
+  if (pdfViewerReady) {
+    pdfRotateLeftBtn.addEventListener('click', () => {
+      pdfRotation = (pdfRotation - 90 + 360) % 360;
+      renderPdfPage();
+    });
+    pdfRotateRightBtn.addEventListener('click', () => {
+      pdfRotation = (pdfRotation + 90) % 360;
+      renderPdfPage();
+    });
+    pdfPrevBtn.addEventListener('click', () => {
+      if (pdfPageNum > 1) { pdfPageNum--; renderPdfPage(); }
+    });
+    pdfNextBtn.addEventListener('click', () => {
+      if (pdfDoc && pdfPageNum < pdfDoc.numPages) { pdfPageNum++; renderPdfPage(); }
+    });
+    pdfDownloadBtn.addEventListener('click', () => {
+      if (!pdfCurrentUrl) return;
       const a = document.createElement('a');
-      a.href = url;
-      a.download = row.name || 'partition.pdf';
+      a.href = pdfCurrentUrl;
+      a.download = pdfDownloadName;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 15000);
-    } else if (newTab && !newTab.closed) {
-      newTab.location.href = url;
-    } else {
-      // Onglet non disponible (bloqué ou PWA standalone) : on ouvre dans
-      // l'onglet en cours plutôt que de ne rien faire.
-      window.location.href = url;
-    }
-  });
+    });
+    pdfCloseBtn.addEventListener('click', closePdfViewer);
+    pdfViewerOverlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePdfViewer();
+    });
+
+    let pdfResizeTimer = null;
+    window.addEventListener('resize', () => {
+      if (!pdfDoc || pdfViewerOverlay.classList.contains('hidden')) return;
+      clearTimeout(pdfResizeTimer);
+      pdfResizeTimer = setTimeout(renderPdfPage, 150);
+    });
+  }
 
   function renderError(msg) {
     statusLine.textContent = '';
@@ -866,7 +1180,7 @@
     const instrumentFilters = FILTERS.filter(f => f.id !== 'tous');
 
     syncList.innerHTML = instrumentFilters.map(f => {
-      const matches = fileIndex.filter(file => matchesInstrument(file, f.keywords));
+      const matches = fileIndex.filter(file => matchesInstrument(file, f));
       const cachedCount = matches.filter(file => cachedIds.has(fileKey(file))).length;
       const allCached = matches.length > 0 && cachedCount === matches.length;
       return `
@@ -975,7 +1289,7 @@
     const filter = FILTERS.find(f => f.id === filterId);
     if (!filter || !fileIndex) return;
 
-    const matches = fileIndex.filter(f => matchesInstrument(f, filter.keywords));
+    const matches = fileIndex.filter(f => matchesInstrument(f, filter));
     const toDownload = matches.filter(f => !cachedIds.has(fileKey(f)));
     if (toDownload.length === 0) return;
 
@@ -1046,7 +1360,7 @@
   async function clearInstrument(filterId) {
     const filter = FILTERS.find(f => f.id === filterId);
     if (!filter || !fileIndex) return;
-    const matches = fileIndex.filter(f => matchesInstrument(f, filter.keywords) && cachedIds.has(fileKey(f)));
+    const matches = fileIndex.filter(f => matchesInstrument(f, filter) && cachedIds.has(fileKey(f)));
     for (const f of matches) {
       const key = fileKey(f);
       await idbDelete('pdfs', key).catch(() => {});
