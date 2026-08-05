@@ -326,6 +326,16 @@
     margin-bottom: 14px;
     background: var(--paper);
   }
+  .playlist-order-folder-heading {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--stamp);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 10px 0 4px;
+  }
+  .playlist-order-folder-heading:first-child { padding-top: 6px; }
   .playlist-order-item {
     display: flex;
     align-items: center;
@@ -767,6 +777,7 @@
         <input type="text" id="playlist-admin-folder-search" class="playlist-admin-name-input" placeholder="Filtrer les dossiers…" autocomplete="off">
         <div id="playlist-admin-folder-list" class="playlist-admin-folder-list"></div>
         <div class="playlist-admin-editor-hint">Ordre des morceaux (numérote-les pour fixer l'ordre d'affichage) :</div>
+        <input type="text" id="playlist-admin-order-search" class="playlist-admin-name-input" placeholder="Filtrer les morceaux…" autocomplete="off">
         <div id="playlist-admin-order-list" class="playlist-order-list"></div>
         <div class="playlist-admin-editor-actions">
           <button type="button" id="playlist-admin-save-btn" class="sync-row-btn">Enregistrer</button>
@@ -842,6 +853,7 @@
   let playlistAdminAllFolders = [];
   let playlistAdminSelectedFolders = new Set();
   let playlistAdminOrder = {}; // { fileKey: numéro d'ordre } pour la playlist en cours d'édition
+  let playlistAdminOrderQuery = ''; // filtre texte du tableau des morceaux
 
   const FILTERS = [
     { id: 'tous',       label: 'Tous',       keywords: null },
@@ -879,6 +891,7 @@
   const playlistAdminNameInput        = document.getElementById('playlist-admin-name-input');
   const playlistAdminFolderList       = document.getElementById('playlist-admin-folder-list');
   const playlistAdminOrderList        = document.getElementById('playlist-admin-order-list');
+  const playlistAdminOrderSearch      = document.getElementById('playlist-admin-order-search');
   const playlistAdminFolderSearch     = document.getElementById('playlist-admin-folder-search');
   const playlistAdminNewBtn           = document.getElementById('playlist-admin-new-btn');
   const playlistAdminSaveBtn          = document.getElementById('playlist-admin-save-btn');
@@ -889,7 +902,7 @@
   // fonctionnalité concernée au lieu de planter tous les scripts.
   const playlistsReady = !!(playlistRow && playlistAdminToggleBtn && playlistAdminPanel &&
     playlistAdminList && playlistAdminEditor && playlistAdminNameInput && playlistAdminFolderList &&
-    playlistAdminOrderList && playlistAdminFolderSearch && playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
+    playlistAdminOrderList && playlistAdminOrderSearch && playlistAdminFolderSearch && playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
 
   if (pageReloadBtn) {
     pageReloadBtn.addEventListener('click', () => {
@@ -1203,40 +1216,57 @@
   }
 
   // Tableau d'ordre des morceaux : liste en direct tous les fichiers
-  // correspondant aux dossiers actuellement cochés, avec un numéro
-  // modifiable par ligne. Triés par numéro (les non-numérotés à la fin,
-  // par ordre alphabétique) pour que la position se voie tout de suite.
+  // correspondant aux dossiers actuellement cochés, groupés par dossier
+  // (morceaux triés alphabétiquement à l'intérieur de chaque dossier) —
+  // un tri stable, qui ne bouge pas pendant la saisie des numéros.
+  // Un champ de filtre permet de retrouver un morceau par son nom quand
+  // la playlist contient beaucoup de dossiers.
   function renderPlaylistOrderTable() {
     if (!playlistAdminOrderList) return;
-    const matches = filesMatchingFolders(playlistAdminSelectedFolders);
+    let matches = filesMatchingFolders(playlistAdminSelectedFolders);
 
     if (!matches.length) {
       playlistAdminOrderList.innerHTML = `<div class="playlist-admin-editor-hint">Coche des dossiers ci-dessus pour voir apparaître les morceaux ici.</div>`;
       return;
     }
 
+    const query = normalize(playlistAdminOrderQuery || '');
+    if (query) {
+      matches = matches.filter(f => normalize(f.name).includes(query));
+    }
+
+    if (!matches.length) {
+      playlistAdminOrderList.innerHTML = `<div class="playlist-admin-editor-hint">Aucun morceau ne correspond à « ${escapeHtml(playlistAdminOrderQuery)} ».</div>`;
+      return;
+    }
+
     const sorted = matches.slice().sort((a, b) => {
-      const oa = playlistAdminOrder[fileKey(a)];
-      const ob = playlistAdminOrder[fileKey(b)];
-      const na = (oa === undefined || oa === '') ? Infinity : Number(oa);
-      const nb = (ob === undefined || ob === '') ? Infinity : Number(ob);
-      if (na !== nb) return na - nb;
+      const pa = (a.folderPath || []).join(' / ');
+      const pb = (b.folderPath || []).join(' / ');
+      if (pa !== pb) return pa.localeCompare(pb, 'fr');
       return a.name.localeCompare(b.name, 'fr');
     });
 
-    playlistAdminOrderList.innerHTML = sorted.map((f, i) => {
+    let html = '';
+    let lastFolder = null;
+    sorted.forEach(f => {
+      const folderLabel = (f.folderPath && f.folderPath.length) ? f.folderPath.join(' › ') : '(racine)';
+      if (folderLabel !== lastFolder) {
+        html += `<div class="playlist-order-folder-heading">${escapeHtml(folderLabel)}</div>`;
+        lastFolder = folderLabel;
+      }
       const key = fileKey(f);
       const current = playlistAdminOrder[key];
-      return `
+      html += `
         <div class="playlist-order-item">
-          <input type="number" class="playlist-order-input" data-order-key="${escapeHtml(key)}" value="${current !== undefined && current !== '' ? current : ''}" placeholder="${i + 1}" min="1" inputmode="numeric">
+          <input type="number" class="playlist-order-input" data-order-key="${escapeHtml(key)}" value="${current !== undefined && current !== '' ? current : ''}" placeholder="—" min="1" inputmode="numeric">
           <div class="playlist-order-item-name">
             <span class="name-main">${escapeHtml(f.name)}</span>
-            ${f.folderPath && f.folderPath.length ? `<span class="name-path">${escapeHtml(f.folderPath.join(' › '))}</span>` : ''}
           </div>
         </div>
       `;
-    }).join('');
+    });
+    playlistAdminOrderList.innerHTML = html;
 
     playlistAdminOrderList.querySelectorAll('[data-order-key]').forEach(input => {
       input.addEventListener('input', () => {
@@ -1244,9 +1274,6 @@
         if (val === '') delete playlistAdminOrder[input.dataset.orderKey];
         else playlistAdminOrder[input.dataset.orderKey] = Number(val);
       });
-      // Le tri visuel ne se rafraîchit qu'à la sortie du champ, pour ne
-      // pas faire sauter la ligne sous le doigt pendant la saisie.
-      input.addEventListener('change', renderPlaylistOrderTable);
     });
   }
 
@@ -1255,8 +1282,10 @@
     playlistAdminNameInput.value = playlist ? playlist.name : '';
     playlistAdminSelectedFolders = new Set(playlist ? playlist.folders : []);
     playlistAdminOrder = Object.assign({}, playlist && playlist.order ? playlist.order : {});
+    playlistAdminOrderQuery = '';
     playlistAdminAllFolders = getAllFolderPaths();
     playlistAdminFolderSearch.value = '';
+    playlistAdminOrderSearch.value = '';
     renderFolderChecklist('');
     renderPlaylistOrderTable();
 
@@ -1269,10 +1298,12 @@
     playlistAdminEditor.classList.add('hidden');
     playlistAdminNameInput.value = '';
     playlistAdminFolderSearch.value = '';
+    playlistAdminOrderSearch.value = '';
     playlistAdminFolderList.innerHTML = '';
     playlistAdminOrderList.innerHTML = '';
     playlistAdminSelectedFolders = new Set();
     playlistAdminOrder = {};
+    playlistAdminOrderQuery = '';
   }
 
   if (playlistsReady) {
@@ -1285,6 +1316,10 @@
     playlistAdminCancelBtn.addEventListener('click', closePlaylistEditor);
     playlistAdminFolderSearch.addEventListener('input', () => {
       renderFolderChecklist(playlistAdminFolderSearch.value);
+    });
+    playlistAdminOrderSearch.addEventListener('input', () => {
+      playlistAdminOrderQuery = playlistAdminOrderSearch.value;
+      renderPlaylistOrderTable();
     });
 
     playlistAdminSaveBtn.addEventListener('click', async () => {
