@@ -773,6 +773,7 @@
     <div class="pdf-viewer-actions">
       <button type="button" id="pdf-rotate-left" title="Pivoter à gauche (-90°)" aria-label="Pivoter à gauche">⟲</button>
       <button type="button" id="pdf-rotate-right" title="Pivoter à droite (+90°)" aria-label="Pivoter à droite">⟳</button>
+      <button type="button" id="pdf-fullscreen" class="hidden" title="Plein écran" aria-label="Plein écran">⛶</button>
       <button type="button" id="pdf-viewer-download" title="Télécharger" aria-label="Télécharger">⬇</button>
       <button type="button" id="pdf-viewer-close" title="Fermer" aria-label="Fermer">✕</button>
     </div>
@@ -1467,15 +1468,17 @@
   const pdfPageInfo      = document.getElementById('pdf-page-info');
   const pdfRotateLeftBtn  = document.getElementById('pdf-rotate-left');
   const pdfRotateRightBtn = document.getElementById('pdf-rotate-right');
+  const pdfFullscreenBtn = document.getElementById('pdf-fullscreen');
   const pdfDownloadBtn   = document.getElementById('pdf-viewer-download');
   const pdfCloseBtn      = document.getElementById('pdf-viewer-close');
+  const pdfViewerBody    = document.getElementById('pdf-viewer-body');
 
   // Tous les éléments du lecteur doivent être présents pour l'activer ;
   // sinon on se contente de ne pas le brancher, sans jamais faire
   // planter le reste de l'appli (filtres, recherche, sync…).
   const pdfViewerReady = !!(pdfViewerOverlay && pdfViewerTitle && pdfViewerStatus &&
     pdfViewerNav && pdfCanvas && pdfPrevBtn && pdfNextBtn && pdfPageInfo &&
-    pdfRotateLeftBtn && pdfRotateRightBtn && pdfDownloadBtn && pdfCloseBtn);
+    pdfRotateLeftBtn && pdfRotateRightBtn && pdfDownloadBtn && pdfCloseBtn && pdfViewerBody);
 
   if (pdfViewerReady && typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -1487,6 +1490,20 @@
   let pdfRotation = 0;
   let pdfPageNum = 1;
   let pdfDownloadName = 'partition.pdf';
+  // Rotation auto selon l'orientation du téléphone : activée par défaut,
+  // désactivée dès que le musicien touche un bouton de rotation manuel
+  // (reprend à la prochaine ouverture d'une partition).
+  let pdfAutoRotate = true;
+  let pdfPageNaturalPortrait = false;
+  const pdfOrientationMql = window.matchMedia('(orientation: landscape)');
+  // Zoom tactile (pincement) : multiplicateur appliqué par-dessus la taille
+  // CSS déjà calculée par renderPdfPage(). Remis à 1 à chaque nouveau rendu.
+  let pdfZoom = 1;
+  let pdfBaseCssWidth = 0;
+  let pdfBaseCssHeight = 0;
+  // Wake Lock : empêche l'écran de s'éteindre pendant qu'une partition
+  // est affichée (utile sur scène, en plein concert).
+  let pdfWakeLock = null;
 
   async function openPdfViewer(url, name, isBlobUrl) {
     if (!pdfViewerReady) {
@@ -1501,13 +1518,19 @@
     pdfDownloadName = name || 'partition.pdf';
     pdfRotation = 0;
     pdfPageNum = 1;
+    pdfAutoRotate = true;
+    pdfPageNaturalPortrait = false;
+    pdfZoom = 1;
     pdfViewerTitle.textContent = name || '';
     pdfViewerStatus.textContent = 'Chargement…';
     pdfViewerStatus.classList.remove('hidden');
     pdfCanvas.classList.add('hidden');
+    pdfCanvas.style.width = '';
+    pdfCanvas.style.height = '';
     pdfViewerNav.classList.add('hidden');
     pdfViewerOverlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    requestPdfWakeLock();
 
     if (typeof pdfjsLib === 'undefined') {
       pdfViewerStatus.textContent = "Le lecteur PDF n'a pas pu se charger (pas de réseau ?). Utilise Télécharger à la place.";
@@ -1520,6 +1543,17 @@
       pdfViewerStatus.classList.add('hidden');
       pdfCanvas.classList.remove('hidden');
       if (pdfDoc.numPages > 1) pdfViewerNav.classList.remove('hidden');
+
+      // Orientation naturelle de la page (avant toute rotation), pour
+      // savoir si la rotation auto doit s'appliquer une fois l'écran
+      // en paysage.
+      const firstPage = await pdfDoc.getPage(1);
+      const naturalViewport = firstPage.getViewport({ scale: 1, rotation: 0 });
+      pdfPageNaturalPortrait = naturalViewport.height > naturalViewport.width;
+      if (pdfAutoRotate && pdfOrientationMql.matches && pdfPageNaturalPortrait) {
+        pdfRotation = 90;
+      }
+
       await renderPdfPage();
     } catch (err) {
       pdfViewerStatus.textContent = "Impossible d'afficher ce PDF ici. Utilise Télécharger à la place.";
@@ -1547,8 +1581,11 @@
     const ctx = pdfCanvas.getContext('2d');
     pdfCanvas.width = viewport.width;
     pdfCanvas.height = viewport.height;
-    pdfCanvas.style.width = (viewport.width / dpr) + 'px';
-    pdfCanvas.style.height = (viewport.height / dpr) + 'px';
+    pdfBaseCssWidth = viewport.width / dpr;
+    pdfBaseCssHeight = viewport.height / dpr;
+    pdfZoom = 1; // un nouveau rendu (page, rotation, resize) repart sans zoom
+    pdfCanvas.style.width = pdfBaseCssWidth + 'px';
+    pdfCanvas.style.height = pdfBaseCssHeight + 'px';
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     pdfPageInfo.textContent = `${pdfPageNum} / ${pdfDoc.numPages}`;
@@ -1556,9 +1593,58 @@
     pdfNextBtn.disabled = pdfPageNum >= pdfDoc.numPages;
   }
 
+  function applyPdfZoom() {
+    if (!pdfBaseCssWidth) return;
+    pdfCanvas.style.width = (pdfBaseCssWidth * pdfZoom) + 'px';
+    pdfCanvas.style.height = (pdfBaseCssHeight * pdfZoom) + 'px';
+  }
+
+  // Rotation automatique : ré-applique la rotation cible dès que
+  // l'orientation du téléphone change, sauf si le musicien a repris la
+  // main manuellement (pdfAutoRotate désactivé jusqu'à la prochaine
+  // ouverture de partition).
+  function applyPdfAutoRotation() {
+    if (!pdfAutoRotate || !pdfDoc) return;
+    const target = (pdfOrientationMql.matches && pdfPageNaturalPortrait) ? 90 : 0;
+    if (pdfRotation !== target) {
+      pdfRotation = target;
+      renderPdfPage();
+    }
+  }
+
+  // Wake Lock : empêche la mise en veille de l'écran tant que le lecteur
+  // est ouvert. Non bloquant si l'API n'existe pas (vieux Safari) ou si
+  // le navigateur refuse (ex : batterie faible) — ce n'est qu'un confort.
+  async function requestPdfWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        pdfWakeLock = await navigator.wakeLock.request('screen');
+        pdfWakeLock.addEventListener('release', () => { pdfWakeLock = null; });
+      }
+    } catch (e) { /* refusé : tant pis, non bloquant */ }
+  }
+
+  function releasePdfWakeLock() {
+    if (pdfWakeLock) { pdfWakeLock.release().catch(() => {}); pdfWakeLock = null; }
+  }
+
+  // Le wake lock est automatiquement relâché par le système quand l'onglet
+  // passe en arrière-plan (changement d'appli, verrouillage...) : on le
+  // redemande au retour si le lecteur est toujours ouvert.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && pdfViewerReady &&
+        !pdfViewerOverlay.classList.contains('hidden')) {
+      requestPdfWakeLock();
+    }
+  });
+
   function closePdfViewer() {
     pdfViewerOverlay.classList.add('hidden');
     document.body.style.overflow = '';
+    releasePdfWakeLock();
+    if (document.fullscreenElement === pdfViewerOverlay) {
+      (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document).catch(() => {});
+    }
     if (pdfIsBlobUrl && pdfCurrentUrl) URL.revokeObjectURL(pdfCurrentUrl);
     pdfDoc = null;
     pdfCurrentUrl = null;
@@ -1566,10 +1652,12 @@
 
   if (pdfViewerReady) {
     pdfRotateLeftBtn.addEventListener('click', () => {
+      pdfAutoRotate = false; // le musicien reprend la main
       pdfRotation = (pdfRotation - 90 + 360) % 360;
       renderPdfPage();
     });
     pdfRotateRightBtn.addEventListener('click', () => {
+      pdfAutoRotate = false;
       pdfRotation = (pdfRotation + 90) % 360;
       renderPdfPage();
     });
@@ -1598,6 +1686,103 @@
       if (!pdfDoc || pdfViewerOverlay.classList.contains('hidden')) return;
       clearTimeout(pdfResizeTimer);
       pdfResizeTimer = setTimeout(renderPdfPage, 150);
+    });
+
+    // Rotation auto : réagit aux changements d'orientation du téléphone.
+    pdfOrientationMql.addEventListener('change', () => {
+      if (!pdfDoc || pdfViewerOverlay.classList.contains('hidden')) return;
+      applyPdfAutoRotation();
+    });
+
+    // Plein écran : indisponible sur Safari iOS (l'API ne le permet pas
+    // pour un élément quelconque), donc on masque le bouton s'il ne sert
+    // à rien plutôt que de laisser un bouton mort.
+    const fullscreenSupported = !!(pdfViewerOverlay.requestFullscreen || pdfViewerOverlay.webkitRequestFullscreen);
+    if (pdfFullscreenBtn && fullscreenSupported) {
+      pdfFullscreenBtn.classList.remove('hidden');
+      pdfFullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          const req = pdfViewerOverlay.requestFullscreen || pdfViewerOverlay.webkitRequestFullscreen;
+          req.call(pdfViewerOverlay).catch(() => {});
+        } else {
+          const exit = document.exitFullscreen || document.webkitExitFullscreen;
+          exit.call(document).catch(() => {});
+        }
+      });
+    }
+
+    // Gestes tactiles : swipe horizontal pour changer de page (uniquement
+    // hors zoom, pour ne pas gêner le déplacement dans une page agrandie),
+    // pincement à deux doigts pour zoomer, double-tap pour réinitialiser.
+    let pdfGestureMode = null; // 'swipe' | 'pinch' | null
+    let pdfPinchStartDist = 0;
+    let pdfPinchStartZoom = 1;
+    let pdfSwipeStartX = 0;
+    let pdfSwipeStartY = 0;
+    let pdfSwipeStartTime = 0;
+    let pdfLastTapTime = 0;
+
+    function pdfTouchDist(t0, t1) {
+      const dx = t0.clientX - t1.clientX;
+      const dy = t0.clientY - t1.clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    pdfViewerBody.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        pdfGestureMode = 'pinch';
+        pdfPinchStartDist = pdfTouchDist(e.touches[0], e.touches[1]);
+        pdfPinchStartZoom = pdfZoom;
+      } else if (e.touches.length === 1) {
+        pdfGestureMode = pdfZoom <= 1.02 ? 'swipe' : null;
+        pdfSwipeStartX = e.touches[0].clientX;
+        pdfSwipeStartY = e.touches[0].clientY;
+        pdfSwipeStartTime = Date.now();
+      } else {
+        pdfGestureMode = null;
+      }
+    }, { passive: true });
+
+    pdfViewerBody.addEventListener('touchmove', (e) => {
+      if (pdfGestureMode === 'pinch' && e.touches.length === 2) {
+        e.preventDefault(); // empêche le zoom natif de Safari de rentrer en conflit
+        const dist = pdfTouchDist(e.touches[0], e.touches[1]);
+        const factor = dist / (pdfPinchStartDist || dist);
+        pdfZoom = Math.max(1, Math.min(4, pdfPinchStartZoom * factor));
+        applyPdfZoom();
+      }
+    }, { passive: false });
+
+    pdfViewerBody.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (pdfGestureMode === 'pinch') {
+        if (pdfZoom < 1.05) { pdfZoom = 1; applyPdfZoom(); }
+        pdfGestureMode = null;
+        pdfLastTapTime = 0;
+        return;
+      }
+      if (e.changedTouches.length === 1) {
+        // Double-tap : bascule le zoom entre 1 et 2, prioritaire sur le swipe.
+        if (now - pdfLastTapTime < 300) {
+          pdfZoom = pdfZoom > 1 ? 1 : 2;
+          applyPdfZoom();
+          pdfLastTapTime = 0;
+          pdfGestureMode = null;
+          return;
+        }
+        pdfLastTapTime = now;
+
+        if (pdfGestureMode === 'swipe') {
+          const dx = e.changedTouches[0].clientX - pdfSwipeStartX;
+          const dy = e.changedTouches[0].clientY - pdfSwipeStartY;
+          const elapsed = now - pdfSwipeStartTime;
+          if (elapsed < 600 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            if (dx < 0 && pdfDoc && pdfPageNum < pdfDoc.numPages) { pdfPageNum++; renderPdfPage(); }
+            else if (dx > 0 && pdfPageNum > 1) { pdfPageNum--; renderPdfPage(); }
+          }
+        }
+      }
+      pdfGestureMode = null;
     });
   }
 
