@@ -846,7 +846,7 @@
             ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)}${f.modifiedTime ? ' · modifié le ' + formatDate(f.modifiedTime) : ''}
           </div>
           <div class="links">
-            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" data-action="open" data-id="${escapeHtml(fileKey(f))}">Ouvrir</a>
+            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" data-action="open" data-id="${escapeHtml(fileKey(f))}" data-name="${escapeHtml(f.name)}">Ouvrir</a>
             <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" download="${escapeHtml(f.name)}" data-action="download" data-id="${escapeHtml(fileKey(f))}" data-name="${escapeHtml(f.name)}">Télécharger</a>
           </div>
         </div>
@@ -856,7 +856,7 @@
 
   // Ouverture/téléchargement : utilise le blob local si le PDF est
   // synchronisé (fonctionne hors-ligne), sinon laisse le lien standard
-  // agir normalement (ouvre/télécharge depuis Drive en ligne).
+  // agir normalement (ouvre/télécharge depuis le serveur en ligne).
   resultsEl.addEventListener('click', async (e) => {
     const link = e.target.closest('a[data-id]');
     if (!link) return;
