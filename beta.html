@@ -318,7 +318,7 @@
     padding: 4px 6px;
   }
   .playlist-order-list {
-    max-height: 260px;
+    max-height: 220px;
     overflow-y: auto;
     border: 1px solid var(--rule);
     border-radius: 4px;
@@ -326,16 +326,6 @@
     margin-bottom: 14px;
     background: var(--paper);
   }
-  .playlist-order-folder-heading {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--stamp);
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    padding: 10px 0 4px;
-  }
-  .playlist-order-folder-heading:first-child { padding-top: 6px; }
   .playlist-order-item {
     display: flex;
     align-items: center;
@@ -346,13 +336,6 @@
   }
   .playlist-order-item:last-child { border-bottom: none; }
   .playlist-order-item-name { flex: 1; min-width: 0; }
-  .playlist-order-item-name .name-main { display: block; }
-  .playlist-order-item-name .name-path {
-    display: block;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    color: var(--ink-soft);
-  }
   .playlist-order-input {
     width: 44px;
     flex-shrink: 0;
@@ -478,7 +461,7 @@
     cursor: pointer;
   }
   .playlist-admin-folder-item:last-child { border-bottom: none; }
-  .playlist-admin-folder-item input { flex-shrink: 0; width: 16px; height: 16px; }
+  .playlist-admin-folder-item input[type="checkbox"] { flex-shrink: 0; width: 16px; height: 16px; }
   .playlist-admin-editor-actions { display: flex; align-items: center; gap: 16px; }
   .playlist-admin-text-btn {
     font-family: 'IBM Plex Mono', monospace;
@@ -776,8 +759,8 @@
         <div class="playlist-admin-editor-hint">Dossiers à inclure :</div>
         <input type="text" id="playlist-admin-folder-search" class="playlist-admin-name-input" placeholder="Filtrer les dossiers…" autocomplete="off">
         <div id="playlist-admin-folder-list" class="playlist-admin-folder-list"></div>
-        <div class="playlist-admin-editor-hint">Ordre des morceaux (numérote-les pour fixer l'ordre d'affichage) :</div>
-        <input type="text" id="playlist-admin-order-search" class="playlist-admin-name-input" placeholder="Filtrer les morceaux…" autocomplete="off">
+        <div class="playlist-admin-editor-hint">Ordre des dossiers (numérote-les pour fixer l'ordre d'affichage — tous les morceaux d'un dossier prennent son numéro) :</div>
+        <input type="text" id="playlist-admin-order-search" class="playlist-admin-name-input" placeholder="Filtrer les dossiers cochés…" autocomplete="off">
         <div id="playlist-admin-order-list" class="playlist-order-list"></div>
         <div class="playlist-admin-editor-actions">
           <button type="button" id="playlist-admin-save-btn" class="sync-row-btn">Enregistrer</button>
@@ -852,8 +835,8 @@
   let editingPlaylistId = null; // null = création d'une nouvelle playlist
   let playlistAdminAllFolders = [];
   let playlistAdminSelectedFolders = new Set();
-  let playlistAdminOrder = {}; // { fileKey: numéro d'ordre } pour la playlist en cours d'édition
-  let playlistAdminOrderQuery = ''; // filtre texte du tableau des morceaux
+  let playlistAdminOrder = {}; // { chemin de dossier: numéro d'ordre } pour la playlist en cours d'édition
+  let playlistAdminOrderQuery = ''; // filtre texte du tableau d'ordre des dossiers
 
   const FILTERS = [
     { id: 'tous',       label: 'Tous',       keywords: null },
@@ -890,9 +873,9 @@
   const playlistAdminEditor           = document.getElementById('playlist-admin-editor');
   const playlistAdminNameInput        = document.getElementById('playlist-admin-name-input');
   const playlistAdminFolderList       = document.getElementById('playlist-admin-folder-list');
+  const playlistAdminFolderSearch     = document.getElementById('playlist-admin-folder-search');
   const playlistAdminOrderList        = document.getElementById('playlist-admin-order-list');
   const playlistAdminOrderSearch      = document.getElementById('playlist-admin-order-search');
-  const playlistAdminFolderSearch     = document.getElementById('playlist-admin-folder-search');
   const playlistAdminNewBtn           = document.getElementById('playlist-admin-new-btn');
   const playlistAdminSaveBtn          = document.getElementById('playlist-admin-save-btn');
   const playlistAdminCancelBtn        = document.getElementById('playlist-admin-cancel-btn');
@@ -902,7 +885,8 @@
   // fonctionnalité concernée au lieu de planter tous les scripts.
   const playlistsReady = !!(playlistRow && playlistAdminToggleBtn && playlistAdminPanel &&
     playlistAdminList && playlistAdminEditor && playlistAdminNameInput && playlistAdminFolderList &&
-    playlistAdminOrderList && playlistAdminOrderSearch && playlistAdminFolderSearch && playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
+    playlistAdminFolderSearch && playlistAdminOrderList && playlistAdminOrderSearch &&
+    playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
 
   if (pageReloadBtn) {
     pageReloadBtn.addEventListener('click', () => {
@@ -1079,15 +1063,22 @@
     return playlist.folders.some(folder => path === folder || path.startsWith(folder + ' / '));
   }
 
-  // Utilisé par l'éditeur de playlist pour lister en direct les morceaux
-  // correspondant aux dossiers actuellement cochés (avant enregistrement).
-  function filesMatchingFolders(folderSet) {
-    if (!fileIndex || !folderSet || !folderSet.size) return [];
-    const folders = Array.from(folderSet);
-    return fileIndex.filter(f => {
-      const path = (f.folderPath || []).join(' / ');
-      return folders.some(folder => path === folder || path.startsWith(folder + ' / '));
+  // Le numéro d'ordre est posé sur le dossier, pas sur le morceau : tous
+  // les fichiers d'un même dossier héritent du même numéro. Si un fichier
+  // est couvert par plusieurs dossiers numérotés de la playlist (dossier
+  // parent et sous-dossier tous deux cochés), on prend le plus spécifique
+  // (le chemin le plus long).
+  function playlistOrderForFile(f, playlist) {
+    if (!playlist || !playlist.folders || !playlist.order) return undefined;
+    const path = (f.folderPath || []).join(' / ');
+    let best = null;
+    playlist.folders.forEach(folder => {
+      if (playlist.order[folder] === undefined) return;
+      if (path === folder || path.startsWith(folder + ' / ')) {
+        if (best === null || folder.length > best.length) best = folder;
+      }
     });
+    return best !== null ? playlist.order[best] : undefined;
   }
 
   // Écriture dans Firestore : tous les musiciens connectés reçoivent la
@@ -1215,64 +1206,43 @@
     });
   }
 
-  // Tableau d'ordre des morceaux : liste en direct tous les fichiers
-  // correspondant aux dossiers actuellement cochés, groupés par dossier
-  // (morceaux triés alphabétiquement à l'intérieur de chaque dossier) —
-  // un tri stable, qui ne bouge pas pendant la saisie des numéros.
-  // Un champ de filtre permet de retrouver un morceau par son nom quand
-  // la playlist contient beaucoup de dossiers.
+  // Second tableau : uniquement les dossiers actuellement cochés, avec
+  // un numéro d'ordre par dossier. Filtrable par nom (utile dès qu'il y
+  // a beaucoup de dossiers cochés). Tri alphabétique stable — il ne
+  // bouge pas pendant la saisie des numéros.
   function renderPlaylistOrderTable() {
     if (!playlistAdminOrderList) return;
-    let matches = filesMatchingFolders(playlistAdminSelectedFolders);
+    const checked = Array.from(playlistAdminSelectedFolders);
 
-    if (!matches.length) {
-      playlistAdminOrderList.innerHTML = `<div class="playlist-admin-editor-hint">Coche des dossiers ci-dessus pour voir apparaître les morceaux ici.</div>`;
+    if (!checked.length) {
+      playlistAdminOrderList.innerHTML = `<div class="playlist-admin-editor-hint">Coche des dossiers ci-dessus pour pouvoir les numéroter.</div>`;
       return;
     }
 
-    const query = normalize(playlistAdminOrderQuery || '');
-    if (query) {
-      matches = matches.filter(f => normalize(f.name).includes(query));
-    }
+    const normQuery = normalize(playlistAdminOrderQuery || '');
+    const visible = normQuery
+      ? checked.filter(folder => normalize(folder).includes(normQuery))
+      : checked;
 
-    if (!matches.length) {
-      playlistAdminOrderList.innerHTML = `<div class="playlist-admin-editor-hint">Aucun morceau ne correspond à « ${escapeHtml(playlistAdminOrderQuery)} ».</div>`;
+    if (!visible.length) {
+      playlistAdminOrderList.innerHTML = `<div class="playlist-admin-editor-hint">Aucun dossier coché ne correspond.</div>`;
       return;
     }
 
-    const sorted = matches.slice().sort((a, b) => {
-      const pa = (a.folderPath || []).join(' / ');
-      const pb = (b.folderPath || []).join(' / ');
-      if (pa !== pb) return pa.localeCompare(pb, 'fr');
-      return a.name.localeCompare(b.name, 'fr');
-    });
+    const sorted = visible.slice().sort((a, b) => a.localeCompare(b, 'fr'));
 
-    let html = '';
-    let lastFolder = null;
-    sorted.forEach(f => {
-      const folderLabel = (f.folderPath && f.folderPath.length) ? f.folderPath.join(' › ') : '(racine)';
-      if (folderLabel !== lastFolder) {
-        html += `<div class="playlist-order-folder-heading">${escapeHtml(folderLabel)}</div>`;
-        lastFolder = folderLabel;
-      }
-      const key = fileKey(f);
-      const current = playlistAdminOrder[key];
-      html += `
-        <div class="playlist-order-item">
-          <input type="number" class="playlist-order-input" data-order-key="${escapeHtml(key)}" value="${current !== undefined && current !== '' ? current : ''}" placeholder="—" min="1" inputmode="numeric">
-          <div class="playlist-order-item-name">
-            <span class="name-main">${escapeHtml(f.name)}</span>
-          </div>
-        </div>
-      `;
-    });
-    playlistAdminOrderList.innerHTML = html;
+    playlistAdminOrderList.innerHTML = sorted.map(folder => `
+      <div class="playlist-order-item">
+        <input type="number" class="playlist-order-input" data-order-folder="${escapeHtml(folder)}" value="${playlistAdminOrder[folder] !== undefined ? playlistAdminOrder[folder] : ''}" placeholder="—" min="1" inputmode="numeric">
+        <div class="playlist-order-item-name">${escapeHtml(folder)}</div>
+      </div>
+    `).join('');
 
-    playlistAdminOrderList.querySelectorAll('[data-order-key]').forEach(input => {
+    playlistAdminOrderList.querySelectorAll('[data-order-folder]').forEach(input => {
       input.addEventListener('input', () => {
         const val = input.value.trim();
-        if (val === '') delete playlistAdminOrder[input.dataset.orderKey];
-        else playlistAdminOrder[input.dataset.orderKey] = Number(val);
+        if (val === '') delete playlistAdminOrder[input.dataset.orderFolder];
+        else playlistAdminOrder[input.dataset.orderFolder] = Number(val);
       });
     });
   }
@@ -1328,14 +1298,12 @@
       const checked = Array.from(playlistAdminSelectedFolders);
       if (!checked.length) { alert('Coche au moins un dossier.'); return; }
 
-      // On ne garde dans l'ordre que les morceaux qui correspondent
-      // encore aux dossiers cochés (au cas où des dossiers ont été
-      // décochés entre-temps).
-      const stillMatching = new Set(filesMatchingFolders(playlistAdminSelectedFolders).map(fileKey));
+      // On ne garde dans l'ordre que les dossiers encore cochés (au cas
+      // où l'un d'eux aurait été décoché entre-temps).
       const order = {};
-      Object.keys(playlistAdminOrder).forEach(key => {
-        if (stillMatching.has(key) && playlistAdminOrder[key] !== undefined && playlistAdminOrder[key] !== '') {
-          order[key] = playlistAdminOrder[key];
+      checked.forEach(folder => {
+        if (playlistAdminOrder[folder] !== undefined && playlistAdminOrder[folder] !== '') {
+          order[folder] = playlistAdminOrder[folder];
         }
       });
 
@@ -1530,12 +1498,13 @@
     });
 
     // Quand une playlist est active, on affiche les morceaux dans l'ordre
-    // que le gérant lui a donné (numéros du tableau d'ordre). Les
-    // morceaux non numérotés passent après, par ordre alphabétique.
+    // donné aux dossiers (tous les morceaux d'un même dossier partagent
+    // son numéro). Ceux des dossiers non numérotés passent après, triés
+    // alphabétiquement, comme les morceaux à égalité de numéro.
     if (activePlaylist && activePlaylist.order) {
       files.sort((a, b) => {
-        const oa = activePlaylist.order[fileKey(a)];
-        const ob = activePlaylist.order[fileKey(b)];
+        const oa = playlistOrderForFile(a, activePlaylist);
+        const ob = playlistOrderForFile(b, activePlaylist);
         const na = (oa === undefined) ? Infinity : Number(oa);
         const nb = (ob === undefined) ? Infinity : Number(ob);
         if (na !== nb) return na - nb;
