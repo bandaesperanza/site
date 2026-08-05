@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Partothèque — BANDA ESPERANZA</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<meta name="theme-color" content="#15122E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Partothèque">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
@@ -11,32 +17,27 @@
 
 <script>
   // ==========================================================================
-  // CONFIGURATION — MODIFIEZ CES VALEURS AVANT UTILISATION
+  // CONFIGURATION
   // ==========================================================================
   const CONFIG = {
-    // Collez ici votre clé API Google Cloud (voir les instructions affichées
-    // dans la page tant que cette valeur n'est pas renseignée)
-    API_KEY: 'AIzaSyCoudkw--qC2sKwUw1dZKa1pzdU13BC-iY',
-
-    // ID du fichier "catalogue.json" généré par le script Apps Script
-    // (generer-catalogue.gs) — pas l'ID du dossier. Voir les instructions
-    // du script pour savoir où le récupérer.
-    CATALOG_FILE_ID: '1kvVr_MVxTg3ObbruxCC0AR1t50Z6cifS',
+    // Chemin du catalogue, relatif à cette page (généré par
+    // generer-catalogue-local.html, à placer à côté de cette page sur le site).
+    CATALOG_URL: './catalogue.json',
   };
   // ==========================================================================
 </script>
 
 <style>
   :root {
-    --paper: #F6F3EC;
+    --paper: #F5F2EF;
     --card: #FFFFFF;
-    --ink: #212B24;
-    --ink-soft: #5B6660;
-    --rule: #DCD5C4;
-    --stamp: #A85C2E;
-    --stamp-soft: #EFDFCB;
-    --focus: #2B4A3F;
-    --gold: #D9A24B;
+    --ink: #201D3D;
+    --ink-soft: #5B5770;
+    --rule: #DCD5DE;
+    --stamp: #C4302A;
+    --stamp-soft: #F5E1DE;
+    --focus: #2A2560;
+    --gold: #D9574B;
   }
 
   * { box-sizing: border-box; }
@@ -56,7 +57,7 @@
   }
 
   header {
-    background: linear-gradient(135deg, #2B4A3F 0%, #1A2E27 100%);
+    background: linear-gradient(135deg, #2A2560 0%, #15122E 100%);
     color: var(--paper);
     padding: 36px 32px 30px;
     border-radius: 10px;
@@ -76,6 +77,37 @@
     font-family: serif;
     pointer-events: none;
   }
+
+  .brand-mark {
+    display: block;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    margin-bottom: 14px;
+    position: relative;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  }
+
+  .page-reload-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(246, 243, 236, 0.35);
+    background: rgba(246, 243, 236, 0.08);
+    color: var(--paper);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.4s;
+  }
+  .page-reload-btn:hover { background: rgba(246, 243, 236, 0.18); }
+  .page-reload-btn:active { transform: rotate(180deg); }
 
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
@@ -105,6 +137,25 @@
     max-width: 46ch;
   }
 
+  .net-status {
+    position: relative;
+    margin-top: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--gold);
+    min-height: 14px;
+  }
+
+  .file-modified {
+    position: relative;
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    color: rgba(246, 243, 236, 0.5);
+  }
+
   /* --- Setup card ------------------------------------------------------ */
   .setup {
     background: var(--card);
@@ -132,6 +183,7 @@
   /* --- Search ------------------------------------------------------------ */
   .search-row {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     align-items: center;
     margin-bottom: 6px;
@@ -139,6 +191,7 @@
 
   .search-field {
     flex: 1;
+    min-width: 160px;
     position: relative;
   }
 
@@ -157,7 +210,7 @@
     border-color: var(--stamp);
     box-shadow: 0 0 0 3px var(--stamp-soft);
   }
-  .search-field input::placeholder { color: #9AA39C; }
+  .search-field input::placeholder { color: #9B97A8; }
 
   .status-line {
     font-family: 'IBM Plex Mono', monospace;
@@ -196,12 +249,124 @@
     font-weight: 500;
   }
 
-  #refresh-btn {
+  #refresh-btn, #offline-toggle-btn {
     flex-shrink: 0;
     white-space: nowrap;
-    align-self: stretch;
   }
   #refresh-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* --- Panneau hors-ligne -------------------------------------------------- */
+  .sync-panel {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+  }
+  .sync-panel-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+  }
+  .sync-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .sync-row:last-of-type { border-bottom: none; }
+  .sync-row-label {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 14px;
+    flex: 1;
+  }
+  .sync-row-status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    min-width: 72px;
+    text-align: right;
+  }
+  .sync-row-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 6px 12px;
+    border: 1px solid var(--focus);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--focus);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .sync-row-btn:hover { background: var(--focus); color: #fff; }
+  .sync-row-btn:disabled { opacity: 0.6; cursor: default; }
+  .sync-row-clear {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--stamp);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .sync-summary {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+  .sync-summary button {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: #A03B2A;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+
+  .debug-toggle {
+    margin-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    display: block;
+  }
+  .debug-log {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #171432;
+    color: #CDD0F0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .debug-log.hidden { display: none; }
+  .debug-toggle.hidden { display: none; }
 
   /* --- Results ------------------------------------------------------------ */
   .results { display: flex; flex-direction: column; gap: 10px; }
@@ -245,6 +410,20 @@
     word-break: break-word;
   }
 
+  .offline-badge {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--focus);
+    background: #E7E5F2;
+    border: 1px solid #C7C2DC;
+    border-radius: 3px;
+    padding: 2px 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+  }
+
   .card-result .detail {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
@@ -262,6 +441,7 @@
     color: var(--focus);
     text-decoration: none;
     border-bottom: 1px solid transparent;
+    cursor: pointer;
   }
   .card-result .links a:hover { border-bottom-color: var(--focus); }
 
@@ -282,21 +462,23 @@
 
 <div class="wrap">
   <header>
+    <button type="button" id="page-reload-btn" class="page-reload-btn" title="Recharger la page (F5)" aria-label="Recharger la page">↻</button>
+    <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
     <div class="eyebrow">Partothèque</div>
     <h1>Banda Esperanza</h1>
     <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
+    <div class="net-status" id="net-status"></div>
+    <div class="file-modified" id="file-modified"></div>
   </header>
 
-  <!-- Écran de configuration (visible tant que CATALOG_FILE_ID n'est pas renseigné) -->
+  <!-- Écran d'erreur (visible seulement si catalogue.json est introuvable) -->
   <div id="setup-screen" class="setup hidden">
-    <h2>Configuration requise</h2>
-    <p>Cette page lit un catalogue pré-généré (rapide et fiable) plutôt que de parcourir Drive en direct.</p>
+    <h2>Catalogue introuvable</h2>
+    <p>Impossible de charger <code id="catalog-url-shown"></code> et aucune copie hors-ligne n'est disponible.</p>
     <ol>
-      <li>Exécutez une fois le script <code>generer-catalogue.gs</code> (voir ses propres instructions) depuis <a href="https://script.google.com/" target="_blank" rel="noopener">script.google.com</a> : il crée un fichier <code>catalogue.json</code> dans le dossier Drive.</li>
-      <li>Dans le journal d'exécution du script, récupérez l'ID du fichier <code>catalogue.json</code> généré.</li>
-      <li>Collez cet ID dans la constante <code>CONFIG.CATALOG_FILE_ID</code> tout en haut du code source de cette page.</li>
-      <li>Si ce n'est pas déjà fait, renseignez aussi <code>CONFIG.API_KEY</code> (clé API Google Cloud avec l'API Drive activée — voir la documentation Google Cloud Console si besoin).</li>
-      <li>Enregistrez et rechargez la page.</li>
+      <li>Ouvrez <code>generer-catalogue-local.html</code> dans Chrome ou Edge sur un ordinateur pour générer un <code>catalogue.json</code> à partir du dossier des partitions synchronisé par Google Drive.</li>
+      <li>Déposez ce fichier à côté de cette page (même dossier) sur votre hébergement (GitHub Pages), avec le dossier des partitions correspondant.</li>
+      <li>Rechargez cette page.</li>
     </ol>
   </div>
 
@@ -307,8 +489,18 @@
       <div class="search-field">
         <input type="text" id="search-input" placeholder="Chercher un PDF par nom…" autocomplete="off">
       </div>
-      <button type="button" id="refresh-btn" class="filter-btn" title="Recharger le catalogue (relancez d'abord le script Apps Script si des fichiers ont changé)">↻ Actualiser</button>
+      <button type="button" id="offline-toggle-btn" class="filter-btn" title="Gérer les partitions disponibles hors-ligne">📥 Hors-ligne</button>
+      <button type="button" id="refresh-btn" class="filter-btn" title="Recharger le catalogue depuis Drive">↻ Actualiser</button>
     </div>
+
+    <div class="sync-panel hidden" id="sync-panel">
+      <div class="sync-panel-label">Synchroniser par instrument</div>
+      <div id="sync-list"></div>
+      <div class="sync-summary" id="sync-summary"></div>
+      <button type="button" id="debug-toggle-btn" class="debug-toggle">🔧 Journal technique</button>
+      <pre class="debug-log hidden" id="debug-log"></pre>
+    </div>
+
     <div class="status-line" id="status-line"></div>
     <div class="results" id="results"></div>
   </div>
@@ -318,37 +510,168 @@
 (function () {
   let debounceTimer = null;
   let activeFilterId = 'tous';
-
-  // Cache local de tous les PDF listés dans le catalogue.
-  // Construit une seule fois au chargement (puis sur clic "Actualiser"),
-  // ce qui évite de refaire des appels réseau à chaque frappe.
-  let fileIndex = null;        // Array<file> une fois chargé
+  let fileIndex = null;
+  let basePath = 'partitions';
   let isIndexing = false;
+  let cachedIds = new Set(); // ids des PDF déjà téléchargés en local (IndexedDB)
 
   const FILTERS = [
     { id: 'tous',       label: 'Tous',       keywords: null },
-    { id: 'picolo',     label: 'Picolo',     keywords: ['picolo', 'piccolo', 'flute', 'flûte'] },
+    { id: 'picolo',     label: 'Piccolo',    keywords: ['picolo', 'piccolo', 'flute', 'flûte'] },
     { id: 'clarinette', label: 'Clarinette', keywords: ['clarinette'] },
     { id: 'saxoalto',   label: 'Saxo alto',  keywords: ['saxo alto'] },
     { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
     { id: 'trompette',  label: 'Trompette',  keywords: ['trompette'] },
     { id: 'trombone',   label: 'Trombone',   keywords: ['trombone'] },
-    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'] },
+    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'], exclude: ['saxo baryton'] },
     { id: 'souba',      label: 'Souba',      keywords: ['souba'] },
   ];
 
-  const setupScreen = document.getElementById('setup-screen');
-  const appScreen    = document.getElementById('app-screen');
-  const searchInput  = document.getElementById('search-input');
-  const filterRow    = document.getElementById('filter-row');
-  const statusLine   = document.getElementById('status-line');
-  const resultsEl    = document.getElementById('results');
+  const setupScreen  = document.getElementById('setup-screen');
+  const appScreen     = document.getElementById('app-screen');
+  const searchInput   = document.getElementById('search-input');
+  const filterRow      = document.getElementById('filter-row');
+  const statusLine     = document.getElementById('status-line');
+  const resultsEl       = document.getElementById('results');
+  const netStatusEl      = document.getElementById('net-status');
+  const syncPanel          = document.getElementById('sync-panel');
+  const syncList             = document.getElementById('sync-list');
+  const syncSummary            = document.getElementById('sync-summary');
+  const debugToggleBtn         = document.getElementById('debug-toggle-btn');
+  const debugLogEl             = document.getElementById('debug-log');
+  const refreshBtn                = document.getElementById('refresh-btn');
+  const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
+  const fileModifiedEl                = document.getElementById('file-modified');
+  const pageReloadBtn                 = document.getElementById('page-reload-btn');
 
-  function isConfigured() {
-    return CONFIG.API_KEY && !CONFIG.API_KEY.includes('VOTRE_CLE_API')
-      && CONFIG.CATALOG_FILE_ID && !CONFIG.CATALOG_FILE_ID.includes('COLLEZ_ICI');
+  if (pageReloadBtn) {
+    pageReloadBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
   }
 
+  // Affiche la date/heure de dernière modification du fichier HTML
+  // lui-même (en-tête HTTP Last-Modified), pour vérifier au moment
+  // de diffuser le lien qu'on pointe bien vers la bonne version.
+  (function showFileModified() {
+    if (!fileModifiedEl) return;
+    fetch(window.location.href, { method: 'HEAD', cache: 'no-store' })
+      .then((res) => {
+        const lm = res.headers.get('Last-Modified');
+        if (!lm) return;
+        const d = new Date(lm);
+        const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        fileModifiedEl.textContent = `Fichier maj le ${dateStr} à ${timeStr}`;
+      })
+      .catch(() => {});
+  })();
+
+  // ---------------------------------------------------------------------
+  // IndexedDB : stockage local des PDF (blobs) et du dernier catalogue connu
+  // ---------------------------------------------------------------------
+  const DB_NAME = 'partotheque-db';
+  const DB_VERSION = 1;
+  let dbPromise = null;
+
+  function openDB() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('pdfs')) db.createObjectStore('pdfs', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('catalog')) db.createObjectStore('catalog', { keyPath: 'key' });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbPromise;
+  }
+
+  async function idbPut(store, value) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).put(value);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function idbGet(store, key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbGetAll(store) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbGetAllKeys(store) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).getAllKeys();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbDelete(store, key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function idbClear(store) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function refreshCachedIds() {
+    const keys = await idbGetAllKeys('pdfs');
+    cachedIds = new Set(keys);
+  }
+
+  // ---------------------------------------------------------------------
+  // Réseau / hors-ligne
+  // ---------------------------------------------------------------------
+  function updateNetStatus() {
+    netStatusEl.textContent = navigator.onLine ? '' : '🔌 Hors-ligne — les partitions non téléchargées sont indisponibles';
+  }
+  window.addEventListener('online', updateNetStatus);
+  window.addEventListener('offline', updateNetStatus);
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Init / filtres / recherche
+  // ---------------------------------------------------------------------
   function renderFilterButtons() {
     filterRow.innerHTML = FILTERS.map(f => `
       <button type="button" class="filter-btn${f.id === activeFilterId ? ' active' : ''}" data-filter-id="${f.id}">${f.label}</button>
@@ -364,25 +687,27 @@
   }
 
   function init() {
-    if (!isConfigured()) {
-      setupScreen.classList.remove('hidden');
-      appScreen.classList.add('hidden');
-      return;
-    }
-    setupScreen.classList.add('hidden');
     appScreen.classList.remove('hidden');
+    updateNetStatus();
     renderFilterButtons();
     searchInput.focus();
-    loadIndex();
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+    refreshCachedIds().then(loadCatalog);
   }
 
-  // Filtrage instantané : aucun appel réseau, on filtre le cache local.
   searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => applyFilters(searchInput.value.trim()), 120);
   });
 
-  document.getElementById('refresh-btn').addEventListener('click', () => loadIndex(true));
+  refreshBtn.addEventListener('click', () => loadCatalog(true));
+
+  offlineToggleBtn.addEventListener('click', () => {
+    syncPanel.classList.toggle('hidden');
+    if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
+  });
 
   function formatSize(bytes) {
     if (!bytes) return '—';
@@ -394,17 +719,21 @@
 
   function formatDate(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('fr-FR', {
-      day: '2-digit', month: 'short', year: 'numeric'
-    });
+    return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  // Charge le catalogue pré-généré (fichier catalogue.json produit par le
-  // script generer-catalogue.gs) en une seule requête — plus de parcours
-  // récursif de dossiers, plus de gestion de raccourcis/quotas ici : tout
-  // ça a déjà été fait une fois par le script, avec les pleins accès du
-  // compte Drive.
-  async function loadIndex(forceRefresh = false) {
+  // ---------------------------------------------------------------------
+  // Catalogue : réseau d'abord, cache local en secours si hors-ligne
+  // ---------------------------------------------------------------------
+  // Construit l'URL relative d'un PDF sur le site à partir de son chemin de
+  // dossier + nom (chaque segment encodé séparément pour gérer espaces,
+  // accents, apostrophes, etc.)
+  function buildFileUrl(f) {
+    const segments = [basePath, ...(f.folderPath || []), f.name];
+    return segments.map(s => encodeURIComponent(s)).join('/');
+  }
+
+  async function loadCatalog(forceRefresh = false) {
     if (isIndexing) return;
     if (fileIndex && !forceRefresh) {
       applyFilters(searchInput.value.trim());
@@ -412,51 +741,71 @@
     }
 
     isIndexing = true;
-    const refreshBtn = document.getElementById('refresh-btn');
     refreshBtn.disabled = true;
     statusLine.textContent = 'Chargement du catalogue…';
     resultsEl.innerHTML = '';
 
+    let loadedFromNetwork = false;
     try {
-      const params = new URLSearchParams({ alt: 'media', key: CONFIG.API_KEY });
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.CATALOG_FILE_ID}?` + params.toString());
-      if (!res.ok) {
-        const code = res.status;
-        throw new Error(
-          code === 403 || code === 404
-            ? "le fichier catalogue.json n'est pas accessible (ID incorrect, ou pas partagé publiquement)"
-            : ('Erreur ' + code)
-        );
+      const res = await fetch(CONFIG.CATALOG_URL, { cache: 'no-store' });
+      if (res.ok) {
+        const catalog = await res.json();
+        fileIndex = catalog.files || [];
+        basePath = catalog.basePath || basePath;
+        loadedFromNetwork = true;
+        idbPut('catalog', { key: 'catalog', files: fileIndex, basePath, fetchedAt: Date.now() }).catch(() => {});
       }
-      const files = await res.json();
-      fileIndex = files;
-      applyFilters(searchInput.value.trim());
-    } catch (e) {
-      fileIndex = null;
-      renderError('Impossible de charger le catalogue (' + (e.message || e.name || 'erreur réseau') + '). Vérifiez CONFIG.CATALOG_FILE_ID, ou régénérez le catalogue via le script generer-catalogue.gs.');
-    } finally {
-      isIndexing = false;
-      refreshBtn.disabled = false;
+    } catch (e) { /* pas de réseau : on retente le cache local ci-dessous */ }
+
+    if (!loadedFromNetwork) {
+      const cached = await idbGet('catalog', 'catalog').catch(() => null);
+      if (cached && cached.files) {
+        fileIndex = cached.files;
+        basePath = cached.basePath || basePath;
+        netStatusEl.textContent = `🔌 Hors-ligne — catalogue du ${formatDate(new Date(cached.fetchedAt).toISOString())} - Version du 03/08/2026`;
+      } else {
+        fileIndex = null;
+        setupScreen.classList.remove('hidden');
+        document.getElementById('catalog-url-shown').textContent = CONFIG.CATALOG_URL;
+        renderError("Impossible de charger le catalogue : pas de réseau, et aucune version hors-ligne enregistrée sur cet appareil. Connectez-vous une première fois pour l'initialiser.");
+        isIndexing = false;
+        refreshBtn.disabled = false;
+        return;
+      }
+    } else {
+      setupScreen.classList.add('hidden');
     }
+
+    applyFilters(searchInput.value.trim());
+    if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
+    isIndexing = false;
+    refreshBtn.disabled = false;
   }
 
   function normalize(str) {
-    // Insensible à la casse et aux accents, pour un filtrage plus tolérant.
     return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 
-  // Filtrage instantané dans le cache local : pas d'appel réseau.
+  function fileKey(f) {
+    return [...(f.folderPath || []), f.name].join('/');
+  }
+
+  function matchesInstrument(f, filter) {
+    if (!filter || !filter.keywords) return true;
+    const hay = normalize(f.name + ' ' + (f.folderPath || []).join(' '));
+    if (filter.exclude && filter.exclude.some(k => hay.includes(normalize(k)))) return false;
+    return filter.keywords.some(k => hay.includes(normalize(k)));
+  }
+
   function applyFilters(term) {
     if (!fileIndex) return;
 
-    // Ni instrument choisi, ni recherche tapée : on n'affiche rien plutôt
-    // que de déverser tout le catalogue.
     if (activeFilterId === 'tous' && !term) {
       renderResults([], term, true);
       return;
     }
 
-    const filterKeywords = FILTERS.find(f => f.id === activeFilterId).keywords;
+    const activeFilter = FILTERS.find(f => f.id === activeFilterId);
     const normTerm = term ? normalize(term) : '';
 
     const files = fileIndex.filter(f => {
@@ -464,7 +813,7 @@
       const normPath = normalize((f.folderPath || []).join(' '));
       const haystack = normName + ' ' + normPath;
       if (normTerm && !haystack.includes(normTerm)) return false;
-      if (filterKeywords && !filterKeywords.some(k => haystack.includes(normalize(k)))) return false;
+      if (activeFilter.keywords && !matchesInstrument(f, activeFilter)) return false;
       return true;
     });
 
@@ -479,9 +828,7 @@
     }
 
     if (files.length === 0) {
-      statusLine.textContent = term
-        ? `Aucun résultat pour « ${term} »`
-        : 'Aucun PDF dans ce dossier';
+      statusLine.textContent = term ? `Aucun résultat pour « ${term} »` : 'Aucun PDF dans ce dossier';
       resultsEl.innerHTML = `<div class="empty-state">${
         term ? 'Aucun fichier ne correspond à cette recherche.' : 'Ce dossier ne contient pas de PDF pour le moment.'
       }</div>`;
@@ -494,18 +841,68 @@
       <div class="card-result">
         <div class="icon">PDF</div>
         <div class="meta">
-          <p class="name">${escapeHtml(f.name)}</p>
+          <p class="name">${escapeHtml(f.name)}${cachedIds.has(fileKey(f)) ? '<span class="offline-badge">📥 hors-ligne</span>' : ''}</p>
           <div class="detail">
-            ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)} · modifié le ${formatDate(f.modifiedTime)}
+            ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)}${f.modifiedTime ? ' · modifié le ' + formatDate(f.modifiedTime) : ''}
           </div>
           <div class="links">
-            <a href="${f.webViewLink}" target="_blank" rel="noopener">Ouvrir</a>
-            ${f.webContentLink ? `<a href="${f.webContentLink}" target="_blank" rel="noopener">Télécharger</a>` : ''}
+            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" data-action="open" data-id="${escapeHtml(fileKey(f))}" data-name="${escapeHtml(f.name)}">Ouvrir</a>
+            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" download="${escapeHtml(f.name)}" data-action="download" data-id="${escapeHtml(fileKey(f))}" data-name="${escapeHtml(f.name)}">Télécharger</a>
           </div>
         </div>
       </div>
     `).join('');
   }
+
+  // Ouverture/téléchargement : utilise le blob local si le PDF est
+  // synchronisé (fonctionne hors-ligne), sinon laisse le lien standard
+  // agir normalement (ouvre/télécharge depuis le serveur en ligne).
+  resultsEl.addEventListener('click', async (e) => {
+    const link = e.target.closest('a[data-id]');
+    if (!link) return;
+    const id = link.dataset.id;
+    if (!cachedIds.has(id)) return; // pas en local : comportement par défaut du lien
+
+    e.preventDefault();
+
+    // Pour "Ouvrir", on ouvre l'onglet tout de suite, de façon synchrone
+    // avec le clic. Si on attend le résultat de idbGet (async) avant
+    // d'appeler window.open, le navigateur (Safari/iOS notamment) ne
+    // considère plus l'appel comme déclenché par un geste utilisateur et
+    // bloque le popup silencieusement — c'est ce qui obligeait à passer
+    // par "Télécharger" à la place quand le fichier était synchronisé.
+    // En PWA installée (mode standalone), l'ouverture d'un nouvel onglet
+    // peut en plus être purement ignorée par le système (newTab reste
+    // null ou fermé) : dans ce cas on bascule sur une navigation dans
+    // l'onglet courant, qui elle fonctionne toujours.
+    let newTab = null;
+    if (link.dataset.action !== 'download') {
+      try { newTab = window.open('', '_blank'); } catch (err) { newTab = null; }
+    }
+
+    const row = await idbGet('pdfs', id).catch(() => null);
+    if (!row || !row.blob) {
+      if (newTab && !newTab.closed) newTab.close();
+      return;
+    }
+    const url = URL.createObjectURL(row.blob);
+
+    if (link.dataset.action === 'download') {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = row.name || 'partition.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+    } else if (newTab && !newTab.closed) {
+      newTab.location.href = url;
+    } else {
+      // Onglet non disponible (bloqué ou PWA standalone) : on ouvre dans
+      // l'onglet en cours plutôt que de ne rien faire.
+      window.location.href = url;
+    }
+  });
 
   function renderError(msg) {
     statusLine.textContent = '';
@@ -516,6 +913,212 @@
     const d = document.createElement('div');
     d.textContent = str;
     return d.innerHTML;
+  }
+
+  // ---------------------------------------------------------------------
+  // Panneau "Hors-ligne" : synchronisation par instrument
+  // ---------------------------------------------------------------------
+  function renderSyncPanel() {
+    if (!fileIndex) return;
+
+    const instrumentFilters = FILTERS.filter(f => f.id !== 'tous');
+
+    syncList.innerHTML = instrumentFilters.map(f => {
+      const matches = fileIndex.filter(file => matchesInstrument(file, f));
+      const cachedCount = matches.filter(file => cachedIds.has(fileKey(file))).length;
+      const allCached = matches.length > 0 && cachedCount === matches.length;
+      return `
+        <div class="sync-row">
+          <div class="sync-row-label">${f.label}</div>
+          <div class="sync-row-status">${cachedCount}/${matches.length} en local</div>
+          <button type="button" class="sync-row-btn" data-sync="${f.id}" ${matches.length === 0 ? 'disabled' : ''}>
+            ${allCached ? '✓ Synchronisé' : '⇩ Synchroniser'}
+          </button>
+          ${cachedCount > 0 ? `<button type="button" class="sync-row-clear" data-clear="${f.id}" title="Retirer du stockage local">✕</button>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    renderSyncSummary();
+
+    syncList.querySelectorAll('[data-sync]').forEach(btn => {
+      btn.addEventListener('click', () => syncInstrument(btn.dataset.sync));
+    });
+    syncList.querySelectorAll('[data-clear]').forEach(btn => {
+      btn.addEventListener('click', () => clearInstrument(btn.dataset.clear));
+    });
+  }
+
+  async function renderSyncSummary() {
+    const rows = await idbGetAll('pdfs').catch(() => []);
+    const totalBytes = rows.reduce((sum, r) => sum + (r.size ? parseInt(r.size, 10) : 0), 0);
+
+    let quotaLine = '';
+    if (navigator.storage && navigator.storage.estimate) {
+      try {
+        const { usage, quota } = await navigator.storage.estimate();
+        if (typeof usage === 'number' && typeof quota === 'number' && quota > 0) {
+          const pct = Math.round((usage / quota) * 100);
+          quotaLine = `<div>Stockage navigateur : ${formatSize(usage)} / ${formatSize(quota)} (${pct}%)</div>`;
+        }
+      } catch (e) { /* estimation indisponible : on l'ignore simplement */ }
+    }
+
+    syncSummary.innerHTML = `
+      <div>
+        <div>${rows.length} PDF en local · ${formatSize(totalBytes)} utilisés</div>
+        ${quotaLine}
+      </div>
+      ${rows.length > 0 ? '<button type="button" id="clear-all-btn">🗑 Tout retirer du hors-ligne</button>' : ''}
+    `;
+    const clearAllBtn = document.getElementById('clear-all-btn');
+    if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllOffline);
+  }
+
+  // fetch() avec timeout + tentatives automatiques (backoff), pour distinguer
+  // un vrai blocage (quota API dépassé, fichier non partagé) d'un simple
+  // aléa réseau — et pour ne pas rester bloqué indéfiniment sur une requête
+  // qui ne répond pas (fréquent en 4G/faible réseau).
+  const debugLines = [];
+  function logDebug(msg) {
+    const t = new Date().toLocaleTimeString('fr-FR');
+    debugLines.push(`[${t}] ${msg}`);
+    if (debugLines.length > 300) debugLines.shift();
+    if (debugLogEl) {
+      debugLogEl.textContent = debugLines.join('\n');
+      debugLogEl.scrollTop = debugLogEl.scrollHeight;
+      if (msg.startsWith('✗') && debugLogEl.classList.contains('hidden')) {
+        debugLogEl.classList.remove('hidden');
+      }
+    }
+  }
+  if (debugToggleBtn) {
+    debugToggleBtn.addEventListener('click', () => {
+      debugLogEl.classList.toggle('hidden');
+    });
+  }
+
+  async function fetchWithRetry(url, { maxRetries = 3, timeoutMs = 25000, label = '', headers = {} } = {}) {
+    let lastErr;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { signal: controller.signal, headers });
+        clearTimeout(timer);
+        if (res.ok) return res;
+        if (res.status !== 403 && res.status !== 429 && res.status < 500) {
+          return res; // erreur définitive (404, fichier non partagé...) : inutile de réessayer
+        }
+        let reason = 'HTTP ' + res.status;
+        try {
+          const body = await res.clone().json();
+          if (body.error?.message) reason = res.status + ' — ' + body.error.message;
+        } catch (e) { /* pas de corps JSON exploitable */ }
+        lastErr = new Error(reason);
+        logDebug(`${label} — tentative ${attempt + 1}/${maxRetries + 1} : ${reason}`);
+      } catch (e) {
+        clearTimeout(timer);
+        lastErr = (e.name === 'AbortError') ? new Error('délai dépassé (réseau trop lent)') : e;
+        logDebug(`${label} — tentative ${attempt + 1}/${maxRetries + 1} : ${lastErr.message}`);
+      }
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 800 * Math.pow(2, attempt)));
+      }
+    }
+    throw lastErr || new Error('échec après plusieurs tentatives');
+  }
+
+  async function syncInstrument(filterId) {
+    const filter = FILTERS.find(f => f.id === filterId);
+    if (!filter || !fileIndex) return;
+
+    const matches = fileIndex.filter(f => matchesInstrument(f, filter));
+    const toDownload = matches.filter(f => !cachedIds.has(fileKey(f)));
+    if (toDownload.length === 0) return;
+
+    const btn = syncList.querySelector(`[data-sync="${filterId}"]`);
+    if (btn) btn.disabled = true;
+    let done = 0;
+    let failed = 0;
+    let quotaExceeded = false;
+    let lastErrorMessage = '';
+    const updateProgress = () => {
+      if (btn) btn.textContent = `⏳ ${done}/${toDownload.length}${failed ? ' (' + failed + ' échec' + (failed > 1 ? 's' : '') + ')' : ''}…`;
+    };
+    updateProgress();
+
+    // Fichiers servis en statique depuis le même site : plus fiable qu'un
+    // appel d'API distant, on peut se permettre un peu plus de parallélisme.
+    const CONCURRENT = 3;
+    let idx = 0;
+    async function worker() {
+      while (idx < toDownload.length) {
+        if (quotaExceeded) { idx = toDownload.length; return; }
+        const f = toDownload[idx++];
+        const key = fileKey(f);
+        try {
+          const res = await fetchWithRetry(buildFileUrl(f), { label: f.name });
+          if (res.ok) {
+            const blob = await res.blob();
+            try {
+              await idbPut('pdfs', { id: key, name: f.name, folderPath: f.folderPath, size: f.size, blob, cachedAt: Date.now() });
+              cachedIds.add(key);
+              logDebug(`✓ ${f.name} — ${formatSize(blob.size)}`);
+            } catch (idbErr) {
+              failed++;
+              lastErrorMessage = (idbErr && idbErr.message) || 'stockage local indisponible';
+              logDebug(`✗ ${f.name} — stockage : ${lastErrorMessage}`);
+              if (idbErr && (idbErr.name === 'QuotaExceededError' || /quota/i.test(idbErr.message || ''))) {
+                quotaExceeded = true;
+              }
+            }
+          } else {
+            failed++;
+            lastErrorMessage = 'HTTP ' + res.status;
+            logDebug(`✗ ${f.name} — HTTP ${res.status} (définitif)`);
+          }
+        } catch (e) {
+          failed++;
+          lastErrorMessage = (e && e.message) || 'erreur réseau';
+          logDebug(`✗ ${f.name} — abandon après tentatives : ${lastErrorMessage}`);
+        }
+        done++;
+        updateProgress();
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENT, toDownload.length) }, worker));
+
+    renderSyncPanel();
+    applyFilters(searchInput.value.trim());
+
+    if (quotaExceeded) {
+      netStatusEl.textContent = `⚠ Stockage plein sur l'appareil : ${done - failed}/${toDownload.length} téléchargés avant blocage. Libère de l'espace puis relance "Synchroniser".`;
+      debugLogEl.classList.remove('hidden');
+    } else if (failed > 0) {
+      netStatusEl.textContent = `⚠ ${failed}/${done} téléchargement${failed > 1 ? 's ont' : ' a'} échoué${failed > 1 ? '' : ''}. Dernière erreur : ${lastErrorMessage}. Relance "Synchroniser" pour réessayer juste ce qui manque.`;
+      debugLogEl.classList.remove('hidden');
+    }
+  }
+
+  async function clearInstrument(filterId) {
+    const filter = FILTERS.find(f => f.id === filterId);
+    if (!filter || !fileIndex) return;
+    const matches = fileIndex.filter(f => matchesInstrument(f, filter) && cachedIds.has(fileKey(f)));
+    for (const f of matches) {
+      const key = fileKey(f);
+      await idbDelete('pdfs', key).catch(() => {});
+      cachedIds.delete(key);
+    }
+    renderSyncPanel();
+    applyFilters(searchInput.value.trim());
+  }
+
+  async function clearAllOffline() {
+    await idbClear('pdfs').catch(() => {});
+    cachedIds.clear();
+    renderSyncPanel();
+    applyFilters(searchInput.value.trim());
   }
 
   window.addEventListener('load', init);
