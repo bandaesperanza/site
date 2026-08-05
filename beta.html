@@ -1533,12 +1533,22 @@
     const page = await pdfDoc.getPage(pdfPageNum);
     const baseViewport = page.getViewport({ scale: 1, rotation: pdfRotation });
     const containerWidth = pdfViewerOverlay.clientWidth - 24;
-    const scale = Math.min(2.4, (containerWidth / baseViewport.width) || 1);
-    const viewport = page.getViewport({ scale, rotation: pdfRotation });
+    // Échelle "visuelle" : celle qui fait tenir la page dans le conteneur.
+    const cssScale = Math.min(2.4, (containerWidth / baseViewport.width) || 1);
+    // Sur iPhone/écrans retina, 1 pixel CSS = 2 ou 3 pixels physiques : si on
+    // rend le canvas à la résolution CSS, il est ensuite étiré par l'écran
+    // et devient flou. On multiplie donc la résolution de rendu par le
+    // devicePixelRatio, puis on fixe la taille CSS du canvas séparément
+    // pour que l'affichage garde la même taille à l'écran, juste plus net.
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const renderScale = cssScale * dpr;
+    const viewport = page.getViewport({ scale: renderScale, rotation: pdfRotation });
 
     const ctx = pdfCanvas.getContext('2d');
     pdfCanvas.width = viewport.width;
     pdfCanvas.height = viewport.height;
+    pdfCanvas.style.width = (viewport.width / dpr) + 'px';
+    pdfCanvas.style.height = (viewport.height / dpr) + 'px';
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     pdfPageInfo.textContent = `${pdfPageNum} / ${pdfDoc.numPages}`;
