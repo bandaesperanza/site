@@ -317,6 +317,19 @@
     cursor: pointer;
     padding: 4px 6px;
   }
+  .playlist-order-input {
+    width: 40px;
+    flex-shrink: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    text-align: center;
+    padding: 5px 2px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--ink);
+  }
+  .playlist-order-input:focus { border-color: var(--stamp); outline: none; }
   .sync-summary {
     margin-top: 12px;
     padding-top: 12px;
@@ -647,8 +660,6 @@
   }
 
   #pdf-canvas {
-    max-width: 100%;
-    height: auto;
     background: #fff;
     box-shadow: 0 4px 24px rgba(0,0,0,0.4);
   }
@@ -1082,14 +1093,46 @@
       playlistAdminList.innerHTML = `<div class="playlist-admin-editor-hint">Aucune playlist pour l'instant.</div>`;
       return;
     }
-    playlistAdminList.innerHTML = playlists.map(p => `
+    playlistAdminList.innerHTML = playlists.map((p, i) => `
       <div class="sync-row">
+        <input type="number" class="playlist-order-input" data-order-id="${escapeHtml(p.id)}" value="${i + 1}" min="1" max="${playlists.length}" inputmode="numeric" title="Position dans la liste">
         <div class="sync-row-label">${escapeHtml(p.name)}</div>
         <div class="sync-row-status">${(p.folders || []).length} dossier${(p.folders || []).length > 1 ? 's' : ''}</div>
         <button type="button" class="sync-row-btn" data-edit-id="${escapeHtml(p.id)}">Modifier</button>
         <button type="button" class="sync-row-clear" data-delete-id="${escapeHtml(p.id)}">Suppr.</button>
       </div>
     `).join('');
+
+    playlistAdminList.querySelectorAll('[data-order-id]').forEach(input => {
+      const applyReorder = async () => {
+        const targetPos = Math.round(Number(input.value));
+        if (!targetPos || targetPos < 1) { renderPlaylistAdminList(); return; }
+        const fromIndex = playlists.findIndex(pl => pl.id === input.dataset.orderId);
+        if (fromIndex === -1) return;
+        const toIndex = Math.min(Math.max(targetPos - 1, 0), playlists.length - 1);
+        if (toIndex === fromIndex) { renderPlaylistAdminList(); return; }
+
+        const previous = playlists;
+        const reordered = playlists.slice();
+        const [moved] = reordered.splice(fromIndex, 1);
+        reordered.splice(toIndex, 0, moved);
+        playlists = reordered;
+        renderPlaylistAdminList();
+        renderPlaylistRow();
+        try {
+          await savePlaylistsRemote();
+        } catch (err) {
+          playlists = previous; // échec : on annule le changement local
+          renderPlaylistAdminList();
+          renderPlaylistRow();
+          alert("Échec de l'enregistrement (pas de réseau ?).");
+        }
+      };
+      input.addEventListener('change', applyReorder);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      });
+    });
 
     playlistAdminList.querySelectorAll('[data-edit-id]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1490,12 +1533,6 @@
   let pdfRotation = 0;
   let pdfPageNum = 1;
   let pdfDownloadName = 'partition.pdf';
-  // Rotation auto selon l'orientation du téléphone : activée par défaut,
-  // désactivée dès que le musicien touche un bouton de rotation manuel
-  // (reprend à la prochaine ouverture d'une partition).
-  let pdfAutoRotate = true;
-  let pdfPageNaturalPortrait = false;
-  const pdfOrientationMql = window.matchMedia('(orientation: landscape)');
   // Zoom tactile (pincement) : multiplicateur appliqué par-dessus la taille
   // CSS déjà calculée par renderPdfPage(). Remis à 1 à chaque nouveau rendu.
   let pdfZoom = 1;
@@ -1518,8 +1555,6 @@
     pdfDownloadName = name || 'partition.pdf';
     pdfRotation = 0;
     pdfPageNum = 1;
-    pdfAutoRotate = true;
-    pdfPageNaturalPortrait = false;
     pdfZoom = 1;
     pdfViewerTitle.textContent = name || '';
     pdfViewerStatus.textContent = 'Chargement…';
@@ -1543,16 +1578,6 @@
       pdfViewerStatus.classList.add('hidden');
       pdfCanvas.classList.remove('hidden');
       if (pdfDoc.numPages > 1) pdfViewerNav.classList.remove('hidden');
-
-      // Orientation naturelle de la page (avant toute rotation), pour
-      // savoir si la rotation auto doit s'appliquer une fois l'écran
-      // en paysage.
-      const firstPage = await pdfDoc.getPage(1);
-      const naturalViewport = firstPage.getViewport({ scale: 1, rotation: 0 });
-      pdfPageNaturalPortrait = naturalViewport.height > naturalViewport.width;
-      if (pdfAutoRotate && pdfOrientationMql.matches && pdfPageNaturalPortrait) {
-        pdfRotation = 90;
-      }
 
       await renderPdfPage();
     } catch (err) {
@@ -1599,19 +1624,6 @@
     pdfCanvas.style.height = (pdfBaseCssHeight * pdfZoom) + 'px';
   }
 
-  // Rotation automatique : ré-applique la rotation cible dès que
-  // l'orientation du téléphone change, sauf si le musicien a repris la
-  // main manuellement (pdfAutoRotate désactivé jusqu'à la prochaine
-  // ouverture de partition).
-  function applyPdfAutoRotation() {
-    if (!pdfAutoRotate || !pdfDoc) return;
-    const target = (pdfOrientationMql.matches && pdfPageNaturalPortrait) ? 90 : 0;
-    if (pdfRotation !== target) {
-      pdfRotation = target;
-      renderPdfPage();
-    }
-  }
-
   // Wake Lock : empêche la mise en veille de l'écran tant que le lecteur
   // est ouvert. Non bloquant si l'API n'existe pas (vieux Safari) ou si
   // le navigateur refuse (ex : batterie faible) — ce n'est qu'un confort.
@@ -1652,12 +1664,10 @@
 
   if (pdfViewerReady) {
     pdfRotateLeftBtn.addEventListener('click', () => {
-      pdfAutoRotate = false; // le musicien reprend la main
       pdfRotation = (pdfRotation - 90 + 360) % 360;
       renderPdfPage();
     });
     pdfRotateRightBtn.addEventListener('click', () => {
-      pdfAutoRotate = false;
       pdfRotation = (pdfRotation + 90) % 360;
       renderPdfPage();
     });
@@ -1686,12 +1696,6 @@
       if (!pdfDoc || pdfViewerOverlay.classList.contains('hidden')) return;
       clearTimeout(pdfResizeTimer);
       pdfResizeTimer = setTimeout(renderPdfPage, 150);
-    });
-
-    // Rotation auto : réagit aux changements d'orientation du téléphone.
-    pdfOrientationMql.addEventListener('change', () => {
-      if (!pdfDoc || pdfViewerOverlay.classList.contains('hidden')) return;
-      applyPdfAutoRotation();
     });
 
     // Plein écran : indisponible sur Safari iOS (l'API ne le permet pas
