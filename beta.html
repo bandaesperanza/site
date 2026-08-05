@@ -317,8 +317,34 @@
     cursor: pointer;
     padding: 4px 6px;
   }
+  .playlist-order-list {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 4px 12px;
+    margin-bottom: 14px;
+    background: var(--paper);
+  }
+  .playlist-order-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .playlist-order-item:last-child { border-bottom: none; }
+  .playlist-order-item-name { flex: 1; min-width: 0; }
+  .playlist-order-item-name .name-main { display: block; }
+  .playlist-order-item-name .name-path {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+  }
   .playlist-order-input {
-    width: 40px;
+    width: 44px;
     flex-shrink: 0;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 13px;
@@ -740,6 +766,8 @@
         <div class="playlist-admin-editor-hint">Dossiers à inclure :</div>
         <input type="text" id="playlist-admin-folder-search" class="playlist-admin-name-input" placeholder="Filtrer les dossiers…" autocomplete="off">
         <div id="playlist-admin-folder-list" class="playlist-admin-folder-list"></div>
+        <div class="playlist-admin-editor-hint">Ordre des morceaux (numérote-les pour fixer l'ordre d'affichage) :</div>
+        <div id="playlist-admin-order-list" class="playlist-order-list"></div>
         <div class="playlist-admin-editor-actions">
           <button type="button" id="playlist-admin-save-btn" class="sync-row-btn">Enregistrer</button>
           <button type="button" id="playlist-admin-cancel-btn" class="playlist-admin-text-btn">Annuler</button>
@@ -813,6 +841,7 @@
   let editingPlaylistId = null; // null = création d'une nouvelle playlist
   let playlistAdminAllFolders = [];
   let playlistAdminSelectedFolders = new Set();
+  let playlistAdminOrder = {}; // { fileKey: numéro d'ordre } pour la playlist en cours d'édition
 
   const FILTERS = [
     { id: 'tous',       label: 'Tous',       keywords: null },
@@ -849,6 +878,7 @@
   const playlistAdminEditor           = document.getElementById('playlist-admin-editor');
   const playlistAdminNameInput        = document.getElementById('playlist-admin-name-input');
   const playlistAdminFolderList       = document.getElementById('playlist-admin-folder-list');
+  const playlistAdminOrderList        = document.getElementById('playlist-admin-order-list');
   const playlistAdminFolderSearch     = document.getElementById('playlist-admin-folder-search');
   const playlistAdminNewBtn           = document.getElementById('playlist-admin-new-btn');
   const playlistAdminSaveBtn          = document.getElementById('playlist-admin-save-btn');
@@ -859,7 +889,7 @@
   // fonctionnalité concernée au lieu de planter tous les scripts.
   const playlistsReady = !!(playlistRow && playlistAdminToggleBtn && playlistAdminPanel &&
     playlistAdminList && playlistAdminEditor && playlistAdminNameInput && playlistAdminFolderList &&
-    playlistAdminFolderSearch && playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
+    playlistAdminOrderList && playlistAdminFolderSearch && playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
 
   if (pageReloadBtn) {
     pageReloadBtn.addEventListener('click', () => {
@@ -1036,6 +1066,17 @@
     return playlist.folders.some(folder => path === folder || path.startsWith(folder + ' / '));
   }
 
+  // Utilisé par l'éditeur de playlist pour lister en direct les morceaux
+  // correspondant aux dossiers actuellement cochés (avant enregistrement).
+  function filesMatchingFolders(folderSet) {
+    if (!fileIndex || !folderSet || !folderSet.size) return [];
+    const folders = Array.from(folderSet);
+    return fileIndex.filter(f => {
+      const path = (f.folderPath || []).join(' / ');
+      return folders.some(folder => path === folder || path.startsWith(folder + ' / '));
+    });
+  }
+
   // Écriture dans Firestore : tous les musiciens connectés reçoivent la
   // mise à jour en direct via subscribeToPlaylists() ci-dessous, pas
   // besoin de recharger la page.
@@ -1093,46 +1134,14 @@
       playlistAdminList.innerHTML = `<div class="playlist-admin-editor-hint">Aucune playlist pour l'instant.</div>`;
       return;
     }
-    playlistAdminList.innerHTML = playlists.map((p, i) => `
+    playlistAdminList.innerHTML = playlists.map(p => `
       <div class="sync-row">
-        <input type="number" class="playlist-order-input" data-order-id="${escapeHtml(p.id)}" value="${i + 1}" min="1" max="${playlists.length}" inputmode="numeric" title="Position dans la liste">
         <div class="sync-row-label">${escapeHtml(p.name)}</div>
         <div class="sync-row-status">${(p.folders || []).length} dossier${(p.folders || []).length > 1 ? 's' : ''}</div>
         <button type="button" class="sync-row-btn" data-edit-id="${escapeHtml(p.id)}">Modifier</button>
         <button type="button" class="sync-row-clear" data-delete-id="${escapeHtml(p.id)}">Suppr.</button>
       </div>
     `).join('');
-
-    playlistAdminList.querySelectorAll('[data-order-id]').forEach(input => {
-      const applyReorder = async () => {
-        const targetPos = Math.round(Number(input.value));
-        if (!targetPos || targetPos < 1) { renderPlaylistAdminList(); return; }
-        const fromIndex = playlists.findIndex(pl => pl.id === input.dataset.orderId);
-        if (fromIndex === -1) return;
-        const toIndex = Math.min(Math.max(targetPos - 1, 0), playlists.length - 1);
-        if (toIndex === fromIndex) { renderPlaylistAdminList(); return; }
-
-        const previous = playlists;
-        const reordered = playlists.slice();
-        const [moved] = reordered.splice(fromIndex, 1);
-        reordered.splice(toIndex, 0, moved);
-        playlists = reordered;
-        renderPlaylistAdminList();
-        renderPlaylistRow();
-        try {
-          await savePlaylistsRemote();
-        } catch (err) {
-          playlists = previous; // échec : on annule le changement local
-          renderPlaylistAdminList();
-          renderPlaylistRow();
-          alert("Échec de l'enregistrement (pas de réseau ?).");
-        }
-      };
-      input.addEventListener('change', applyReorder);
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      });
-    });
 
     playlistAdminList.querySelectorAll('[data-edit-id]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1188,7 +1197,56 @@
       cb.addEventListener('change', () => {
         if (cb.checked) playlistAdminSelectedFolders.add(cb.value);
         else playlistAdminSelectedFolders.delete(cb.value);
+        renderPlaylistOrderTable();
       });
+    });
+  }
+
+  // Tableau d'ordre des morceaux : liste en direct tous les fichiers
+  // correspondant aux dossiers actuellement cochés, avec un numéro
+  // modifiable par ligne. Triés par numéro (les non-numérotés à la fin,
+  // par ordre alphabétique) pour que la position se voie tout de suite.
+  function renderPlaylistOrderTable() {
+    if (!playlistAdminOrderList) return;
+    const matches = filesMatchingFolders(playlistAdminSelectedFolders);
+
+    if (!matches.length) {
+      playlistAdminOrderList.innerHTML = `<div class="playlist-admin-editor-hint">Coche des dossiers ci-dessus pour voir apparaître les morceaux ici.</div>`;
+      return;
+    }
+
+    const sorted = matches.slice().sort((a, b) => {
+      const oa = playlistAdminOrder[fileKey(a)];
+      const ob = playlistAdminOrder[fileKey(b)];
+      const na = (oa === undefined || oa === '') ? Infinity : Number(oa);
+      const nb = (ob === undefined || ob === '') ? Infinity : Number(ob);
+      if (na !== nb) return na - nb;
+      return a.name.localeCompare(b.name, 'fr');
+    });
+
+    playlistAdminOrderList.innerHTML = sorted.map((f, i) => {
+      const key = fileKey(f);
+      const current = playlistAdminOrder[key];
+      return `
+        <div class="playlist-order-item">
+          <input type="number" class="playlist-order-input" data-order-key="${escapeHtml(key)}" value="${current !== undefined && current !== '' ? current : ''}" placeholder="${i + 1}" min="1" inputmode="numeric">
+          <div class="playlist-order-item-name">
+            <span class="name-main">${escapeHtml(f.name)}</span>
+            ${f.folderPath && f.folderPath.length ? `<span class="name-path">${escapeHtml(f.folderPath.join(' › '))}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    playlistAdminOrderList.querySelectorAll('[data-order-key]').forEach(input => {
+      input.addEventListener('input', () => {
+        const val = input.value.trim();
+        if (val === '') delete playlistAdminOrder[input.dataset.orderKey];
+        else playlistAdminOrder[input.dataset.orderKey] = Number(val);
+      });
+      // Le tri visuel ne se rafraîchit qu'à la sortie du champ, pour ne
+      // pas faire sauter la ligne sous le doigt pendant la saisie.
+      input.addEventListener('change', renderPlaylistOrderTable);
     });
   }
 
@@ -1196,9 +1254,11 @@
     editingPlaylistId = playlist ? playlist.id : null;
     playlistAdminNameInput.value = playlist ? playlist.name : '';
     playlistAdminSelectedFolders = new Set(playlist ? playlist.folders : []);
+    playlistAdminOrder = Object.assign({}, playlist && playlist.order ? playlist.order : {});
     playlistAdminAllFolders = getAllFolderPaths();
     playlistAdminFolderSearch.value = '';
     renderFolderChecklist('');
+    renderPlaylistOrderTable();
 
     playlistAdminEditor.classList.remove('hidden');
     playlistAdminNameInput.focus();
@@ -1210,7 +1270,9 @@
     playlistAdminNameInput.value = '';
     playlistAdminFolderSearch.value = '';
     playlistAdminFolderList.innerHTML = '';
+    playlistAdminOrderList.innerHTML = '';
     playlistAdminSelectedFolders = new Set();
+    playlistAdminOrder = {};
   }
 
   if (playlistsReady) {
@@ -1231,11 +1293,22 @@
       const checked = Array.from(playlistAdminSelectedFolders);
       if (!checked.length) { alert('Coche au moins un dossier.'); return; }
 
+      // On ne garde dans l'ordre que les morceaux qui correspondent
+      // encore aux dossiers cochés (au cas où des dossiers ont été
+      // décochés entre-temps).
+      const stillMatching = new Set(filesMatchingFolders(playlistAdminSelectedFolders).map(fileKey));
+      const order = {};
+      Object.keys(playlistAdminOrder).forEach(key => {
+        if (stillMatching.has(key) && playlistAdminOrder[key] !== undefined && playlistAdminOrder[key] !== '') {
+          order[key] = playlistAdminOrder[key];
+        }
+      });
+
       const previous = playlists;
       if (editingPlaylistId) {
-        playlists = playlists.map(pl => pl.id === editingPlaylistId ? { ...pl, name, folders: checked } : pl);
+        playlists = playlists.map(pl => pl.id === editingPlaylistId ? { ...pl, name, folders: checked, order } : pl);
       } else {
-        playlists = [...playlists, { id: uniquePlaylistId(name), name, folders: checked }];
+        playlists = [...playlists, { id: uniquePlaylistId(name), name, folders: checked, order }];
       }
       closePlaylistEditor();
       renderPlaylistAdminList();
@@ -1420,6 +1493,20 @@
       if (activeFilter.keywords && !matchesInstrument(f, activeFilter)) return false;
       return true;
     });
+
+    // Quand une playlist est active, on affiche les morceaux dans l'ordre
+    // que le gérant lui a donné (numéros du tableau d'ordre). Les
+    // morceaux non numérotés passent après, par ordre alphabétique.
+    if (activePlaylist && activePlaylist.order) {
+      files.sort((a, b) => {
+        const oa = activePlaylist.order[fileKey(a)];
+        const ob = activePlaylist.order[fileKey(b)];
+        const na = (oa === undefined) ? Infinity : Number(oa);
+        const nb = (ob === undefined) ? Infinity : Number(ob);
+        if (na !== nb) return na - nb;
+        return a.name.localeCompare(b.name, 'fr');
+      });
+    }
 
     renderResults(files, term);
   }
