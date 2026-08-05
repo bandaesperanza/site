@@ -727,6 +727,7 @@
       <div id="playlist-admin-editor" class="playlist-admin-editor hidden">
         <input type="text" id="playlist-admin-name-input" class="playlist-admin-name-input" placeholder="Nom de la playlist (ex : Concert de Noël)">
         <div class="playlist-admin-editor-hint">Dossiers à inclure :</div>
+        <input type="text" id="playlist-admin-folder-search" class="playlist-admin-name-input" placeholder="Filtrer les dossiers…" autocomplete="off">
         <div id="playlist-admin-folder-list" class="playlist-admin-folder-list"></div>
         <div class="playlist-admin-editor-actions">
           <button type="button" id="playlist-admin-save-btn" class="sync-row-btn">Enregistrer</button>
@@ -798,6 +799,8 @@
   let playlists = [];
   let activePlaylistId = 'toutes';
   let editingPlaylistId = null; // null = création d'une nouvelle playlist
+  let playlistAdminAllFolders = [];
+  let playlistAdminSelectedFolders = new Set();
 
   const FILTERS = [
     { id: 'tous',       label: 'Tous',       keywords: null },
@@ -834,6 +837,7 @@
   const playlistAdminEditor           = document.getElementById('playlist-admin-editor');
   const playlistAdminNameInput        = document.getElementById('playlist-admin-name-input');
   const playlistAdminFolderList       = document.getElementById('playlist-admin-folder-list');
+  const playlistAdminFolderSearch     = document.getElementById('playlist-admin-folder-search');
   const playlistAdminNewBtn           = document.getElementById('playlist-admin-new-btn');
   const playlistAdminSaveBtn          = document.getElementById('playlist-admin-save-btn');
   const playlistAdminCancelBtn        = document.getElementById('playlist-admin-cancel-btn');
@@ -843,7 +847,7 @@
   // fonctionnalité concernée au lieu de planter tous les scripts.
   const playlistsReady = !!(playlistRow && playlistAdminToggleBtn && playlistAdminPanel &&
     playlistAdminList && playlistAdminEditor && playlistAdminNameInput && playlistAdminFolderList &&
-    playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
+    playlistAdminFolderSearch && playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
 
   if (pageReloadBtn) {
     pageReloadBtn.addEventListener('click', () => {
@@ -1114,22 +1118,43 @@
     });
   }
 
+  function renderFolderChecklist(query) {
+    const normQuery = normalize(query || '');
+    const visible = normQuery
+      ? playlistAdminAllFolders.filter(folder => normalize(folder).includes(normQuery))
+      : playlistAdminAllFolders;
+
+    if (!playlistAdminAllFolders.length) {
+      playlistAdminFolderList.innerHTML = `<div class="playlist-admin-editor-hint">Charge d'abord le catalogue (aucun dossier détecté pour l'instant).</div>`;
+      return;
+    }
+    if (!visible.length) {
+      playlistAdminFolderList.innerHTML = `<div class="playlist-admin-editor-hint">Aucun dossier ne correspond.</div>`;
+      return;
+    }
+
+    playlistAdminFolderList.innerHTML = visible.map((folder, i) => `
+      <label class="playlist-admin-folder-item" for="pl-folder-${i}">
+        <input type="checkbox" value="${escapeHtml(folder)}" ${playlistAdminSelectedFolders.has(folder) ? 'checked' : ''} id="pl-folder-${i}">
+        ${escapeHtml(folder)}
+      </label>
+    `).join('');
+
+    playlistAdminFolderList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) playlistAdminSelectedFolders.add(cb.value);
+        else playlistAdminSelectedFolders.delete(cb.value);
+      });
+    });
+  }
+
   function openPlaylistEditor(playlist) {
     editingPlaylistId = playlist ? playlist.id : null;
     playlistAdminNameInput.value = playlist ? playlist.name : '';
-    const selected = new Set(playlist ? playlist.folders : []);
-    const folders = getAllFolderPaths();
-
-    if (!folders.length) {
-      playlistAdminFolderList.innerHTML = `<div class="playlist-admin-editor-hint">Charge d'abord le catalogue (aucun dossier détecté pour l'instant).</div>`;
-    } else {
-      playlistAdminFolderList.innerHTML = folders.map((folder, i) => `
-        <label class="playlist-admin-folder-item" for="pl-folder-${i}">
-          <input type="checkbox" value="${escapeHtml(folder)}" ${selected.has(folder) ? 'checked' : ''} id="pl-folder-${i}">
-          ${escapeHtml(folder)}
-        </label>
-      `).join('');
-    }
+    playlistAdminSelectedFolders = new Set(playlist ? playlist.folders : []);
+    playlistAdminAllFolders = getAllFolderPaths();
+    playlistAdminFolderSearch.value = '';
+    renderFolderChecklist('');
 
     playlistAdminEditor.classList.remove('hidden');
     playlistAdminNameInput.focus();
@@ -1139,7 +1164,9 @@
     editingPlaylistId = null;
     playlistAdminEditor.classList.add('hidden');
     playlistAdminNameInput.value = '';
+    playlistAdminFolderSearch.value = '';
     playlistAdminFolderList.innerHTML = '';
+    playlistAdminSelectedFolders = new Set();
   }
 
   if (playlistsReady) {
@@ -1150,11 +1177,14 @@
 
     playlistAdminNewBtn.addEventListener('click', () => openPlaylistEditor(null));
     playlistAdminCancelBtn.addEventListener('click', closePlaylistEditor);
+    playlistAdminFolderSearch.addEventListener('input', () => {
+      renderFolderChecklist(playlistAdminFolderSearch.value);
+    });
 
     playlistAdminSaveBtn.addEventListener('click', async () => {
       const name = playlistAdminNameInput.value.trim();
       if (!name) { alert('Donne un nom à la playlist.'); return; }
-      const checked = Array.from(playlistAdminFolderList.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.value);
+      const checked = Array.from(playlistAdminSelectedFolders);
       if (!checked.length) { alert('Coche au moins un dossier.'); return; }
 
       const previous = playlists;
@@ -1327,13 +1357,14 @@
   function applyFilters(term) {
     if (!fileIndex) return;
 
-    if (activeFilterId === 'tous' && !term) {
+    const activePlaylist = playlists.find(p => p.id === activePlaylistId) || null;
+
+    if (activeFilterId === 'tous' && !term && !activePlaylist) {
       renderResults([], term, true);
       return;
     }
 
     const activeFilter = FILTERS.find(f => f.id === activeFilterId);
-    const activePlaylist = playlists.find(p => p.id === activePlaylistId) || null;
     const normTerm = term ? normalize(term) : '';
 
     const files = fileIndex.filter(f => {
