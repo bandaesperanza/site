@@ -12,6 +12,9 @@
 <meta name="apple-mobile-web-app-title" content="Partothèque">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -88,6 +91,27 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   }
 
+  .page-reload-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(246, 243, 236, 0.35);
+    background: rgba(246, 243, 236, 0.08);
+    color: var(--paper);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.4s;
+  }
+  .page-reload-btn:hover { background: rgba(246, 243, 236, 0.18); }
+  .page-reload-btn:active { transform: rotate(180deg); }
+
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -124,6 +148,15 @@
     letter-spacing: 0.04em;
     color: var(--gold);
     min-height: 14px;
+  }
+
+  .file-modified {
+    position: relative;
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    color: rgba(246, 243, 236, 0.5);
   }
 
   /* --- Setup card ------------------------------------------------------ */
@@ -309,6 +342,127 @@
     padding: 0;
   }
 
+  .playlist-admin-new-btn { margin-top: 4px; }
+
+  .playlist-admin-bar {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 14px;
+  }
+  .playlist-admin-bar-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 7px 16px;
+    cursor: pointer;
+  }
+  .playlist-admin-bar-btn:hover { border-color: var(--gold); color: var(--ink); }
+
+  .playlist-zone {
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: var(--card);
+    padding: 14px 16px;
+    margin-bottom: 18px;
+  }
+  .playlist-zone-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .playlist-zone-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .playlist-zone-empty {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .playlist-admin-editor {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--rule);
+  }
+  .playlist-admin-name-input {
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    padding: 9px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    box-sizing: border-box;
+  }
+  .playlist-admin-name-input:focus { border-color: var(--stamp); outline: none; }
+  .playlist-admin-editor-hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .playlist-admin-folder-list {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 4px 12px;
+    margin-bottom: 14px;
+    background: var(--paper);
+  }
+  .playlist-admin-folder-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+  }
+  .playlist-admin-folder-item:last-child { border-bottom: none; }
+  .playlist-admin-folder-item input { flex-shrink: 0; width: 16px; height: 16px; }
+  .playlist-admin-editor-actions { display: flex; align-items: center; gap: 16px; }
+  .playlist-admin-text-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 6px 2px;
+  }
+  .playlist-admin-export-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--rule);
+  }
+  .playlist-admin-note {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+  .playlist-admin-note code {
+    background: var(--paper);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
   .debug-toggle {
     margin-top: 10px;
     font-family: 'IBM Plex Mono', monospace;
@@ -427,16 +581,125 @@
   }
   .error-state { color: #A03B2A; border-color: #E3B6A8; background: #FBEEEA; }
 
+  /* Lecteur PDF en overlay, avec rotation de page */
+  .pdf-viewer-overlay {
+    position: fixed;
+    inset: 0;
+    background: #12100F;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pdf-viewer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #1c1a19;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+
+  .pdf-viewer-title {
+    color: #F0ECE4;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pdf-viewer-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  .pdf-viewer-actions button {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: #F0ECE4;
+    font-size: 17px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pdf-viewer-actions button:hover { background: rgba(255,255,255,0.14); }
+  .pdf-viewer-actions button:active { transform: scale(0.94); }
+
+  .pdf-viewer-body {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 18px 12px 90px;
+  }
+
+  .pdf-viewer-status {
+    color: #B8B2A8;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    margin-top: 40px;
+  }
+
+  #pdf-canvas {
+    max-width: 100%;
+    height: auto;
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  #pdf-canvas.hidden { display: none; }
+
+  .pdf-viewer-nav {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(28, 26, 25, 0.92);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
+    padding: 8px 18px;
+  }
+
+  .pdf-viewer-nav button {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    color: #F0ECE4;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .pdf-viewer-nav button:disabled { opacity: 0.35; cursor: default; }
+
+  #pdf-page-info {
+    color: #F0ECE4;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    min-width: 60px;
+    text-align: center;
+  }
+
   .hidden { display: none !important; }
 </style>
 
 <div class="wrap">
   <header>
+    <button type="button" id="page-reload-btn" class="page-reload-btn" title="Recharger la page (F5)" aria-label="Recharger la page">↻</button>
     <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
     <div class="eyebrow">Partothèque</div>
     <h1>Banda Esperanza</h1>
     <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
     <div class="net-status" id="net-status"></div>
+    <div class="file-modified" id="file-modified"></div>
   </header>
 
   <!-- Écran d'erreur (visible seulement si catalogue.json est introuvable) -->
@@ -452,6 +715,35 @@
 
   <!-- Écran principal -->
   <div id="app-screen" class="hidden">
+    <div class="playlist-admin-bar">
+      <button type="button" id="playlist-admin-toggle-btn" class="playlist-admin-bar-btn" title="Créer et gérer les playlists">🎼 Gérer les playlists</button>
+    </div>
+
+    <div class="sync-panel hidden" id="playlist-admin-panel">
+      <div class="sync-panel-label">Gérer les playlists</div>
+
+      <div id="playlist-admin-list"></div>
+
+      <div id="playlist-admin-editor" class="playlist-admin-editor hidden">
+        <input type="text" id="playlist-admin-name-input" class="playlist-admin-name-input" placeholder="Nom de la playlist (ex : Concert de Noël)">
+        <div class="playlist-admin-editor-hint">Dossiers à inclure :</div>
+        <div id="playlist-admin-folder-list" class="playlist-admin-folder-list"></div>
+        <div class="playlist-admin-editor-actions">
+          <button type="button" id="playlist-admin-save-btn" class="sync-row-btn">Enregistrer</button>
+          <button type="button" id="playlist-admin-cancel-btn" class="playlist-admin-text-btn">Annuler</button>
+        </div>
+      </div>
+
+      <button type="button" id="playlist-admin-new-btn" class="filter-btn playlist-admin-new-btn">+ Nouvelle playlist</button>
+
+      <p class="playlist-admin-note">Les changements sont visibles par tous les musiciens immédiatement, pas de fichier à déposer.</p>
+    </div>
+
+    <div class="playlist-zone" id="playlist-zone">
+      <div class="playlist-zone-label">Playlist</div>
+      <div class="playlist-zone-row" id="playlist-row"><span class="playlist-zone-empty">Tous les morceaux</span></div>
+    </div>
+
     <div class="filter-row" id="filter-row"></div>
     <div class="search-row">
       <div class="search-field">
@@ -474,6 +766,27 @@
   </div>
 </div>
 
+<div id="pdf-viewer-overlay" class="pdf-viewer-overlay hidden">
+  <div class="pdf-viewer-toolbar">
+    <span class="pdf-viewer-title" id="pdf-viewer-title"></span>
+    <div class="pdf-viewer-actions">
+      <button type="button" id="pdf-rotate-left" title="Pivoter à gauche (-90°)" aria-label="Pivoter à gauche">⟲</button>
+      <button type="button" id="pdf-rotate-right" title="Pivoter à droite (+90°)" aria-label="Pivoter à droite">⟳</button>
+      <button type="button" id="pdf-viewer-download" title="Télécharger" aria-label="Télécharger">⬇</button>
+      <button type="button" id="pdf-viewer-close" title="Fermer" aria-label="Fermer">✕</button>
+    </div>
+  </div>
+  <div class="pdf-viewer-body" id="pdf-viewer-body">
+    <div class="pdf-viewer-status" id="pdf-viewer-status">Chargement…</div>
+    <canvas id="pdf-canvas"></canvas>
+  </div>
+  <div class="pdf-viewer-nav hidden" id="pdf-viewer-nav">
+    <button type="button" id="pdf-prev-page" aria-label="Page précédente">‹</button>
+    <span id="pdf-page-info"></span>
+    <button type="button" id="pdf-next-page" aria-label="Page suivante">›</button>
+  </div>
+</div>
+
 <script>
 (function () {
   let debounceTimer = null;
@@ -482,6 +795,9 @@
   let basePath = 'partitions';
   let isIndexing = false;
   let cachedIds = new Set(); // ids des PDF déjà téléchargés en local (IndexedDB)
+  let playlists = [];
+  let activePlaylistId = 'toutes';
+  let editingPlaylistId = null; // null = création d'une nouvelle playlist
 
   const FILTERS = [
     { id: 'tous',       label: 'Tous',       keywords: null },
@@ -491,7 +807,7 @@
     { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
     { id: 'trompette',  label: 'Trompette',  keywords: ['trompette'] },
     { id: 'trombone',   label: 'Trombone',   keywords: ['trombone'] },
-    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'] },
+    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'], exclude: ['saxo baryton'] },
     { id: 'souba',      label: 'Souba',      keywords: ['souba'] },
   ];
 
@@ -509,12 +825,54 @@
   const debugLogEl             = document.getElementById('debug-log');
   const refreshBtn                = document.getElementById('refresh-btn');
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
+  const fileModifiedEl                = document.getElementById('file-modified');
+  const pageReloadBtn                 = document.getElementById('page-reload-btn');
+  const playlistRow                   = document.getElementById('playlist-row');
+  const playlistAdminToggleBtn        = document.getElementById('playlist-admin-toggle-btn');
+  const playlistAdminPanel            = document.getElementById('playlist-admin-panel');
+  const playlistAdminList             = document.getElementById('playlist-admin-list');
+  const playlistAdminEditor           = document.getElementById('playlist-admin-editor');
+  const playlistAdminNameInput        = document.getElementById('playlist-admin-name-input');
+  const playlistAdminFolderList       = document.getElementById('playlist-admin-folder-list');
+  const playlistAdminNewBtn           = document.getElementById('playlist-admin-new-btn');
+  const playlistAdminSaveBtn          = document.getElementById('playlist-admin-save-btn');
+  const playlistAdminCancelBtn        = document.getElementById('playlist-admin-cancel-btn');
+
+  // Le lecteur PDF et les playlists ne bloquent jamais le reste de
+  // l'appli : si un élément venait à manquer, on désactive juste la
+  // fonctionnalité concernée au lieu de planter tous les scripts.
+  const playlistsReady = !!(playlistRow && playlistAdminToggleBtn && playlistAdminPanel &&
+    playlistAdminList && playlistAdminEditor && playlistAdminNameInput && playlistAdminFolderList &&
+    playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
+
+  if (pageReloadBtn) {
+    pageReloadBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
+  }
+
+  // Affiche la date/heure de dernière modification du fichier HTML
+  // lui-même (en-tête HTTP Last-Modified), pour vérifier au moment
+  // de diffuser le lien qu'on pointe bien vers la bonne version.
+  (function showFileModified() {
+    if (!fileModifiedEl) return;
+    fetch(window.location.href, { method: 'HEAD', cache: 'no-store' })
+      .then((res) => {
+        const lm = res.headers.get('Last-Modified');
+        if (!lm) return;
+        const d = new Date(lm);
+        const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        fileModifiedEl.textContent = `Fichier maj le ${dateStr} à ${timeStr}`;
+      })
+      .catch(() => {});
+  })();
 
   // ---------------------------------------------------------------------
   // IndexedDB : stockage local des PDF (blobs) et du dernier catalogue connu
   // ---------------------------------------------------------------------
   const DB_NAME = 'partotheque-db';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   let dbPromise = null;
 
   function openDB() {
@@ -525,6 +883,7 @@
         const db = req.result;
         if (!db.objectStoreNames.contains('pdfs')) db.createObjectStore('pdfs', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('catalog')) db.createObjectStore('catalog', { keyPath: 'key' });
+        if (!db.objectStoreNames.contains('playlists')) db.createObjectStore('playlists', { keyPath: 'key' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -598,6 +957,230 @@
   }
 
   // ---------------------------------------------------------------------
+  // Playlists : sélection pour les musiciens + écran d'admin par dossiers
+  // Stockage : Firebase Firestore (lecture publique en temps réel,
+  // écriture réservée au compte admin connecté via Firebase Auth).
+  // ---------------------------------------------------------------------
+  const firebaseConfig = {
+    apiKey: "AIzaSyCzvnfsiLvE0Na_J7SgDMui-fzRbqZjELk",
+    authDomain: "partotheque-banda-esperanza.firebaseapp.com",
+    projectId: "partotheque-banda-esperanza",
+    storageBucket: "partotheque-banda-esperanza.firebasestorage.app",
+    messagingSenderId: "336760436969",
+    appId: "1:336760436969:web:dd111506803b7007601878"
+  };
+
+  const firebaseReady = typeof firebase !== 'undefined';
+  let fbDb = null;
+  if (firebaseReady) {
+    try {
+      firebase.initializeApp(firebaseConfig);
+      fbDb = firebase.firestore();
+      fbDb.enablePersistence().catch(() => {}); // best-effort, ignore si plusieurs onglets ouverts
+    } catch (err) {
+      fbDb = null;
+    }
+  }
+
+  function playlistsDocRef() {
+    return fbDb.collection('partotheque').doc('playlists');
+  }
+
+  function slugifyPlaylistName(str) {
+    const base = normalize(str || '').replace(/[^a-z0-9]+/g, '-').replace(/(^-+|-+$)/g, '');
+    return base || 'playlist';
+  }
+
+  function uniquePlaylistId(name) {
+    const base = slugifyPlaylistName(name);
+    let id = base;
+    let n = 2;
+    while (playlists.some(p => p.id === id && p.id !== editingPlaylistId)) {
+      id = `${base}-${n}`;
+      n++;
+    }
+    return id;
+  }
+
+  // Chaque dossier (et sous-dossier) présent dans le catalogue, à plat,
+  // pour permettre de cocher un dossier entier (ex: "Concert de Noël")
+  // dans l'éditeur de playlist.
+  function getAllFolderPaths() {
+    const set = new Set();
+    (fileIndex || []).forEach(f => {
+      const segs = f.folderPath || [];
+      for (let i = 1; i <= segs.length; i++) set.add(segs.slice(0, i).join(' / '));
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+  }
+
+  function fileInPlaylist(f, playlist) {
+    if (!playlist || !playlist.folders || !playlist.folders.length) return true;
+    const path = (f.folderPath || []).join(' / ');
+    return playlist.folders.some(folder => path === folder || path.startsWith(folder + ' / '));
+  }
+
+  // Écriture dans Firestore : tous les musiciens connectés reçoivent la
+  // mise à jour en direct via subscribeToPlaylists() ci-dessous, pas
+  // besoin de recharger la page.
+  async function savePlaylistsRemote() {
+    if (!firebaseReady || !fbDb) throw new Error('Firebase indisponible');
+    await playlistsDocRef().set({
+      playlists,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  function subscribeToPlaylists() {
+    if (!playlistsReady) return;
+    if (!firebaseReady || !fbDb) {
+      renderPlaylistRow();
+      return;
+    }
+    playlistsDocRef().onSnapshot(
+      (doc) => {
+        const data = doc.exists ? doc.data() : null;
+        playlists = (data && Array.isArray(data.playlists)) ? data.playlists : [];
+        renderPlaylistRow();
+        renderPlaylistAdminList();
+      },
+      () => {
+        // pas de réseau, ou lecture refusée : on continue sans playlists
+        playlists = [];
+        renderPlaylistRow();
+      }
+    );
+  }
+
+  function renderPlaylistRow() {
+    if (!playlistsReady) return;
+    if (!playlists.length) {
+      playlistRow.innerHTML = `<span class="playlist-zone-empty">Tous les morceaux</span>`;
+      return;
+    }
+    playlistRow.innerHTML = [
+      `<button type="button" class="filter-btn playlist-btn${activePlaylistId === 'toutes' ? ' active' : ''}" data-playlist-id="toutes">Toutes les partitions</button>`,
+      ...playlists.map(p => `<button type="button" class="filter-btn playlist-btn${p.id === activePlaylistId ? ' active' : ''}" data-playlist-id="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`)
+    ].join('');
+    playlistRow.querySelectorAll('.playlist-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activePlaylistId = btn.dataset.playlistId;
+        playlistRow.querySelectorAll('.playlist-btn').forEach(b => b.classList.toggle('active', b === btn));
+        applyFilters(searchInput.value.trim());
+      });
+    });
+  }
+
+  function renderPlaylistAdminList() {
+    if (!playlistsReady) return;
+    if (!playlists.length) {
+      playlistAdminList.innerHTML = `<div class="playlist-admin-editor-hint">Aucune playlist pour l'instant.</div>`;
+      return;
+    }
+    playlistAdminList.innerHTML = playlists.map(p => `
+      <div class="sync-row">
+        <div class="sync-row-label">${escapeHtml(p.name)}</div>
+        <div class="sync-row-status">${(p.folders || []).length} dossier${(p.folders || []).length > 1 ? 's' : ''}</div>
+        <button type="button" class="sync-row-btn" data-edit-id="${escapeHtml(p.id)}">Modifier</button>
+        <button type="button" class="sync-row-clear" data-delete-id="${escapeHtml(p.id)}">Suppr.</button>
+      </div>
+    `).join('');
+
+    playlistAdminList.querySelectorAll('[data-edit-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = playlists.find(pl => pl.id === btn.dataset.editId);
+        if (p) openPlaylistEditor(p);
+      });
+    });
+    playlistAdminList.querySelectorAll('[data-delete-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const p = playlists.find(pl => pl.id === btn.dataset.deleteId);
+        if (!p) return;
+        if (!confirm(`Supprimer la playlist "${p.name}" ?`)) return;
+        const previous = playlists;
+        playlists = playlists.filter(pl => pl.id !== p.id);
+        if (activePlaylistId === p.id) activePlaylistId = 'toutes';
+        renderPlaylistAdminList();
+        renderPlaylistRow();
+        try {
+          await savePlaylistsRemote();
+        } catch (err) {
+          playlists = previous; // échec : on annule le changement local
+          renderPlaylistAdminList();
+          renderPlaylistRow();
+          alert("Échec de l'enregistrement (pas de réseau ?).");
+        }
+      });
+    });
+  }
+
+  function openPlaylistEditor(playlist) {
+    editingPlaylistId = playlist ? playlist.id : null;
+    playlistAdminNameInput.value = playlist ? playlist.name : '';
+    const selected = new Set(playlist ? playlist.folders : []);
+    const folders = getAllFolderPaths();
+
+    if (!folders.length) {
+      playlistAdminFolderList.innerHTML = `<div class="playlist-admin-editor-hint">Charge d'abord le catalogue (aucun dossier détecté pour l'instant).</div>`;
+    } else {
+      playlistAdminFolderList.innerHTML = folders.map((folder, i) => `
+        <label class="playlist-admin-folder-item" for="pl-folder-${i}">
+          <input type="checkbox" value="${escapeHtml(folder)}" ${selected.has(folder) ? 'checked' : ''} id="pl-folder-${i}">
+          ${escapeHtml(folder)}
+        </label>
+      `).join('');
+    }
+
+    playlistAdminEditor.classList.remove('hidden');
+    playlistAdminNameInput.focus();
+  }
+
+  function closePlaylistEditor() {
+    editingPlaylistId = null;
+    playlistAdminEditor.classList.add('hidden');
+    playlistAdminNameInput.value = '';
+    playlistAdminFolderList.innerHTML = '';
+  }
+
+  if (playlistsReady) {
+    playlistAdminToggleBtn.addEventListener('click', () => {
+      playlistAdminPanel.classList.toggle('hidden');
+      if (!playlistAdminPanel.classList.contains('hidden')) renderPlaylistAdminList();
+    });
+
+    playlistAdminNewBtn.addEventListener('click', () => openPlaylistEditor(null));
+    playlistAdminCancelBtn.addEventListener('click', closePlaylistEditor);
+
+    playlistAdminSaveBtn.addEventListener('click', async () => {
+      const name = playlistAdminNameInput.value.trim();
+      if (!name) { alert('Donne un nom à la playlist.'); return; }
+      const checked = Array.from(playlistAdminFolderList.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.value);
+      if (!checked.length) { alert('Coche au moins un dossier.'); return; }
+
+      const previous = playlists;
+      if (editingPlaylistId) {
+        playlists = playlists.map(pl => pl.id === editingPlaylistId ? { ...pl, name, folders: checked } : pl);
+      } else {
+        playlists = [...playlists, { id: uniquePlaylistId(name), name, folders: checked }];
+      }
+      closePlaylistEditor();
+      renderPlaylistAdminList();
+      renderPlaylistRow();
+
+      playlistAdminSaveBtn.disabled = true;
+      try {
+        await savePlaylistsRemote();
+      } catch (err) {
+        playlists = previous; // échec : on annule le changement local
+        renderPlaylistAdminList();
+        renderPlaylistRow();
+        alert("Échec de l'enregistrement (pas de réseau ?).");
+      }
+      playlistAdminSaveBtn.disabled = false;
+    });
+  }
+
+  // ---------------------------------------------------------------------
   // Réseau / hors-ligne
   // ---------------------------------------------------------------------
   function updateNetStatus() {
@@ -638,6 +1221,7 @@
       navigator.storage.persist().catch(() => {});
     }
     refreshCachedIds().then(loadCatalog);
+    subscribeToPlaylists();
   }
 
   searchInput.addEventListener('input', () => {
@@ -705,7 +1289,7 @@
       if (cached && cached.files) {
         fileIndex = cached.files;
         basePath = cached.basePath || basePath;
-        netStatusEl.textContent = `🔌 Hors-ligne — catalogue du ${formatDate(new Date(cached.fetchedAt).toISOString())}`;
+        netStatusEl.textContent = `🔌 Hors-ligne — catalogue du ${formatDate(new Date(cached.fetchedAt).toISOString())} - Version du 03/08/2026`;
       } else {
         fileIndex = null;
         setupScreen.classList.remove('hidden');
@@ -733,10 +1317,11 @@
     return [...(f.folderPath || []), f.name].join('/');
   }
 
-  function matchesInstrument(f, keywords) {
-    if (!keywords) return true;
+  function matchesInstrument(f, filter) {
+    if (!filter || !filter.keywords) return true;
     const hay = normalize(f.name + ' ' + (f.folderPath || []).join(' '));
-    return keywords.some(k => hay.includes(normalize(k)));
+    if (filter.exclude && filter.exclude.some(k => hay.includes(normalize(k)))) return false;
+    return filter.keywords.some(k => hay.includes(normalize(k)));
   }
 
   function applyFilters(term) {
@@ -747,15 +1332,17 @@
       return;
     }
 
-    const filterKeywords = FILTERS.find(f => f.id === activeFilterId).keywords;
+    const activeFilter = FILTERS.find(f => f.id === activeFilterId);
+    const activePlaylist = playlists.find(p => p.id === activePlaylistId) || null;
     const normTerm = term ? normalize(term) : '';
 
     const files = fileIndex.filter(f => {
+      if (activePlaylist && !fileInPlaylist(f, activePlaylist)) return false;
       const normName = normalize(f.name);
       const normPath = normalize((f.folderPath || []).join(' '));
       const haystack = normName + ' ' + normPath;
       if (normTerm && !haystack.includes(normTerm)) return false;
-      if (filterKeywords && !matchesInstrument(f, filterKeywords)) return false;
+      if (activeFilter.keywords && !matchesInstrument(f, activeFilter)) return false;
       return true;
     });
 
@@ -788,7 +1375,7 @@
             ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)}${f.modifiedTime ? ' · modifié le ' + formatDate(f.modifiedTime) : ''}
           </div>
           <div class="links">
-            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" data-action="open" data-id="${escapeHtml(fileKey(f))}">Ouvrir</a>
+            <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" data-action="open" data-id="${escapeHtml(fileKey(f))}" data-name="${escapeHtml(f.name)}">Ouvrir</a>
             <a href="${buildFileUrl(f)}" target="_blank" rel="noopener" download="${escapeHtml(f.name)}" data-action="download" data-id="${escapeHtml(fileKey(f))}" data-name="${escapeHtml(f.name)}">Télécharger</a>
           </div>
         </div>
@@ -796,55 +1383,182 @@
     `).join('');
   }
 
-  // Ouverture/téléchargement : utilise le blob local si le PDF est
-  // synchronisé (fonctionne hors-ligne), sinon laisse le lien standard
-  // agir normalement (ouvre/télécharge depuis Drive en ligne).
+  // Ouverture : passe par le lecteur PDF intégré (avec rotation), en
+  // utilisant le blob local si le PDF est synchronisé (fonctionne
+  // hors-ligne), sinon le fichier est chargé depuis son URL normale.
+  // Téléchargement : utilise le blob local si synchronisé, sinon laisse
+  // le lien standard agir normalement (télécharge depuis le serveur).
   resultsEl.addEventListener('click', async (e) => {
     const link = e.target.closest('a[data-id]');
     if (!link) return;
     const id = link.dataset.id;
-    if (!cachedIds.has(id)) return; // pas en local : comportement par défaut du lien
+    const name = link.dataset.name || 'Partition';
 
-    e.preventDefault();
-
-    // Pour "Ouvrir", on ouvre l'onglet tout de suite, de façon synchrone
-    // avec le clic. Si on attend le résultat de idbGet (async) avant
-    // d'appeler window.open, le navigateur (Safari/iOS notamment) ne
-    // considère plus l'appel comme déclenché par un geste utilisateur et
-    // bloque le popup silencieusement — c'est ce qui obligeait à passer
-    // par "Télécharger" à la place quand le fichier était synchronisé.
-    // En PWA installée (mode standalone), l'ouverture d'un nouvel onglet
-    // peut en plus être purement ignorée par le système (newTab reste
-    // null ou fermé) : dans ce cas on bascule sur une navigation dans
-    // l'onglet courant, qui elle fonctionne toujours.
-    let newTab = null;
-    if (link.dataset.action !== 'download') {
-      try { newTab = window.open('', '_blank'); } catch (err) { newTab = null; }
-    }
-
-    const row = await idbGet('pdfs', id).catch(() => null);
-    if (!row || !row.blob) {
-      if (newTab && !newTab.closed) newTab.close();
+    if (link.dataset.action === 'open') {
+      e.preventDefault();
+      if (cachedIds.has(id)) {
+        const row = await idbGet('pdfs', id).catch(() => null);
+        if (!row || !row.blob) return;
+        openPdfViewer(URL.createObjectURL(row.blob), name, true);
+      } else {
+        openPdfViewer(link.href, name, false);
+      }
       return;
     }
-    const url = URL.createObjectURL(row.blob);
 
-    if (link.dataset.action === 'download') {
+    if (!cachedIds.has(id)) return; // téléchargement : pas en local, comportement par défaut du lien
+
+    e.preventDefault();
+    const row = await idbGet('pdfs', id).catch(() => null);
+    if (!row || !row.blob) return;
+    const url = URL.createObjectURL(row.blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = row.name || 'partition.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+  });
+
+  // --- Lecteur PDF intégré (rotation, navigation de page) ---------------
+  // NB : le markup #pdf-viewer-overlay est déclaré dans le HTML *avant*
+  // ce <script>, donc il existe déjà dans le DOM à ce stade — sinon
+  // getElementById renverrait null et le moindre .addEventListener
+  // plantait tout le script (et donc toute l'appli, filtres compris).
+  const pdfViewerOverlay = document.getElementById('pdf-viewer-overlay');
+  const pdfViewerTitle   = document.getElementById('pdf-viewer-title');
+  const pdfViewerStatus  = document.getElementById('pdf-viewer-status');
+  const pdfViewerNav     = document.getElementById('pdf-viewer-nav');
+  const pdfCanvas        = document.getElementById('pdf-canvas');
+  const pdfPrevBtn       = document.getElementById('pdf-prev-page');
+  const pdfNextBtn       = document.getElementById('pdf-next-page');
+  const pdfPageInfo      = document.getElementById('pdf-page-info');
+  const pdfRotateLeftBtn  = document.getElementById('pdf-rotate-left');
+  const pdfRotateRightBtn = document.getElementById('pdf-rotate-right');
+  const pdfDownloadBtn   = document.getElementById('pdf-viewer-download');
+  const pdfCloseBtn      = document.getElementById('pdf-viewer-close');
+
+  // Tous les éléments du lecteur doivent être présents pour l'activer ;
+  // sinon on se contente de ne pas le brancher, sans jamais faire
+  // planter le reste de l'appli (filtres, recherche, sync…).
+  const pdfViewerReady = !!(pdfViewerOverlay && pdfViewerTitle && pdfViewerStatus &&
+    pdfViewerNav && pdfCanvas && pdfPrevBtn && pdfNextBtn && pdfPageInfo &&
+    pdfRotateLeftBtn && pdfRotateRightBtn && pdfDownloadBtn && pdfCloseBtn);
+
+  if (pdfViewerReady && typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  let pdfDoc = null;
+  let pdfCurrentUrl = null;
+  let pdfIsBlobUrl = false;
+  let pdfRotation = 0;
+  let pdfPageNum = 1;
+  let pdfDownloadName = 'partition.pdf';
+
+  async function openPdfViewer(url, name, isBlobUrl) {
+    if (!pdfViewerReady) {
+      // Lecteur indisponible : on retombe sur le lien direct plutôt
+      // que de ne rien faire.
+      window.open(url, '_blank');
+      return;
+    }
+
+    pdfCurrentUrl = url;
+    pdfIsBlobUrl = !!isBlobUrl;
+    pdfDownloadName = name || 'partition.pdf';
+    pdfRotation = 0;
+    pdfPageNum = 1;
+    pdfViewerTitle.textContent = name || '';
+    pdfViewerStatus.textContent = 'Chargement…';
+    pdfViewerStatus.classList.remove('hidden');
+    pdfCanvas.classList.add('hidden');
+    pdfViewerNav.classList.add('hidden');
+    pdfViewerOverlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    if (typeof pdfjsLib === 'undefined') {
+      pdfViewerStatus.textContent = "Le lecteur PDF n'a pas pu se charger (pas de réseau ?). Utilise Télécharger à la place.";
+      return;
+    }
+
+    try {
+      const loadingTask = pdfjsLib.getDocument(url);
+      pdfDoc = await loadingTask.promise;
+      pdfViewerStatus.classList.add('hidden');
+      pdfCanvas.classList.remove('hidden');
+      if (pdfDoc.numPages > 1) pdfViewerNav.classList.remove('hidden');
+      await renderPdfPage();
+    } catch (err) {
+      pdfViewerStatus.textContent = "Impossible d'afficher ce PDF ici. Utilise Télécharger à la place.";
+      pdfViewerStatus.classList.remove('hidden');
+      pdfCanvas.classList.add('hidden');
+    }
+  }
+
+  async function renderPdfPage() {
+    if (!pdfDoc) return;
+    const page = await pdfDoc.getPage(pdfPageNum);
+    const baseViewport = page.getViewport({ scale: 1, rotation: pdfRotation });
+    const containerWidth = pdfViewerOverlay.clientWidth - 24;
+    const scale = Math.min(2.4, (containerWidth / baseViewport.width) || 1);
+    const viewport = page.getViewport({ scale, rotation: pdfRotation });
+
+    const ctx = pdfCanvas.getContext('2d');
+    pdfCanvas.width = viewport.width;
+    pdfCanvas.height = viewport.height;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    pdfPageInfo.textContent = `${pdfPageNum} / ${pdfDoc.numPages}`;
+    pdfPrevBtn.disabled = pdfPageNum <= 1;
+    pdfNextBtn.disabled = pdfPageNum >= pdfDoc.numPages;
+  }
+
+  function closePdfViewer() {
+    pdfViewerOverlay.classList.add('hidden');
+    document.body.style.overflow = '';
+    if (pdfIsBlobUrl && pdfCurrentUrl) URL.revokeObjectURL(pdfCurrentUrl);
+    pdfDoc = null;
+    pdfCurrentUrl = null;
+  }
+
+  if (pdfViewerReady) {
+    pdfRotateLeftBtn.addEventListener('click', () => {
+      pdfRotation = (pdfRotation - 90 + 360) % 360;
+      renderPdfPage();
+    });
+    pdfRotateRightBtn.addEventListener('click', () => {
+      pdfRotation = (pdfRotation + 90) % 360;
+      renderPdfPage();
+    });
+    pdfPrevBtn.addEventListener('click', () => {
+      if (pdfPageNum > 1) { pdfPageNum--; renderPdfPage(); }
+    });
+    pdfNextBtn.addEventListener('click', () => {
+      if (pdfDoc && pdfPageNum < pdfDoc.numPages) { pdfPageNum++; renderPdfPage(); }
+    });
+    pdfDownloadBtn.addEventListener('click', () => {
+      if (!pdfCurrentUrl) return;
       const a = document.createElement('a');
-      a.href = url;
-      a.download = row.name || 'partition.pdf';
+      a.href = pdfCurrentUrl;
+      a.download = pdfDownloadName;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 15000);
-    } else if (newTab && !newTab.closed) {
-      newTab.location.href = url;
-    } else {
-      // Onglet non disponible (bloqué ou PWA standalone) : on ouvre dans
-      // l'onglet en cours plutôt que de ne rien faire.
-      window.location.href = url;
-    }
-  });
+    });
+    pdfCloseBtn.addEventListener('click', closePdfViewer);
+    pdfViewerOverlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePdfViewer();
+    });
+
+    let pdfResizeTimer = null;
+    window.addEventListener('resize', () => {
+      if (!pdfDoc || pdfViewerOverlay.classList.contains('hidden')) return;
+      clearTimeout(pdfResizeTimer);
+      pdfResizeTimer = setTimeout(renderPdfPage, 150);
+    });
+  }
 
   function renderError(msg) {
     statusLine.textContent = '';
@@ -866,7 +1580,7 @@
     const instrumentFilters = FILTERS.filter(f => f.id !== 'tous');
 
     syncList.innerHTML = instrumentFilters.map(f => {
-      const matches = fileIndex.filter(file => matchesInstrument(file, f.keywords));
+      const matches = fileIndex.filter(file => matchesInstrument(file, f));
       const cachedCount = matches.filter(file => cachedIds.has(fileKey(file))).length;
       const allCached = matches.length > 0 && cachedCount === matches.length;
       return `
@@ -975,7 +1689,7 @@
     const filter = FILTERS.find(f => f.id === filterId);
     if (!filter || !fileIndex) return;
 
-    const matches = fileIndex.filter(f => matchesInstrument(f, filter.keywords));
+    const matches = fileIndex.filter(f => matchesInstrument(f, filter));
     const toDownload = matches.filter(f => !cachedIds.has(fileKey(f)));
     if (toDownload.length === 0) return;
 
@@ -1046,7 +1760,7 @@
   async function clearInstrument(filterId) {
     const filter = FILTERS.find(f => f.id === filterId);
     if (!filter || !fileIndex) return;
-    const matches = fileIndex.filter(f => matchesInstrument(f, filter.keywords) && cachedIds.has(fileKey(f)));
+    const matches = fileIndex.filter(f => matchesInstrument(f, filter) && cachedIds.has(fileKey(f)));
     for (const f of matches) {
       const key = fileKey(f);
       await idbDelete('pdfs', key).catch(() => {});
