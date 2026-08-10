@@ -3,15 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Partothèque — BANDA ESPERANZA</title>
-<link rel="manifest" href="./manifest.json">
-<link rel="apple-touch-icon" href="./icon-180.png">
+<title>Partothèque BETA — BANDA ESPERANZA</title>
+<link rel="manifest" href="./manifest-beta.json">
+<link rel="apple-touch-icon" href="./icon-180-beta.png">
 <meta name="theme-color" content="#15122E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Partothèque">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-title" content="Partothèque BETA">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
@@ -31,6 +29,41 @@
 </script>
 
 <style>
+  /* Polices auto-hébergées (./fonts/) — avant, elles venaient de Google
+     Fonts (fonts.googleapis.com + fonts.gstatic.com), non mises en cache
+     par le service worker. En mauvaise couverture, ces requêtes pouvaient
+     traîner longtemps avant d'aboutir, ralentissant l'affichage. Les
+     polices variables (Fraunces, Inter) couvrent toute la plage de
+     graisses avec un seul fichier chacune. */
+  @font-face {
+    font-family: 'Fraunces';
+    src: url('./fonts/fraunces-variable.woff2') format('woff2-variations'), url('./fonts/fraunces-variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Inter';
+    src: url('./fonts/inter-variable.woff2') format('woff2-variations'), url('./fonts/inter-variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'IBM Plex Mono';
+    src: url('./fonts/ibmplexmono-regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'IBM Plex Mono';
+    src: url('./fonts/ibmplexmono-medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+  }
+
   :root {
     --paper: #F5F2EF;
     --card: #FFFFFF;
@@ -570,9 +603,9 @@
     display: inline-block;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
-    color: var(--focus);
-    background: #E7E5F2;
-    border: 1px solid #C7C2DC;
+    color: #2E7D4E;
+    background: #E4F1E7;
+    border: 1px solid #BFDDC5;
     border-radius: 3px;
     padding: 2px 6px;
     margin-left: 8px;
@@ -724,7 +757,7 @@
 <div class="wrap">
   <header>
     <button type="button" id="page-reload-btn" class="page-reload-btn" title="Recharger la page (F5)" aria-label="Recharger la page">↻</button>
-    <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
+    <img class="brand-mark" src="./logo-header-beta.png" alt="Logo Banda Esperanza Tyrosse — version bêta">
     <div class="eyebrow">Partothèque</div>
     <h1>Banda Esperanza</h1>
     <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
@@ -1345,6 +1378,17 @@
     });
   }
 
+  // Rafraîchit la coquille de l'app (page + libs pdf.js) mise en cache
+  // par le service worker, sans recharger la page ni interrompre ce
+  // que le musicien est en train de faire. La mise à jour (si le code
+  // a changé depuis) ne sera visible qu'à la prochaine ouverture de
+  // l'app — c'est voulu : on privilégie un chargement instantané à
+  // chaque fois plutôt qu'une vérification réseau systématique.
+  function refreshShellCache() {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+    navigator.serviceWorker.controller.postMessage({ type: 'REFRESH_SHELL' });
+  }
+
   // ---------------------------------------------------------------------
   // Init / filtres / recherche
   // ---------------------------------------------------------------------
@@ -1379,7 +1423,10 @@
     debounceTimer = setTimeout(() => applyFilters(searchInput.value.trim()), 120);
   });
 
-  refreshBtn.addEventListener('click', () => loadCatalog(true));
+  refreshBtn.addEventListener('click', () => {
+    loadCatalog(true);
+    refreshShellCache();
+  });
 
   offlineToggleBtn.addEventListener('click', () => {
     syncPanel.classList.toggle('hidden');
@@ -1536,7 +1583,7 @@
       <div class="card-result">
         <div class="icon">PDF</div>
         <div class="meta">
-          <p class="name">${escapeHtml(f.name)}${cachedIds.has(fileKey(f)) ? '<span class="offline-badge">📥 hors-ligne</span>' : ''}</p>
+          <p class="name">${escapeHtml(f.name)}${cachedIds.has(fileKey(f)) ? '<span class="offline-badge">✓ Synchronisé en local</span>' : ''}</p>
           <div class="detail">
             ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)}${f.modifiedTime ? ' · modifié le ' + formatDate(f.modifiedTime) : ''}
           </div>
@@ -1664,7 +1711,15 @@
     }
 
     try {
-      const loadingTask = pdfjsLib.getDocument(url);
+      // disableWorker: true — pdf.js tourne sur le thread principal au
+      // lieu de charger un Worker séparé (pdf.worker.min.js). C'est un
+      // peu moins fluide sur de gros PDF, mais pour des partitions de
+      // quelques pages ça ne se voit pas — et ça évite un point faible
+      // connu de Safari iOS, qui intercepte moins fiablement via le
+      // service worker les requêtes faites par un Worker JS. Comme ça,
+      // le lecteur ne dépend plus que du cache du fichier HTML principal
+      // et de pdf.min.js, tous les deux bien couverts par le SW.
+      const loadingTask = pdfjsLib.getDocument({ url, disableWorker: true });
       pdfDoc = await loadingTask.promise;
       pdfViewerStatus.classList.add('hidden');
       pdfCanvas.classList.remove('hidden');

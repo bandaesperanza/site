@@ -4,23 +4,24 @@
 // lesquelles le lecteur de partitions ne peut pas s'afficher hors-ligne.
 // Les PDF eux-mêmes sont gérés séparément côté page (IndexedDB), pas ici.
 
-const CACHE_NAME = 'partotheque-shell-v5';
+const CACHE_NAME = 'partotheque-shell-v8';
 
-// ⚠️ À VÉRIFIER : mets ici le nom exact du fichier HTML principal tel
-// qu'il est réellement déployé (celui que tu utilises pour "Ajouter à
-// l'écran d'accueil"). C'était './partotheque-hors-ligne.html' dans la
-// version précédente, un fichier qui ne semble correspondre à rien —
-// c'est très probablement la cause du problème : si ce fichier n'existe
-// pas à cette adresse, l'installation du service worker échoue en
-// entier (cache.addAll est "tout ou rien"), et rien n'est jamais mis en
-// cache, jamais, même après avoir ouvert l'app cent fois en wifi.
-const APP_SHELL_URL = './index.html';
-
+// La page HTML elle-même n'est plus un nom fixe ("index.html") : elle
+// est mise en cache et servie sous son propre chemin exact au moment de
+// la navigation (voir plus bas). Ça permet à index.html (production) et
+// beta.html (test) de cohabiter proprement, chacun avec sa propre copie
+// en cache, sans rien à changer ici quand tu passes de l'un à l'autre.
 const SHELL_FILES = [
-  APP_SHELL_URL,
   './manifest.json',
+  './manifest-beta.json',
   './icon-192.png',
   './icon-512.png',
+  './icon-180.png',
+  './icon-192-beta.png',
+  './icon-512-beta.png',
+  './icon-180-beta.png',
+  './logo-header.png',
+  './logo-header-beta.png',
   './fonts/fraunces-variable.woff2',
   './fonts/inter-variable.woff2',
   './fonts/ibmplexmono-regular.woff2',
@@ -84,17 +85,22 @@ self.addEventListener('fetch', (event) => {
   // Toute navigation (ouverture de l'app depuis l'icône écran d'accueil,
   // un lien, un rechargement...) sert la coquille HTML depuis le cache
   // en priorité — instantané, même en mauvaise connexion (pas d'attente
-  // d'un timeout réseau). Le réseau n'est utilisé que si rien n'est
-  // encore en cache (tout premier lancement) ; ensuite, la mise à jour
-  // ne se fait que via le bouton "Actualiser" (message REFRESH_SHELL
-  // plus bas), pas automatiquement à chaque ouverture.
+  // d'un timeout réseau). On met en cache et on sert sous le chemin
+  // exact demandé (ex. /index.html ou /beta.html), sans paramètres —
+  // index.html et beta.html ont donc chacun leur propre copie en cache,
+  // indépendante. Le réseau n'est utilisé que si rien n'est encore en
+  // cache pour ce chemin précis (tout premier lancement de cette page) ;
+  // ensuite, la mise à jour ne se fait que via le bouton "Actualiser"
+  // (message REFRESH_SHELL plus bas), pas automatiquement à chaque
+  // ouverture.
   if (req.mode === 'navigate') {
+    const pageKey = new URL(req.url).pathname;
     event.respondWith(
-      caches.match(APP_SHELL_URL).then((cached) => {
+      caches.match(pageKey).then((cached) => {
         if (cached) return cached;
         return fetch(req).then((res) => {
           const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(APP_SHELL_URL, copy));
+          caches.open(CACHE_NAME).then((cache) => cache.put(pageKey, copy));
           return res;
         });
       })
@@ -137,18 +143,22 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Rafraîchissement à la demande : la page envoie ce message quand on
-// appuie sur "Actualiser". On re-télécharge la coquille et les libs en
-// forçant le contournement du cache HTTP (cache: 'reload'), on remplace
-// le contenu du cache du service worker, puis on prévient la page —
-// c'est elle qui décide s'il faut recharger tout de suite ou juste
-// profiter de la mise à jour à la prochaine ouverture.
+// appuie sur "Actualiser". On re-télécharge la coquille partagée, les
+// libs, et la page HTML d'où vient la demande (index.html ou beta.html,
+// peu importe) en forçant le contournement du cache HTTP (cache:
+// 'reload'), on remplace le contenu du cache du service worker, puis on
+// prévient la page — c'est elle qui décide s'il faut recharger tout de
+// suite ou juste profiter de la mise à jour à la prochaine ouverture.
 self.addEventListener('message', (event) => {
   if (!event.data || event.data.type !== 'REFRESH_SHELL') return;
+
+  const pageKey = event.source ? new URL(event.source.url).pathname : null;
+  const targets = pageKey ? [...SHELL_FILES, ...LIB_FILES, pageKey] : [...SHELL_FILES, ...LIB_FILES];
 
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
       Promise.all(
-        [...SHELL_FILES, ...LIB_FILES].map((url) =>
+        targets.map((url) =>
           fetch(url, { cache: 'reload' })
             .then((res) => cache.put(url, res))
             .catch((err) => {

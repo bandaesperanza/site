@@ -603,9 +603,9 @@
     display: inline-block;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
-    color: var(--focus);
-    background: #E7E5F2;
-    border: 1px solid #C7C2DC;
+    color: #2E7D4E;
+    background: #E4F1E7;
+    border: 1px solid #BFDDC5;
     border-radius: 3px;
     padding: 2px 6px;
     margin-left: 8px;
@@ -1583,7 +1583,7 @@
       <div class="card-result">
         <div class="icon">PDF</div>
         <div class="meta">
-          <p class="name">${escapeHtml(f.name)}${cachedIds.has(fileKey(f)) ? '<span class="offline-badge">📥 hors-ligne</span>' : ''}</p>
+          <p class="name">${escapeHtml(f.name)}${cachedIds.has(fileKey(f)) ? '<span class="offline-badge">✓ Synchronisé en local</span>' : ''}</p>
           <div class="detail">
             ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)}${f.modifiedTime ? ' · modifié le ' + formatDate(f.modifiedTime) : ''}
           </div>
