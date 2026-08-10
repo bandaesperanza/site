@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Partothèque BETA — BANDA ESPERANZA</title>
-<link rel="manifest" href="./manifest-beta.json">
-<link rel="apple-touch-icon" href="./icon-180-beta.png">
+<title>Partothèque — BANDA ESPERANZA</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-180.png">
 <meta name="theme-color" content="#15122E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Partothèque BETA">
+<meta name="apple-mobile-web-app-title" content="Partothèque">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
@@ -144,6 +144,8 @@
   }
   .page-reload-btn:hover { background: rgba(246, 243, 236, 0.18); }
   .page-reload-btn:active { transform: rotate(180deg); }
+  .page-reload-btn:disabled { opacity: 0.5; cursor: default; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
@@ -285,11 +287,10 @@
     font-weight: 500;
   }
 
-  #refresh-btn, #offline-toggle-btn {
+  #offline-toggle-btn {
     flex-shrink: 0;
     white-space: nowrap;
   }
-  #refresh-btn:disabled { opacity: 0.5; cursor: default; }
 
   /* --- Panneau hors-ligne -------------------------------------------------- */
   .sync-panel {
@@ -412,6 +413,8 @@
   .playlist-admin-bar {
     display: flex;
     justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-bottom: 14px;
   }
   .playlist-admin-bar-btn {
@@ -426,6 +429,11 @@
     cursor: pointer;
   }
   .playlist-admin-bar-btn:hover { border-color: var(--gold); color: var(--ink); }
+  .playlist-admin-bar-btn.active {
+    color: #fff;
+    background: var(--stamp);
+    border-color: var(--stamp);
+  }
 
   .playlist-zone {
     border: 1px solid var(--rule);
@@ -550,6 +558,61 @@
 
   /* --- Results ------------------------------------------------------------ */
   .results { display: flex; flex-direction: column; gap: 10px; }
+
+  /* --- Bannière "en direct" (mode chef d'orchestre) ------------------------ */
+  .live-banner {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: calc(100vw - 32px);
+    background: rgba(21, 18, 46, 0.96);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px;
+    padding: 10px 10px 10px 18px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+  }
+  .live-banner-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: #F0ECE4;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+  .live-banner-text span#live-banner-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .live-banner-dot { animation: live-pulse-dot 1.4s ease-in-out infinite; }
+  @keyframes live-pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .live-banner-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .live-banner-open {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+    background: var(--stamp);
+    border: none;
+    border-radius: 999px;
+    padding: 7px 14px;
+    cursor: pointer;
+  }
+  .live-banner-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    color: #F0ECE4;
+    cursor: pointer;
+  }
 
   .card-result {
     background: var(--card);
@@ -685,6 +748,15 @@
   }
   .pdf-viewer-actions button:hover { background: rgba(255,255,255,0.14); }
   .pdf-viewer-actions button:active { transform: scale(0.94); }
+  #pdf-live-broadcast.active {
+    background: var(--stamp);
+    border-color: var(--stamp);
+    animation: live-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes live-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(196, 48, 42, 0.55); }
+    50% { box-shadow: 0 0 0 6px rgba(196, 48, 42, 0); }
+  }
 
   .pdf-viewer-body {
     flex: 1;
@@ -747,8 +819,8 @@
 
 <div class="wrap">
   <header>
-    <button type="button" id="page-reload-btn" class="page-reload-btn" title="Recharger la page (F5)" aria-label="Recharger la page">↻</button>
-    <img class="brand-mark" src="./logo-header-beta.png" alt="Logo Banda Esperanza Tyrosse — version bêta">
+    <button type="button" id="page-reload-btn" class="page-reload-btn" title="Actualiser le catalogue et la page" aria-label="Actualiser">↻</button>
+    <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
     <div class="eyebrow">Partothèque</div>
     <h1>Banda Esperanza</h1>
     <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
@@ -771,6 +843,7 @@
   <div id="app-screen" class="hidden">
     <div class="playlist-admin-bar">
       <button type="button" id="playlist-admin-toggle-btn" class="playlist-admin-bar-btn" title="Créer et gérer les playlists">🎼 Gérer les playlists</button>
+      <button type="button" id="live-follow-toggle-btn" class="playlist-admin-bar-btn hidden" title="Suivre en direct la partition affichée par le chef">📡 Suivre le chef</button>
     </div>
 
     <div class="sync-panel hidden" id="playlist-admin-panel">
@@ -808,7 +881,6 @@
         <input type="text" id="search-input" placeholder="Chercher un PDF par nom…" autocomplete="off">
       </div>
       <button type="button" id="offline-toggle-btn" class="filter-btn" title="Gérer les partitions disponibles hors-ligne">📥 Hors-ligne</button>
-      <button type="button" id="refresh-btn" class="filter-btn" title="Recharger le catalogue depuis Drive">↻ Actualiser</button>
     </div>
 
     <div class="sync-panel hidden" id="sync-panel">
@@ -822,6 +894,17 @@
     <div class="status-line" id="status-line"></div>
     <div class="results" id="results"></div>
   </div>
+
+  <div id="live-banner" class="live-banner hidden">
+    <div class="live-banner-text">
+      <span class="live-banner-dot">🔴</span>
+      <span id="live-banner-label"></span>
+    </div>
+    <div class="live-banner-actions">
+      <button type="button" id="live-banner-open-btn" class="live-banner-open">Ouvrir</button>
+      <button type="button" id="live-banner-close-btn" class="live-banner-close" aria-label="Ignorer">✕</button>
+    </div>
+  </div>
 </div>
 
 <div id="pdf-viewer-overlay" class="pdf-viewer-overlay hidden">
@@ -831,6 +914,7 @@
       <button type="button" id="pdf-rotate-left" title="Pivoter à gauche (-90°)" aria-label="Pivoter à gauche">⟲</button>
       <button type="button" id="pdf-rotate-right" title="Pivoter à droite (+90°)" aria-label="Pivoter à droite">⟳</button>
       <button type="button" id="pdf-fullscreen" class="hidden" title="Plein écran" aria-label="Plein écran">⛶</button>
+      <button type="button" id="pdf-live-broadcast" class="hidden" title="Diffuser cette partition en direct aux musiciens qui suivent" aria-label="Diffuser en direct">📡</button>
       <button type="button" id="pdf-viewer-download" title="Télécharger" aria-label="Télécharger">⬇</button>
       <button type="button" id="pdf-viewer-close" title="Fermer" aria-label="Fermer">✕</button>
     </div>
@@ -849,6 +933,10 @@
 <script>
 (function () {
   let debounceTimer = null;
+  // Mémorise le dernier pupitre choisi (localStorage, propre à cet
+  // appareil) pour rouvrir l'app directement dessus la fois suivante,
+  // au lieu de repartir sur "Tous" à chaque lancement.
+  const INSTRUMENT_STORAGE_KEY = 'partotheque-instrument';
   let activeFilterId = 'tous';
   let fileIndex = null;
   let basePath = 'partitions';
@@ -887,7 +975,6 @@
   const syncSummary            = document.getElementById('sync-summary');
   const debugToggleBtn         = document.getElementById('debug-toggle-btn');
   const debugLogEl             = document.getElementById('debug-log');
-  const refreshBtn                = document.getElementById('refresh-btn');
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
   const fileModifiedEl                = document.getElementById('file-modified');
   const pageReloadBtn                 = document.getElementById('page-reload-btn');
@@ -904,6 +991,11 @@
   const playlistAdminNewBtn           = document.getElementById('playlist-admin-new-btn');
   const playlistAdminSaveBtn          = document.getElementById('playlist-admin-save-btn');
   const playlistAdminCancelBtn        = document.getElementById('playlist-admin-cancel-btn');
+  const liveFollowToggleBtn           = document.getElementById('live-follow-toggle-btn');
+  const liveBanner                    = document.getElementById('live-banner');
+  const liveBannerLabel               = document.getElementById('live-banner-label');
+  const liveBannerOpenBtn             = document.getElementById('live-banner-open-btn');
+  const liveBannerCloseBtn            = document.getElementById('live-banner-close-btn');
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
   // l'appli : si un élément venait à manquer, on désactive juste la
@@ -913,8 +1005,19 @@
     playlistAdminFolderSearch && playlistAdminOrderList && playlistAdminOrderSearch &&
     playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
 
+  const liveReady = !!(liveFollowToggleBtn && liveBanner && liveBannerLabel &&
+    liveBannerOpenBtn && liveBannerCloseBtn);
+
   if (pageReloadBtn) {
-    pageReloadBtn.addEventListener('click', () => {
+    pageReloadBtn.addEventListener('click', async () => {
+      pageReloadBtn.disabled = true;
+      try {
+        // Les deux en parallèle : le catalogue (visible tout de suite,
+        // sans recharger) et la coquille de l'app (page + libs, pour que
+        // le rechargement juste après affiche bien la dernière version
+        // plutôt que l'ancienne encore en cache).
+        await Promise.all([loadCatalog(true), refreshShellCache()]);
+      } catch (e) { /* on recharge quand même, au pire rien de neuf */ }
       window.location.reload();
     });
   }
@@ -1138,6 +1241,115 @@
     );
   }
 
+  // -------------------------------------------------------------------
+  // Mode "chef d'orchestre" : un musicien peut diffuser en direct la
+  // partition et la page qu'il regarde ("📡" dans le lecteur). Les
+  // autres, s'ils ont activé "Suivre le chef", reçoivent une bannière
+  // pour l'ouvrir au même endroit — et si c'est déjà le même PDF ouvert
+  // chez eux, la page se tourne toute seule tant qu'ils restent dessus.
+  // -------------------------------------------------------------------
+  let liveFollowing = false;          // "Suivre le chef" activé sur cet appareil
+  let liveCurrentBroadcast = null;    // dernier état connu du direct (doc Firestore)
+  let liveBannerDismissedKey = null;  // état ignoré volontairement (croix), pour ne pas le reproposer tant qu'il ne change pas
+
+  function liveDocRef() {
+    return fbDb.collection('partotheque').doc('live');
+  }
+
+  function liveStateKey(data) {
+    return data ? `${data.fileKey}::${data.page}` : null;
+  }
+
+  async function broadcastLiveState(fileKeyValue, name, folderPath, page) {
+    if (!firebaseReady || !fbDb) return;
+    const songName = (folderPath && folderPath.length) ? folderPath[folderPath.length - 1] : (name || '');
+    try {
+      await liveDocRef().set({
+        active: true,
+        fileKey: fileKeyValue,       // le fichier exact ouvert par le chef (peut être un pupitre différent du mien)
+        fileName: name || '',
+        folderPath: folderPath || [], // le morceau — c'est là-dedans que chacun va chercher SA propre partie
+        songName,
+        page,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e) { /* pas de réseau : tant pis, on retentera au prochain changement de page */ }
+  }
+
+  async function stopBroadcasting() {
+    if (!firebaseReady || !fbDb) return;
+    try {
+      await liveDocRef().set({ active: false }, { merge: true });
+    } catch (e) { /* non bloquant */ }
+  }
+
+  function subscribeToLive() {
+    if (!liveReady || !firebaseReady || !fbDb) return;
+    liveDocRef().onSnapshot(
+      (doc) => handleLiveUpdate(doc.exists ? doc.data() : null),
+      () => { /* pas de réseau : on garde le dernier état connu, pas bloquant */ }
+    );
+  }
+
+  // Appelée à chaque mise à jour du doc "live", et aussi à la main
+  // quand le musicien vient d'activer "Suivre le chef" (pour afficher
+  // tout de suite un direct déjà en cours plutôt que d'attendre le
+  // prochain changement de page du chef).
+  function handleLiveUpdate(data) {
+    liveCurrentBroadcast = data;
+    if (!liveReady || !liveFollowing) return;
+
+    if (!data || !data.active) {
+      hideLiveBanner();
+      pdfFollowingLive = false;
+      return;
+    }
+
+    // Ce téléphone est déjà ouvert sur exactement le morceau diffusé, et
+    // le musicien a tapé "Ouvrir" depuis la bannière pour le suivre : on
+    // tourne la page toute seule, sans réafficher la bannière.
+    if (pdfFollowingLive && pdfCurrentFileKey === data.fileKey &&
+        !pdfViewerOverlay.classList.contains('hidden')) {
+      if (pdfPageNum !== data.page && pdfDoc && data.page >= 1 && data.page <= pdfDoc.numPages) {
+        pdfPageNum = data.page;
+        renderPdfPage();
+      }
+      hideLiveBanner();
+      return;
+    }
+
+    const key = liveStateKey(data);
+    if (key === liveBannerDismissedKey) return; // ignoré volontairement, on ne le représente pas tant que ça ne change pas
+    showLiveBanner(data);
+  }
+
+  function showLiveBanner(data) {
+    if (!liveReady) return;
+    liveBannerLabel.textContent = `${data.songName || data.fileName} — chef page ${data.page}`;
+    liveBanner.classList.remove('hidden');
+  }
+
+  function hideLiveBanner() {
+    if (!liveReady) return;
+    liveBanner.classList.add('hidden');
+  }
+
+  // Les musiciens n'ont pas tous la même partition qu'un morceau donné
+  // (chacun sa partie). Cette fonction retrouve, dans le dossier diffusé
+  // par le chef, la partition qui correspond au pupitre actuellement
+  // sélectionné par CE musicien (même logique que le filtre de
+  // recherche) — pas celle que le chef regarde lui-même. Retourne null
+  // si aucun pupitre n'est choisi ("Tous" ou "Conducteurs"), ou si rien
+  // ne correspond dans ce dossier.
+  function findMyPartInFolder(folderPath) {
+    if (!fileIndex || !folderPath || !folderPath.length) return null;
+    const filter = FILTERS.find(f => f.id === activeFilterId);
+    if (!filter || filter.id === 'tous' || filter.startsWith) return null;
+    const folderStr = folderPath.join(' / ');
+    const candidates = fileIndex.filter(f => (f.folderPath || []).join(' / ') === folderStr);
+    return candidates.find(f => matchesInstrument(f, filter)) || null;
+  }
+
   function renderPlaylistRow() {
     if (!playlistsReady) return;
     if (!playlists.length) {
@@ -1355,6 +1567,56 @@
     });
   }
 
+  if (liveReady) {
+    liveFollowToggleBtn.addEventListener('click', () => {
+      liveFollowing = !liveFollowing;
+      liveFollowToggleBtn.classList.toggle('active', liveFollowing);
+      liveFollowToggleBtn.textContent = liveFollowing ? '📡 Suivi du chef actif' : '📡 Suivre le chef';
+      if (liveFollowing) {
+        // Un direct est peut-être déjà en cours : on l'affiche tout de
+        // suite plutôt que d'attendre le prochain changement de page.
+        handleLiveUpdate(liveCurrentBroadcast);
+      } else {
+        hideLiveBanner();
+        liveBannerDismissedKey = null;
+      }
+    });
+
+    liveBannerCloseBtn.addEventListener('click', () => {
+      liveBannerDismissedKey = liveStateKey(liveCurrentBroadcast);
+      hideLiveBanner();
+    });
+
+    liveBannerOpenBtn.addEventListener('click', async () => {
+      if (!liveCurrentBroadcast) return;
+      const data = liveCurrentBroadcast;
+      hideLiveBanner();
+
+      // On ouvre en priorité MA propre partie pour ce morceau (mon
+      // pupitre choisi), pas forcément le fichier exact que le chef
+      // regarde — un tromboniste qui suit un chef à la trompette doit
+      // voir sa partition de trombone, pas celle de trompette.
+      const myPart = findMyPartInFolder(data.folderPath);
+      const target = myPart
+        ? { id: fileKey(myPart), name: myPart.name }
+        : { id: data.fileKey, name: data.fileName };
+
+      await openFileByKey(target.id, target.name);
+
+      // Le suivi automatique des tours de page ne fonctionne que si le
+      // fichier ouvert est exactement celui diffusé par le chef — les
+      // numéros de page d'une partie différente ne correspondent pas
+      // aux siens, donc on ne tente pas de deviner.
+      if (pdfDoc && pdfCurrentFileKey === data.fileKey) {
+        pdfFollowingLive = true;
+        if (data.page && data.page !== pdfPageNum && data.page >= 1 && data.page <= pdfDoc.numPages) {
+          pdfPageNum = data.page;
+          await renderPdfPage();
+        }
+      }
+    });
+  }
+
   // ---------------------------------------------------------------------
   // Réseau / hors-ligne
   // ---------------------------------------------------------------------
@@ -1376,14 +1638,53 @@
   // a changé depuis) ne sera visible qu'à la prochaine ouverture de
   // l'app — c'est voulu : on privilégie un chargement instantané à
   // chaque fois plutôt qu'une vérification réseau systématique.
+  // Retourne une promesse qui se résout une fois le cache réellement
+  // rafraîchi (confirmé par le SW via SHELL_REFRESHED), pour pouvoir
+  // recharger la page seulement à ce moment-là — sinon un rechargement
+  // immédiat retomberait sur l'ancienne version encore en cache.
   function refreshShellCache() {
-    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
-    navigator.serviceWorker.controller.postMessage({ type: 'REFRESH_SHELL' });
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      // Filet de sécurité : si jamais le SW ne répond pas (ex. version
+      // d'un ancien SW qui ne gère pas ce message), on n'attend pas
+      // indéfiniment avant de recharger quand même.
+      const timeout = setTimeout(() => {
+        navigator.serviceWorker.removeEventListener('message', onMessage);
+        resolve(false);
+      }, 6000);
+      function onMessage(event) {
+        if (event.data && event.data.type === 'SHELL_REFRESHED') {
+          clearTimeout(timeout);
+          navigator.serviceWorker.removeEventListener('message', onMessage);
+          resolve(true);
+        }
+      }
+      navigator.serviceWorker.addEventListener('message', onMessage);
+      navigator.serviceWorker.controller.postMessage({ type: 'REFRESH_SHELL' });
+    });
   }
 
   // ---------------------------------------------------------------------
   // Init / filtres / recherche
   // ---------------------------------------------------------------------
+  function loadStoredInstrument() {
+    try {
+      const stored = localStorage.getItem(INSTRUMENT_STORAGE_KEY);
+      // On ignore une valeur qui ne correspond plus à aucun filtre actuel
+      // (ex. si la liste des pupitres a changé depuis), pour ne jamais
+      // se retrouver bloqué sur un filtre fantôme sans résultat.
+      return stored && FILTERS.some(f => f.id === stored) ? stored : null;
+    } catch (e) {
+      return null; // localStorage indisponible (navigation privée...) : tant pis, pas bloquant
+    }
+  }
+
+  function storeInstrument(id) {
+    try {
+      localStorage.setItem(INSTRUMENT_STORAGE_KEY, id);
+    } catch (e) { /* non bloquant */ }
+  }
+
   function renderFilterButtons() {
     filterRow.innerHTML = FILTERS.map(f => `
       <button type="button" class="filter-btn${f.id === activeFilterId ? ' active' : ''}" data-filter-id="${f.id}">${f.label}</button>
@@ -1392,6 +1693,7 @@
     filterRow.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         activeFilterId = btn.dataset.filterId;
+        storeInstrument(activeFilterId);
         filterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
         applyFilters(searchInput.value.trim());
       });
@@ -1401,6 +1703,8 @@
   function init() {
     appScreen.classList.remove('hidden');
     updateNetStatus();
+    const storedInstrument = loadStoredInstrument();
+    if (storedInstrument) activeFilterId = storedInstrument;
     renderFilterButtons();
     searchInput.focus();
     if (navigator.storage && navigator.storage.persist) {
@@ -1408,16 +1712,15 @@
     }
     refreshCachedIds().then(loadCatalog);
     subscribeToPlaylists();
+    if (liveReady && firebaseReady && fbDb) {
+      liveFollowToggleBtn.classList.remove('hidden');
+      subscribeToLive();
+    }
   }
 
   searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => applyFilters(searchInput.value.trim()), 120);
-  });
-
-  refreshBtn.addEventListener('click', () => {
-    loadCatalog(true);
-    refreshShellCache();
   });
 
   offlineToggleBtn.addEventListener('click', () => {
@@ -1457,7 +1760,7 @@
     }
 
     isIndexing = true;
-    refreshBtn.disabled = true;
+    if (pageReloadBtn) pageReloadBtn.disabled = true;
     statusLine.textContent = 'Chargement du catalogue…';
     resultsEl.innerHTML = '';
 
@@ -1485,7 +1788,7 @@
         document.getElementById('catalog-url-shown').textContent = CONFIG.CATALOG_URL;
         renderError("Impossible de charger le catalogue : pas de réseau, et aucune version hors-ligne enregistrée sur cet appareil. Connectez-vous une première fois pour l'initialiser.");
         isIndexing = false;
-        refreshBtn.disabled = false;
+        if (pageReloadBtn) pageReloadBtn.disabled = false;
         return;
       }
     } else {
@@ -1495,7 +1798,7 @@
     applyFilters(searchInput.value.trim());
     if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
     isIndexing = false;
-    refreshBtn.disabled = false;
+    if (pageReloadBtn) pageReloadBtn.disabled = false;
   }
 
   function normalize(str) {
@@ -1590,6 +1893,27 @@
     `).join('');
   }
 
+  // Ouverture par clé (dossier/nom) : utilisée par le clic normal sur un
+  // résultat, mais aussi par la bannière "en direct" (mode chef
+  // d'orchestre), qui ne connaît le fichier que par sa clé + son nom
+  // (reçus via Firestore, pas via un clic sur un lien déjà construit).
+  async function openFileByKey(id, name) {
+    const f = (fileIndex || []).find(x => fileKey(x) === id);
+    const folderPath = f ? (f.folderPath || []) : [];
+    if (cachedIds.has(id)) {
+      const row = await idbGet('pdfs', id).catch(() => null);
+      if (row && row.blob) {
+        await openPdfViewer(URL.createObjectURL(row.blob), name, true, id, folderPath);
+        return;
+      }
+    }
+    if (!f) {
+      alert("Cette partition n'est plus dans le catalogue.");
+      return;
+    }
+    await openPdfViewer(buildFileUrl(f), name, false, id, folderPath);
+  }
+
   // Ouverture : passe par le lecteur PDF intégré (avec rotation), en
   // utilisant le blob local si le PDF est synchronisé (fonctionne
   // hors-ligne), sinon le fichier est chargé depuis son URL normale.
@@ -1603,13 +1927,7 @@
 
     if (link.dataset.action === 'open') {
       e.preventDefault();
-      if (cachedIds.has(id)) {
-        const row = await idbGet('pdfs', id).catch(() => null);
-        if (!row || !row.blob) return;
-        openPdfViewer(URL.createObjectURL(row.blob), name, true);
-      } else {
-        openPdfViewer(link.href, name, false);
-      }
+      await openFileByKey(id, name);
       return;
     }
 
@@ -1644,6 +1962,7 @@
   const pdfRotateLeftBtn  = document.getElementById('pdf-rotate-left');
   const pdfRotateRightBtn = document.getElementById('pdf-rotate-right');
   const pdfFullscreenBtn = document.getElementById('pdf-fullscreen');
+  const pdfLiveBroadcastBtn = document.getElementById('pdf-live-broadcast');
   const pdfDownloadBtn   = document.getElementById('pdf-viewer-download');
   const pdfCloseBtn      = document.getElementById('pdf-viewer-close');
   const pdfViewerBody    = document.getElementById('pdf-viewer-body');
@@ -1665,6 +1984,8 @@
   let pdfRotation = 0;
   let pdfPageNum = 1;
   let pdfDownloadName = 'partition.pdf';
+  let pdfCurrentFileKey = null; // clé (dossier/nom) du PDF actuellement ouvert, pour le mode chef d'orchestre
+  let pdfCurrentFolderPath = []; // dossier (= le morceau) du PDF actuellement ouvert
   // Zoom tactile (pincement) : multiplicateur appliqué par-dessus la taille
   // CSS déjà calculée par renderPdfPage(). Remis à 1 à chaque nouveau rendu.
   let pdfZoom = 1;
@@ -1673,8 +1994,15 @@
   // Wake Lock : empêche l'écran de s'éteindre pendant qu'une partition
   // est affichée (utile sur scène, en plein concert).
   let pdfWakeLock = null;
+  // Mode chef d'orchestre : ce téléphone diffuse-t-il la partition
+  // ouverte (pdfBroadcasting), ou suit-il en direct les changements de
+  // page d'un autre appareil qui diffuse (pdfFollowingLive) ? Les deux
+  // sont propres à la session d'ouverture du lecteur en cours — remis à
+  // zéro à chaque fermeture/ouverture.
+  let pdfBroadcasting = false;
+  let pdfFollowingLive = false;
 
-  async function openPdfViewer(url, name, isBlobUrl) {
+  async function openPdfViewer(url, name, isBlobUrl, id, folderPath) {
     if (!pdfViewerReady) {
       // Lecteur indisponible : on retombe sur le lien direct plutôt
       // que de ne rien faire.
@@ -1685,6 +2013,10 @@
     pdfCurrentUrl = url;
     pdfIsBlobUrl = !!isBlobUrl;
     pdfDownloadName = name || 'partition.pdf';
+    pdfCurrentFileKey = id || null;
+    pdfCurrentFolderPath = folderPath || [];
+    pdfBroadcasting = false;
+    pdfFollowingLive = false;
     pdfRotation = 0;
     pdfPageNum = 1;
     pdfZoom = 1;
@@ -1698,6 +2030,10 @@
     pdfViewerOverlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     requestPdfWakeLock();
+    if (pdfLiveBroadcastBtn) {
+      pdfLiveBroadcastBtn.classList.toggle('hidden', !(firebaseReady && fbDb && pdfCurrentFileKey));
+      pdfLiveBroadcastBtn.classList.remove('active');
+    }
 
     if (typeof pdfjsLib === 'undefined') {
       pdfViewerStatus.textContent = "Le lecteur PDF n'a pas pu se charger (pas de réseau ?). Utilise Télécharger à la place.";
@@ -1756,6 +2092,10 @@
     pdfPageInfo.textContent = `${pdfPageNum} / ${pdfDoc.numPages}`;
     pdfPrevBtn.disabled = pdfPageNum <= 1;
     pdfNextBtn.disabled = pdfPageNum >= pdfDoc.numPages;
+
+    if (pdfBroadcasting && pdfCurrentFileKey) {
+      broadcastLiveState(pdfCurrentFileKey, pdfDownloadName, pdfCurrentFolderPath, pdfPageNum);
+    }
   }
 
   function applyPdfZoom() {
@@ -1797,9 +2137,13 @@
     if (document.fullscreenElement === pdfViewerOverlay) {
       (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document).catch(() => {});
     }
+    if (pdfBroadcasting) stopBroadcasting(); // on ne laisse jamais un direct tourner dans le vide
+    pdfBroadcasting = false;
+    pdfFollowingLive = false;
     if (pdfIsBlobUrl && pdfCurrentUrl) URL.revokeObjectURL(pdfCurrentUrl);
     pdfDoc = null;
     pdfCurrentUrl = null;
+    pdfCurrentFileKey = null;
   }
 
   if (pdfViewerReady) {
@@ -1812,9 +2156,11 @@
       renderPdfPage();
     });
     pdfPrevBtn.addEventListener('click', () => {
+      pdfFollowingLive = false; // le musicien reprend la main
       if (pdfPageNum > 1) { pdfPageNum--; renderPdfPage(); }
     });
     pdfNextBtn.addEventListener('click', () => {
+      pdfFollowingLive = false;
       if (pdfDoc && pdfPageNum < pdfDoc.numPages) { pdfPageNum++; renderPdfPage(); }
     });
     pdfDownloadBtn.addEventListener('click', () => {
@@ -1851,6 +2197,21 @@
         } else {
           const exit = document.exitFullscreen || document.webkitExitFullscreen;
           exit.call(document).catch(() => {});
+        }
+      });
+    }
+
+    // Diffusion en direct (mode chef d'orchestre) : bascule marche/arrêt.
+    // Le bouton lui-même n'est affiché que si Firebase est disponible et
+    // qu'on connaît la clé du fichier ouvert (voir openPdfViewer).
+    if (pdfLiveBroadcastBtn) {
+      pdfLiveBroadcastBtn.addEventListener('click', async () => {
+        pdfBroadcasting = !pdfBroadcasting;
+        pdfLiveBroadcastBtn.classList.toggle('active', pdfBroadcasting);
+        if (pdfBroadcasting && pdfCurrentFileKey) {
+          await broadcastLiveState(pdfCurrentFileKey, pdfDownloadName, pdfCurrentFolderPath, pdfPageNum);
+        } else {
+          await stopBroadcasting();
         }
       });
     }
@@ -1921,6 +2282,7 @@
           const dy = e.changedTouches[0].clientY - pdfSwipeStartY;
           const elapsed = now - pdfSwipeStartTime;
           if (elapsed < 600 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            pdfFollowingLive = false; // le musicien reprend la main
             if (dx < 0 && pdfDoc && pdfPageNum < pdfDoc.numPages) { pdfPageNum++; renderPdfPage(); }
             else if (dx > 0 && pdfPageNum > 1) { pdfPageNum--; renderPdfPage(); }
           }
