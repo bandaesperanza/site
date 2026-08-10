@@ -1664,7 +1664,15 @@
     }
 
     try {
-      const loadingTask = pdfjsLib.getDocument(url);
+      // disableWorker: true — pdf.js tourne sur le thread principal au
+      // lieu de charger un Worker séparé (pdf.worker.min.js). C'est un
+      // peu moins fluide sur de gros PDF, mais pour des partitions de
+      // quelques pages ça ne se voit pas — et ça évite un point faible
+      // connu de Safari iOS, qui intercepte moins fiablement via le
+      // service worker les requêtes faites par un Worker JS. Comme ça,
+      // le lecteur ne dépend plus que du cache du fichier HTML principal
+      // et de pdf.min.js, tous les deux bien couverts par le SW.
+      const loadingTask = pdfjsLib.getDocument({ url, disableWorker: true });
       pdfDoc = await loadingTask.promise;
       pdfViewerStatus.classList.add('hidden');
       pdfCanvas.classList.remove('hidden');
