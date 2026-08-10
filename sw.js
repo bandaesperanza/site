@@ -4,7 +4,7 @@
 // lesquelles le lecteur de partitions ne peut pas s'afficher hors-ligne.
 // Les PDF eux-mêmes sont gérés séparément côté page (IndexedDB), pas ici.
 
-const CACHE_NAME = 'partotheque-shell-v4';
+const CACHE_NAME = 'partotheque-shell-v5';
 
 // ⚠️ À VÉRIFIER : mets ici le nom exact du fichier HTML principal tel
 // qu'il est réellement déployé (celui que tu utilises pour "Ajouter à
@@ -21,18 +21,30 @@ const SHELL_FILES = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './fonts/fraunces-variable.woff2',
+  './fonts/inter-variable.woff2',
+  './fonts/ibmplexmono-regular.woff2',
+  './fonts/ibmplexmono-medium.woff2',
 ];
 
-// Librairies externes chargées depuis une CDN, dont le lecteur PDF a
-// besoin pour fonctionner. Leur URL contient un numéro de version figé
-// (3.11.174) : le contenu ne changera donc jamais tant que le <script>
-// dans index.html pointe vers cette même version — on peut les mettre
-// en cache "à vie" sans risque de servir une version périmée.
-// ⚠️ Si tu changes la version de pdf.js dans index.html, mets-la à jour
+// Librairies externes chargées depuis une CDN, figées par un numéro de
+// version dans leur URL — leur contenu ne changera donc jamais tant que
+// les <script> de index.html pointent vers ces mêmes versions, ce qui
+// permet un cache "à vie" sans risque de servir une version périmée.
+// ⚠️ Si tu changes une de ces versions dans index.html, mets-la à jour
 // ici aussi, sinon l'ancienne version restera servie depuis le cache.
+// C'est important pour la vitesse de chargement, pas seulement pour le
+// mode hors-ligne : ce sont des <script> bloquants dans le <head> — tant
+// qu'ils ne sont pas chargés, toute la page reste suspendue. En mauvaise
+// couverture (contrairement au mode avion, qui échoue tout de suite),
+// une requête réseau peut traîner très longtemps avant d'aboutir ou
+// d'échouer, d'où la lenteur si elles ne sont pas servies depuis le
+// cache.
 const LIB_FILES = [
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+  'https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js',
 ];
 
 self.addEventListener('install', (event) => {

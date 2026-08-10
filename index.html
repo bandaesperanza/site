@@ -10,8 +10,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Partothèque">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
@@ -31,6 +29,41 @@
 </script>
 
 <style>
+  /* Polices auto-hébergées (./fonts/) — avant, elles venaient de Google
+     Fonts (fonts.googleapis.com + fonts.gstatic.com), non mises en cache
+     par le service worker. En mauvaise couverture, ces requêtes pouvaient
+     traîner longtemps avant d'aboutir, ralentissant l'affichage. Les
+     polices variables (Fraunces, Inter) couvrent toute la plage de
+     graisses avec un seul fichier chacune. */
+  @font-face {
+    font-family: 'Fraunces';
+    src: url('./fonts/fraunces-variable.woff2') format('woff2-variations'), url('./fonts/fraunces-variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Inter';
+    src: url('./fonts/inter-variable.woff2') format('woff2-variations'), url('./fonts/inter-variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'IBM Plex Mono';
+    src: url('./fonts/ibmplexmono-regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'IBM Plex Mono';
+    src: url('./fonts/ibmplexmono-medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+  }
+
   :root {
     --paper: #F5F2EF;
     --card: #FFFFFF;
