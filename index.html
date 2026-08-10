@@ -144,6 +144,8 @@
   }
   .page-reload-btn:hover { background: rgba(246, 243, 236, 0.18); }
   .page-reload-btn:active { transform: rotate(180deg); }
+  .page-reload-btn:disabled { opacity: 0.5; cursor: default; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
@@ -285,11 +287,10 @@
     font-weight: 500;
   }
 
-  #refresh-btn, #offline-toggle-btn {
+  #offline-toggle-btn {
     flex-shrink: 0;
     white-space: nowrap;
   }
-  #refresh-btn:disabled { opacity: 0.5; cursor: default; }
 
   /* --- Panneau hors-ligne -------------------------------------------------- */
   .sync-panel {
@@ -747,7 +748,7 @@
 
 <div class="wrap">
   <header>
-    <button type="button" id="page-reload-btn" class="page-reload-btn" title="Recharger la page (F5)" aria-label="Recharger la page">↻</button>
+    <button type="button" id="page-reload-btn" class="page-reload-btn" title="Actualiser le catalogue et la page" aria-label="Actualiser">↻</button>
     <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
     <div class="eyebrow">Partothèque</div>
     <h1>Banda Esperanza</h1>
@@ -808,7 +809,6 @@
         <input type="text" id="search-input" placeholder="Chercher un PDF par nom…" autocomplete="off">
       </div>
       <button type="button" id="offline-toggle-btn" class="filter-btn" title="Gérer les partitions disponibles hors-ligne">📥 Hors-ligne</button>
-      <button type="button" id="refresh-btn" class="filter-btn" title="Recharger le catalogue depuis Drive">↻ Actualiser</button>
     </div>
 
     <div class="sync-panel hidden" id="sync-panel">
@@ -891,7 +891,6 @@
   const syncSummary            = document.getElementById('sync-summary');
   const debugToggleBtn         = document.getElementById('debug-toggle-btn');
   const debugLogEl             = document.getElementById('debug-log');
-  const refreshBtn                = document.getElementById('refresh-btn');
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
   const fileModifiedEl                = document.getElementById('file-modified');
   const pageReloadBtn                 = document.getElementById('page-reload-btn');
@@ -918,7 +917,15 @@
     playlistAdminNewBtn && playlistAdminSaveBtn && playlistAdminCancelBtn);
 
   if (pageReloadBtn) {
-    pageReloadBtn.addEventListener('click', () => {
+    pageReloadBtn.addEventListener('click', async () => {
+      pageReloadBtn.disabled = true;
+      try {
+        // Les deux en parallèle : le catalogue (visible tout de suite,
+        // sans recharger) et la coquille de l'app (page + libs, pour que
+        // le rechargement juste après affiche bien la dernière version
+        // plutôt que l'ancienne encore en cache).
+        await Promise.all([loadCatalog(true), refreshShellCache()]);
+      } catch (e) { /* on recharge quand même, au pire rien de neuf */ }
       window.location.reload();
     });
   }
@@ -1380,9 +1387,30 @@
   // a changé depuis) ne sera visible qu'à la prochaine ouverture de
   // l'app — c'est voulu : on privilégie un chargement instantané à
   // chaque fois plutôt qu'une vérification réseau systématique.
+  // Retourne une promesse qui se résout une fois le cache réellement
+  // rafraîchi (confirmé par le SW via SHELL_REFRESHED), pour pouvoir
+  // recharger la page seulement à ce moment-là — sinon un rechargement
+  // immédiat retomberait sur l'ancienne version encore en cache.
   function refreshShellCache() {
-    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
-    navigator.serviceWorker.controller.postMessage({ type: 'REFRESH_SHELL' });
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      // Filet de sécurité : si jamais le SW ne répond pas (ex. version
+      // d'un ancien SW qui ne gère pas ce message), on n'attend pas
+      // indéfiniment avant de recharger quand même.
+      const timeout = setTimeout(() => {
+        navigator.serviceWorker.removeEventListener('message', onMessage);
+        resolve(false);
+      }, 6000);
+      function onMessage(event) {
+        if (event.data && event.data.type === 'SHELL_REFRESHED') {
+          clearTimeout(timeout);
+          navigator.serviceWorker.removeEventListener('message', onMessage);
+          resolve(true);
+        }
+      }
+      navigator.serviceWorker.addEventListener('message', onMessage);
+      navigator.serviceWorker.controller.postMessage({ type: 'REFRESH_SHELL' });
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -1440,11 +1468,6 @@
     debounceTimer = setTimeout(() => applyFilters(searchInput.value.trim()), 120);
   });
 
-  refreshBtn.addEventListener('click', () => {
-    loadCatalog(true);
-    refreshShellCache();
-  });
-
   offlineToggleBtn.addEventListener('click', () => {
     syncPanel.classList.toggle('hidden');
     if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
@@ -1482,7 +1505,7 @@
     }
 
     isIndexing = true;
-    refreshBtn.disabled = true;
+    if (pageReloadBtn) pageReloadBtn.disabled = true;
     statusLine.textContent = 'Chargement du catalogue…';
     resultsEl.innerHTML = '';
 
@@ -1510,7 +1533,7 @@
         document.getElementById('catalog-url-shown').textContent = CONFIG.CATALOG_URL;
         renderError("Impossible de charger le catalogue : pas de réseau, et aucune version hors-ligne enregistrée sur cet appareil. Connectez-vous une première fois pour l'initialiser.");
         isIndexing = false;
-        refreshBtn.disabled = false;
+        if (pageReloadBtn) pageReloadBtn.disabled = false;
         return;
       }
     } else {
@@ -1520,7 +1543,7 @@
     applyFilters(searchInput.value.trim());
     if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
     isIndexing = false;
-    refreshBtn.disabled = false;
+    if (pageReloadBtn) pageReloadBtn.disabled = false;
   }
 
   function normalize(str) {
