@@ -774,11 +774,110 @@
     margin-top: 40px;
   }
 
+  .pdf-canvas-wrap {
+    position: relative;
+    line-height: 0;
+  }
+
   #pdf-canvas {
     background: #fff;
     box-shadow: 0 4px 24px rgba(0,0,0,0.4);
   }
   #pdf-canvas.hidden { display: none; }
+
+  /* Calque d'annotation : posé pile sur #pdf-canvas (même taille, fixée en
+     JS). pointer-events est activé seulement en mode annotation, pour ne
+     jamais gêner le zoom/swipe normal du lecteur. */
+  #pdf-annot-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+  }
+  #pdf-annot-canvas.hidden { display: none; }
+  #pdf-annot-canvas.annot-active { pointer-events: auto; touch-action: none; }
+
+  .pdf-annot-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    background: #1c1a19;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+
+  .annot-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .annot-dynamic-select {
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: #26221f;
+    color: #F0ECE4;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 0 6px;
+  }
+  .annot-dynamic-select.hidden { display: none; }
+
+  .annot-hairpin-btn { font-family: serif; font-size: 20px; font-weight: 700; }
+
+  .annot-size-label {
+    color: #B8B2A8;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-right: 2px;
+  }
+
+  .annot-size-range {
+    width: 110px;
+    accent-color: var(--gold, #D9574B);
+  }
+
+  .annot-sep {
+    width: 1px;
+    align-self: stretch;
+    background: rgba(255,255,255,0.14);
+    margin: 2px 2px;
+  }
+
+  .annot-tool-btn, .annot-icon-btn, .annot-color-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: #F0ECE4;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .annot-tool-btn:hover, .annot-icon-btn:hover { background: rgba(255,255,255,0.14); }
+  .annot-tool-btn.active {
+    background: var(--gold, #D9574B);
+    border-color: var(--gold, #D9574B);
+    color: #15122E;
+  }
+  .annot-color-btn { padding: 0; }
+  .annot-color-btn::after {
+    content: '';
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--annot-current-color, #D9302B);
+    border: 1px solid rgba(255,255,255,0.4);
+  }
 
   .pdf-viewer-nav {
     position: fixed;
@@ -911,6 +1010,7 @@
   <div class="pdf-viewer-toolbar">
     <span class="pdf-viewer-title" id="pdf-viewer-title"></span>
     <div class="pdf-viewer-actions">
+      <button type="button" id="pdf-annot-toggle" title="Annoter" aria-label="Annoter">✏️</button>
       <button type="button" id="pdf-rotate-left" title="Pivoter à gauche (-90°)" aria-label="Pivoter à gauche">⟲</button>
       <button type="button" id="pdf-rotate-right" title="Pivoter à droite (+90°)" aria-label="Pivoter à droite">⟳</button>
       <button type="button" id="pdf-fullscreen" class="hidden" title="Plein écran" aria-label="Plein écran">⛶</button>
@@ -919,9 +1019,44 @@
       <button type="button" id="pdf-viewer-close" title="Fermer" aria-label="Fermer">✕</button>
     </div>
   </div>
+  <div class="pdf-annot-toolbar hidden" id="pdf-annot-toolbar">
+    <div class="annot-row">
+      <button type="button" class="annot-tool-btn active" data-tool="pen" title="Stylo">✏️</button>
+      <button type="button" class="annot-tool-btn" data-tool="highlighter" title="Fluo">🖍️</button>
+      <button type="button" class="annot-tool-btn" data-tool="sharp" title="Dièse ♯ (tapote pour poser)">♯</button>
+      <button type="button" class="annot-tool-btn" data-tool="flat" title="Bémol ♭ (tapote pour poser)">♭</button>
+      <button type="button" class="annot-tool-btn" data-tool="natural" title="Bécarre ♮ (tapote pour poser)">♮</button>
+      <button type="button" class="annot-tool-btn" data-tool="dynamic" title="Nuance (tapote pour poser)">𝑚𝑓</button>
+      <select id="annot-dynamic-select" class="annot-dynamic-select hidden" title="Choisir la nuance">
+        <option value="ppp">ppp</option>
+        <option value="pp">pp</option>
+        <option value="p">p</option>
+        <option value="mp">mp</option>
+        <option value="mf" selected>mf</option>
+        <option value="f">f</option>
+        <option value="ff">ff</option>
+        <option value="fff">fff</option>
+        <option value="sfz">sfz</option>
+        <option value="fp">fp</option>
+      </select>
+      <button type="button" class="annot-tool-btn annot-hairpin-btn" data-tool="cresc" title="Crescendo — glisse le doigt de gauche à droite">‹</button>
+      <button type="button" class="annot-tool-btn annot-hairpin-btn" data-tool="decresc" title="Decrescendo — glisse le doigt de gauche à droite">›</button>
+    </div>
+    <div class="annot-row">
+      <span class="annot-size-label" id="annot-size-label">Taille</span>
+      <input type="range" id="annot-size-range" class="annot-size-range" min="1" max="5" step="1" value="3">
+      <span class="annot-sep"></span>
+      <button type="button" id="annot-color-btn" class="annot-color-btn" title="Changer de couleur"></button>
+      <button type="button" id="annot-undo-btn" class="annot-icon-btn" title="Annuler le dernier trait">↩</button>
+      <button type="button" id="annot-clear-btn" class="annot-icon-btn" title="Effacer les annotations de la page">🗑</button>
+    </div>
+  </div>
   <div class="pdf-viewer-body" id="pdf-viewer-body">
     <div class="pdf-viewer-status" id="pdf-viewer-status">Chargement…</div>
-    <canvas id="pdf-canvas"></canvas>
+    <div class="pdf-canvas-wrap" id="pdf-canvas-wrap">
+      <canvas id="pdf-canvas"></canvas>
+      <canvas id="pdf-annot-canvas" class="hidden"></canvas>
+    </div>
   </div>
   <div class="pdf-viewer-nav hidden" id="pdf-viewer-nav">
     <button type="button" id="pdf-prev-page" aria-label="Page précédente">‹</button>
@@ -1043,7 +1178,7 @@
   // IndexedDB : stockage local des PDF (blobs) et du dernier catalogue connu
   // ---------------------------------------------------------------------
   const DB_NAME = 'partotheque-db';
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   let dbPromise = null;
 
   function openDB() {
@@ -1055,6 +1190,10 @@
         if (!db.objectStoreNames.contains('pdfs')) db.createObjectStore('pdfs', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('catalog')) db.createObjectStore('catalog', { keyPath: 'key' });
         if (!db.objectStoreNames.contains('playlists')) db.createObjectStore('playlists', { keyPath: 'key' });
+        // Annotations perso (stylo, fluo, dièse/bémol, nuances, soufflets…)
+        // par page de PDF, stockées uniquement sur cet appareil — jamais
+        // synchronisées.
+        if (!db.objectStoreNames.contains('annotations')) db.createObjectStore('annotations', { keyPath: 'id' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -1966,6 +2105,17 @@
   const pdfDownloadBtn   = document.getElementById('pdf-viewer-download');
   const pdfCloseBtn      = document.getElementById('pdf-viewer-close');
   const pdfViewerBody    = document.getElementById('pdf-viewer-body');
+  const pdfCanvasWrap    = document.getElementById('pdf-canvas-wrap');
+  const pdfAnnotCanvas   = document.getElementById('pdf-annot-canvas');
+  const pdfAnnotToggleBtn = document.getElementById('pdf-annot-toggle');
+  const pdfAnnotToolbar  = document.getElementById('pdf-annot-toolbar');
+  const annotColorBtn    = document.getElementById('annot-color-btn');
+  const annotUndoBtn     = document.getElementById('annot-undo-btn');
+  const annotClearBtn    = document.getElementById('annot-clear-btn');
+  const annotDynamicSelect = document.getElementById('annot-dynamic-select');
+  const annotSizeRange   = document.getElementById('annot-size-range');
+  const annotSizeLabel   = document.getElementById('annot-size-label');
+  const annotToolButtons = pdfAnnotToolbar ? Array.from(pdfAnnotToolbar.querySelectorAll('.annot-tool-btn')) : [];
 
   // Tous les éléments du lecteur doivent être présents pour l'activer ;
   // sinon on se contente de ne pas le brancher, sans jamais faire
@@ -2002,6 +2152,326 @@
   let pdfBroadcasting = false;
   let pdfFollowingLive = false;
 
+  // ---------------------------------------------------------------------
+  // Annotations perso (stylo, fluo, dièse/bémol/bécarre, nuances,
+  // crescendo/decrescendo) — stockées dans IndexedDB par appareil,
+  // jamais synchronisées ni envoyées ailleurs (indépendant du mode
+  // chef d'orchestre / diffusion en direct ci-dessus).
+  // Les points sont enregistrés en coordonnées PDF natives (via les
+  // conversions de pdf.js), donc ils restent alignés quel que soit le
+  // zoom, la rotation ou la taille d'écran au moment de la relecture.
+  // ---------------------------------------------------------------------
+  const annotReady = !!(pdfAnnotCanvas && pdfAnnotToggleBtn && pdfAnnotToolbar &&
+    annotColorBtn && annotUndoBtn && annotClearBtn && annotSizeRange && annotToolButtons.length);
+
+  const PEN_COLORS = ['#D9302B', '#1D1B33', '#2554C7', '#1E7A3B'];
+  const HL_COLORS  = ['#FFE066', '#8CE0A0', '#FF9FD1'];
+  const STAMP_SYMBOLS = { sharp: '♯', flat: '♭', natural: '♮' };
+  const STAMP_TOOLS   = ['sharp', 'flat', 'natural', 'dynamic'];
+  const HAIRPIN_TOOLS = ['cresc', 'decresc'];
+
+  // 5 niveaux, du plus fin/petit au plus épais/grand. Le sens change selon
+  // l'outil actif (épaisseur de trait, taille de symbole, hauteur du
+  // soufflet crescendo), mais un seul curseur suffit pour tous.
+  const PEN_WIDTHS     = [0.8, 1.3, 1.9, 2.7, 3.8];   // pt PDF
+  const HL_WIDTHS      = [5, 8, 12, 17, 23];          // pt PDF
+  const STAMP_SIZES    = [11, 14, 18, 24, 32];        // pt PDF (dièse/bémol/bécarre)
+  const DYNAMIC_SIZES  = [12, 15, 19, 24, 30];        // pt PDF (nuances)
+  const HAIRPIN_HEIGHTS = [5, 8, 12, 17, 24];         // pt PDF (demi-hauteur du soufflet)
+
+  let annotateMode = false;
+  let annotTool = 'pen'; // 'pen' | 'highlighter' | 'sharp' | 'flat' | 'natural' | 'dynamic' | 'cresc' | 'decresc'
+  let penColorIdx = 0;
+  let hlColorIdx = 0;
+  let annotSizeLevel = 3; // 1 à 5, commun à tous les outils
+  let pdfViewportForAnnot = null; // dernier viewport pdf.js utilisé au rendu
+  let pageAnnotations = [];       // traits/tampons/soufflets de la page affichée
+  let currentStroke = null;       // trait libre en cours (pointerdown → pointerup)
+  let currentHairpin = null;      // crescendo/decrescendo en cours de glissement
+  let annotSaveTimer = null;
+
+  function annotCurrentColor() {
+    return annotTool === 'highlighter' ? HL_COLORS[hlColorIdx] : PEN_COLORS[penColorIdx];
+  }
+
+  function annotCurrentWidth() {
+    return annotTool === 'highlighter' ? HL_WIDTHS[annotSizeLevel - 1] : PEN_WIDTHS[annotSizeLevel - 1];
+  }
+
+  function annotCurrentStampSize() {
+    return annotTool === 'dynamic' ? DYNAMIC_SIZES[annotSizeLevel - 1] : STAMP_SIZES[annotSizeLevel - 1];
+  }
+
+  function annotCurrentHairpinHeight() {
+    return HAIRPIN_HEIGHTS[annotSizeLevel - 1];
+  }
+
+  // Utilise la même clé (fileKey) que le mode diffusion en direct, déjà
+  // suivie dans pdfCurrentFileKey — pas besoin d'un second identifiant.
+  function annotStoreKey() {
+    return pdfCurrentFileKey ? `${pdfCurrentFileKey}::p${pdfPageNum}` : null;
+  }
+
+  async function loadPageAnnotations() {
+    pageAnnotations = [];
+    const key = annotStoreKey();
+    if (!key) return;
+    try {
+      const row = await idbGet('annotations', key);
+      pageAnnotations = (row && Array.isArray(row.items)) ? row.items : [];
+    } catch (e) { /* pas grave : page sans annotations sauvegardables */ }
+  }
+
+  function savePageAnnotations() {
+    const key = annotStoreKey();
+    if (!key) return;
+    clearTimeout(annotSaveTimer);
+    // Petit debounce : évite une écriture IndexedDB à chaque micro-point
+    // pendant un tracé continu.
+    annotSaveTimer = setTimeout(() => {
+      idbPut('annotations', { id: key, items: pageAnnotations }).catch(() => {});
+    }, 300);
+  }
+
+  function resizeAnnotCanvasToMatch() {
+    if (!annotReady) return;
+    pdfAnnotCanvas.width = pdfCanvas.width;
+    pdfAnnotCanvas.height = pdfCanvas.height;
+    pdfAnnotCanvas.style.width = pdfCanvas.style.width;
+    pdfAnnotCanvas.style.height = pdfCanvas.style.height;
+  }
+
+  function drawStamp(ctx, item, viewport) {
+    const scale = viewport.scale;
+    const [vx, vy] = viewport.convertToViewportPoint(item.x, item.y);
+    ctx.save();
+    ctx.translate(vx, vy);
+    ctx.rotate((pdfRotation || 0) * Math.PI / 180);
+    ctx.fillStyle = item.color;
+    if (item.tool === 'dynamic') {
+      // Nuances en italique gras, comme dans une partition gravée.
+      ctx.font = `italic 700 ${Math.max(12, item.size * scale)}px 'Fraunces', serif`;
+    } else {
+      ctx.font = `700 ${Math.max(14, item.size * scale)}px 'IBM Plex Mono', monospace`;
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.tool === 'dynamic' ? item.text : (STAMP_SYMBOLS[item.tool] || '?'), 0, 0);
+    ctx.restore();
+  }
+
+  function drawStroke(ctx, item, viewport) {
+    const scale = viewport.scale;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = item.color;
+    ctx.globalAlpha = item.tool === 'highlighter' ? 0.4 : 1;
+    ctx.globalCompositeOperation = item.tool === 'highlighter' ? 'multiply' : 'source-over';
+    ctx.lineWidth = Math.max(1, item.width * scale);
+    ctx.beginPath();
+    item.points.forEach(([px, py], i) => {
+      const [vx, vy] = viewport.convertToViewportPoint(px, py);
+      if (i === 0) ctx.moveTo(vx, vy); else ctx.lineTo(vx, vy);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Soufflet crescendo (‹, pointe à gauche) / decrescendo (›, pointe à
+  // droite) : deux segments qui partent d'un point (l'apex) et s'écartent
+  // vers l'autre extrémité.
+  function drawHairpin(ctx, item, viewport) {
+    const scale = viewport.scale;
+    const [sx, sy] = viewport.convertToViewportPoint(item.x1, item.y1);
+    const [ex, ey] = viewport.convertToViewportPoint(item.x2, item.y2);
+    const dx = ex - sx, dy = ey - sy;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const halfH = (item.height * scale) / 2;
+    ctx.save();
+    ctx.strokeStyle = item.color;
+    ctx.lineWidth = Math.max(1, 1.5 * scale);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    if (item.tool === 'cresc') {
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex + nx * halfH, ey + ny * halfH);
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex - nx * halfH, ey - ny * halfH);
+    } else {
+      ctx.moveTo(sx + nx * halfH, sy + ny * halfH);
+      ctx.lineTo(ex, ey);
+      ctx.moveTo(sx - nx * halfH, sy - ny * halfH);
+      ctx.lineTo(ex, ey);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawAnnotItem(ctx, item, viewport) {
+    if (STAMP_TOOLS.includes(item.tool)) drawStamp(ctx, item, viewport);
+    else if (HAIRPIN_TOOLS.includes(item.tool)) drawHairpin(ctx, item, viewport);
+    else if (item.points) drawStroke(ctx, item, viewport);
+  }
+
+  function redrawAnnotations() {
+    if (!annotReady || !pdfViewportForAnnot) return;
+    const ctx = pdfAnnotCanvas.getContext('2d');
+    ctx.clearRect(0, 0, pdfAnnotCanvas.width, pdfAnnotCanvas.height);
+    for (const item of pageAnnotations) drawAnnotItem(ctx, item, pdfViewportForAnnot);
+  }
+
+  function annotCanvasPixel(e) {
+    const rect = pdfAnnotCanvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width * pdfAnnotCanvas.width;
+    const py = (e.clientY - rect.top) / rect.height * pdfAnnotCanvas.height;
+    return [px, py];
+  }
+
+  function setAnnotateMode(on) {
+    if (!annotReady) return;
+    annotateMode = on;
+    pdfAnnotToggleBtn.classList.toggle('active', on);
+    pdfAnnotToolbar.classList.toggle('hidden', !on);
+    pdfAnnotCanvas.classList.toggle('annot-active', on);
+  }
+
+  function annotSizeLabelText() {
+    if (annotTool === 'dynamic' || STAMP_TOOLS.includes(annotTool)) return 'Taille';
+    if (HAIRPIN_TOOLS.includes(annotTool)) return 'Hauteur';
+    return 'Épaisseur';
+  }
+
+  function setAnnotTool(tool) {
+    annotTool = tool;
+    annotToolButtons.forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+    if (annotDynamicSelect) annotDynamicSelect.classList.toggle('hidden', tool !== 'dynamic');
+    if (annotSizeLabel) annotSizeLabel.textContent = annotSizeLabelText();
+    document.documentElement.style.setProperty('--annot-current-color', annotCurrentColor());
+  }
+
+  if (annotReady) {
+    document.documentElement.style.setProperty('--annot-current-color', annotCurrentColor());
+    annotSizeRange.value = String(annotSizeLevel);
+    annotSizeLabel.textContent = annotSizeLabelText();
+
+    pdfAnnotToggleBtn.addEventListener('click', () => setAnnotateMode(!annotateMode));
+
+    annotToolButtons.forEach(btn => {
+      btn.addEventListener('click', () => setAnnotTool(btn.dataset.tool));
+    });
+
+    annotSizeRange.addEventListener('input', () => {
+      annotSizeLevel = Number(annotSizeRange.value) || 3;
+    });
+
+    annotColorBtn.addEventListener('click', () => {
+      if (annotTool === 'highlighter') {
+        hlColorIdx = (hlColorIdx + 1) % HL_COLORS.length;
+      } else {
+        penColorIdx = (penColorIdx + 1) % PEN_COLORS.length;
+      }
+      document.documentElement.style.setProperty('--annot-current-color', annotCurrentColor());
+    });
+
+    annotUndoBtn.addEventListener('click', () => {
+      if (!pageAnnotations.length) return;
+      pageAnnotations.pop();
+      redrawAnnotations();
+      savePageAnnotations();
+    });
+
+    annotClearBtn.addEventListener('click', () => {
+      if (!pageAnnotations.length) return;
+      if (!confirm('Effacer toutes les annotations de cette page ? (seulement sur cet appareil)')) return;
+      pageAnnotations = [];
+      redrawAnnotations();
+      savePageAnnotations();
+    });
+
+    pdfAnnotCanvas.addEventListener('pointerdown', (e) => {
+      if (!annotateMode) return;
+      e.preventDefault();
+      pdfAnnotCanvas.setPointerCapture(e.pointerId);
+      const [px, py] = annotCanvasPixel(e);
+      const [pdfX, pdfY] = pdfViewportForAnnot.convertToPdfPoint(px, py);
+
+      if (STAMP_TOOLS.includes(annotTool)) {
+        const item = { tool: annotTool, x: pdfX, y: pdfY, size: annotCurrentStampSize(), color: annotCurrentColor() };
+        if (annotTool === 'dynamic') item.text = annotDynamicSelect ? annotDynamicSelect.value : 'mf';
+        pageAnnotations.push(item);
+        redrawAnnotations();
+        savePageAnnotations();
+        return;
+      }
+
+      if (HAIRPIN_TOOLS.includes(annotTool)) {
+        currentHairpin = {
+          tool: annotTool,
+          color: annotCurrentColor(),
+          height: annotCurrentHairpinHeight(),
+          x1: pdfX, y1: pdfY, x2: pdfX, y2: pdfY,
+        };
+        return;
+      }
+
+      currentStroke = {
+        tool: annotTool,
+        color: annotCurrentColor(),
+        width: annotCurrentWidth(), // en points PDF (indépendant du zoom/DPI)
+        points: [[pdfX, pdfY]],
+      };
+    });
+
+    pdfAnnotCanvas.addEventListener('pointermove', (e) => {
+      if (!annotateMode) return;
+      if (!currentStroke && !currentHairpin) return;
+      e.preventDefault();
+      const [px, py] = annotCanvasPixel(e);
+      const [pdfX, pdfY] = pdfViewportForAnnot.convertToPdfPoint(px, py);
+      const ctx = pdfAnnotCanvas.getContext('2d');
+
+      if (currentHairpin) {
+        currentHairpin.x2 = pdfX;
+        currentHairpin.y2 = pdfY;
+        redrawAnnotations();
+        drawHairpin(ctx, currentHairpin, pdfViewportForAnnot);
+        return;
+      }
+
+      currentStroke.points.push([pdfX, pdfY]);
+      redrawAnnotations();
+      drawStroke(ctx, currentStroke, pdfViewportForAnnot);
+    });
+
+    const endStroke = () => {
+      if (currentStroke) {
+        if (currentStroke.points.length > 1) {
+          pageAnnotations.push(currentStroke);
+          savePageAnnotations();
+        }
+        currentStroke = null;
+      }
+      if (currentHairpin) {
+        const dx = currentHairpin.x2 - currentHairpin.x1;
+        const dy = currentHairpin.y2 - currentHairpin.y1;
+        // Ignore un simple tapotement (soufflet quasi nul) : évite de
+        // polluer la page d'un point involontaire.
+        if (Math.hypot(dx, dy) > 4) {
+          pageAnnotations.push(currentHairpin);
+          savePageAnnotations();
+        }
+        currentHairpin = null;
+      }
+      redrawAnnotations();
+    };
+    pdfAnnotCanvas.addEventListener('pointerup', endStroke);
+    pdfAnnotCanvas.addEventListener('pointercancel', endStroke);
+    pdfAnnotCanvas.addEventListener('pointerleave', endStroke);
+  }
+
   async function openPdfViewer(url, name, isBlobUrl, id, folderPath) {
     if (!pdfViewerReady) {
       // Lecteur indisponible : on retombe sur le lien direct plutôt
@@ -2020,12 +2490,21 @@
     pdfRotation = 0;
     pdfPageNum = 1;
     pdfZoom = 1;
+    pageAnnotations = [];
+    currentStroke = null;
+    currentHairpin = null;
+    if (annotReady) setAnnotateMode(false);
     pdfViewerTitle.textContent = name || '';
     pdfViewerStatus.textContent = 'Chargement…';
     pdfViewerStatus.classList.remove('hidden');
     pdfCanvas.classList.add('hidden');
     pdfCanvas.style.width = '';
     pdfCanvas.style.height = '';
+    if (annotReady) {
+      pdfAnnotCanvas.classList.add('hidden');
+      pdfAnnotCanvas.style.width = '';
+      pdfAnnotCanvas.style.height = '';
+    }
     pdfViewerNav.classList.add('hidden');
     pdfViewerOverlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -2053,6 +2532,7 @@
       pdfDoc = await loadingTask.promise;
       pdfViewerStatus.classList.add('hidden');
       pdfCanvas.classList.remove('hidden');
+      if (annotReady) pdfAnnotCanvas.classList.remove('hidden');
       if (pdfDoc.numPages > 1) pdfViewerNav.classList.remove('hidden');
 
       await renderPdfPage();
@@ -2096,12 +2576,23 @@
     if (pdfBroadcasting && pdfCurrentFileKey) {
       broadcastLiveState(pdfCurrentFileKey, pdfDownloadName, pdfCurrentFolderPath, pdfPageNum);
     }
+
+    if (annotReady) {
+      pdfViewportForAnnot = viewport;
+      resizeAnnotCanvasToMatch();
+      await loadPageAnnotations();
+      redrawAnnotations();
+    }
   }
 
   function applyPdfZoom() {
     if (!pdfBaseCssWidth) return;
     pdfCanvas.style.width = (pdfBaseCssWidth * pdfZoom) + 'px';
     pdfCanvas.style.height = (pdfBaseCssHeight * pdfZoom) + 'px';
+    if (annotReady) {
+      pdfAnnotCanvas.style.width = pdfCanvas.style.width;
+      pdfAnnotCanvas.style.height = pdfCanvas.style.height;
+    }
   }
 
   // Wake Lock : empêche la mise en veille de l'écran tant que le lecteur
@@ -2144,6 +2635,9 @@
     pdfDoc = null;
     pdfCurrentUrl = null;
     pdfCurrentFileKey = null;
+    currentStroke = null;
+    currentHairpin = null;
+    if (annotReady) setAnnotateMode(false);
   }
 
   if (pdfViewerReady) {
@@ -2234,6 +2728,7 @@
     }
 
     pdfViewerBody.addEventListener('touchstart', (e) => {
+      if (annotateMode) { pdfGestureMode = null; return; } // on dessine : pas de swipe/pincement
       if (e.touches.length === 2) {
         pdfGestureMode = 'pinch';
         pdfPinchStartDist = pdfTouchDist(e.touches[0], e.touches[1]);
@@ -2249,6 +2744,7 @@
     }, { passive: true });
 
     pdfViewerBody.addEventListener('touchmove', (e) => {
+      if (annotateMode) return;
       if (pdfGestureMode === 'pinch' && e.touches.length === 2) {
         e.preventDefault(); // empêche le zoom natif de Safari de rentrer en conflit
         const dist = pdfTouchDist(e.touches[0], e.touches[1]);
@@ -2259,6 +2755,7 @@
     }, { passive: false });
 
     pdfViewerBody.addEventListener('touchend', (e) => {
+      if (annotateMode) return;
       const now = Date.now();
       if (pdfGestureMode === 'pinch') {
         if (pdfZoom < 1.05) { pdfZoom = 1; applyPdfZoom(); }
