@@ -506,15 +506,6 @@
     text-decoration: underline;
     padding: 6px 2px;
   }
-  .playlist-admin-export-row {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    flex-wrap: wrap;
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 1px dashed var(--rule);
-  }
   .playlist-admin-note {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -1945,9 +1936,18 @@
   }
 
   function escapeHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
+    // Échappe aussi les guillemets (contrairement à un simple aller-retour
+    // textContent → innerHTML, qui les laisse tels quels) : cette fonction
+    // est utilisée un peu partout pour construire des attributs HTML
+    // (data-id="...", value="...", etc.) à partir de noms de fichiers ou
+    // de dossiers venant de Drive — un nom contenant un guillemet pourrait
+    // sinon casser l'attribut et injecter du HTML/JS arbitraire.
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // ---------------------------------------------------------------------
