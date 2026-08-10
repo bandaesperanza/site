@@ -873,6 +873,7 @@
 
   const FILTERS = [
     { id: 'tous',       label: 'Tous',       keywords: null },
+    { id: 'conducteur', label: 'Conducteurs', startsWith: '00' },
     { id: 'picolo',     label: 'Piccolo',    keywords: ['picolo', 'piccolo', 'flute', 'flûte'] },
     { id: 'clarinette', label: 'Clarinette', keywords: ['clarinette'] },
     { id: 'saxoalto',   label: 'Saxo alto',  keywords: ['saxo alto'] },
@@ -1515,7 +1516,9 @@
   }
 
   function matchesInstrument(f, filter) {
-    if (!filter || !filter.keywords) return true;
+    if (!filter) return true;
+    if (filter.startsWith) return normalize(f.name).startsWith(normalize(filter.startsWith));
+    if (!filter.keywords) return true;
     const hay = normalize(f.name + ' ' + (f.folderPath || []).join(' '));
     if (filter.exclude && filter.exclude.some(k => hay.includes(normalize(k)))) return false;
     return filter.keywords.some(k => hay.includes(normalize(k)));
@@ -1540,7 +1543,7 @@
       const normPath = normalize((f.folderPath || []).join(' '));
       const haystack = normName + ' ' + normPath;
       if (normTerm && !haystack.includes(normTerm)) return false;
-      if (activeFilter.keywords && !matchesInstrument(f, activeFilter)) return false;
+      if (!matchesInstrument(f, activeFilter)) return false;
       return true;
     });
 
