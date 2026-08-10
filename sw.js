@@ -4,7 +4,7 @@
 // lesquelles le lecteur de partitions ne peut pas s'afficher hors-ligne.
 // Les PDF eux-mêmes sont gérés séparément côté page (IndexedDB), pas ici.
 
-const CACHE_NAME = 'partotheque-shell-v3';
+const CACHE_NAME = 'partotheque-shell-v4';
 
 // ⚠️ À VÉRIFIER : mets ici le nom exact du fichier HTML principal tel
 // qu'il est réellement déployé (celui que tu utilises pour "Ajouter à
@@ -70,21 +70,22 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
 
   // Toute navigation (ouverture de l'app depuis l'icône écran d'accueil,
-  // un lien, un rechargement...) doit servir la coquille HTML — réseau
-  // d'abord pour avoir la dernière version, cache en secours si le
-  // réseau ne répond pas. On ne dépend plus de faire correspondre
-  // exactement l'URL demandée à un nom de fichier : peu importe
-  // comment le navigateur formule la requête (avec ou sans paramètres,
-  // avec ou sans "/" final...), une navigation reste une navigation.
+  // un lien, un rechargement...) sert la coquille HTML depuis le cache
+  // en priorité — instantané, même en mauvaise connexion (pas d'attente
+  // d'un timeout réseau). Le réseau n'est utilisé que si rien n'est
+  // encore en cache (tout premier lancement) ; ensuite, la mise à jour
+  // ne se fait que via le bouton "Actualiser" (message REFRESH_SHELL
+  // plus bas), pas automatiquement à chaque ouverture.
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
+      caches.match(APP_SHELL_URL).then((cached) => {
+        if (cached) return cached;
+        return fetch(req).then((res) => {
           const copy = res.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(APP_SHELL_URL, copy));
           return res;
-        })
-        .catch(() => caches.match(APP_SHELL_URL))
+        });
+      })
     );
     return;
   }
@@ -106,20 +107,46 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Pour le reste de la coquille (manifest, icônes) : stratégie
-  // "réseau d'abord, cache en secours", mais seulement pour ces
-  // fichiers précis — les PDF et autres requêtes ne sont pas concernés.
+  // Pour le reste de la coquille (manifest, icônes) : même principe,
+  // cache d'abord, réseau seulement si absent du cache.
   const isShellAsset = SHELL_FILES.some((f) => req.url.endsWith(f.replace('./', '')));
   if (!isShellAsset) return;
 
   event.respondWith(
-    fetch(req)
-      .then((res) => {
+    caches.match(req).then((cached) => {
+      if (cached) return cached;
+      return fetch(req).then((res) => {
         const copy = res.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
         return res;
-      })
-      .catch(() => caches.match(req))
+      });
+    })
+  );
+});
+
+// Rafraîchissement à la demande : la page envoie ce message quand on
+// appuie sur "Actualiser". On re-télécharge la coquille et les libs en
+// forçant le contournement du cache HTTP (cache: 'reload'), on remplace
+// le contenu du cache du service worker, puis on prévient la page —
+// c'est elle qui décide s'il faut recharger tout de suite ou juste
+// profiter de la mise à jour à la prochaine ouverture.
+self.addEventListener('message', (event) => {
+  if (!event.data || event.data.type !== 'REFRESH_SHELL') return;
+
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(
+        [...SHELL_FILES, ...LIB_FILES].map((url) =>
+          fetch(url, { cache: 'reload' })
+            .then((res) => cache.put(url, res))
+            .catch((err) => {
+              console.error('[SW] Échec du rafraîchissement de', url, err);
+            })
+        )
+      )
+    ).then(() => {
+      if (event.source) event.source.postMessage({ type: 'SHELL_REFRESHED' });
+    })
   );
 });
 

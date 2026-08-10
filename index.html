@@ -1345,6 +1345,17 @@
     });
   }
 
+  // Rafraîchit la coquille de l'app (page + libs pdf.js) mise en cache
+  // par le service worker, sans recharger la page ni interrompre ce
+  // que le musicien est en train de faire. La mise à jour (si le code
+  // a changé depuis) ne sera visible qu'à la prochaine ouverture de
+  // l'app — c'est voulu : on privilégie un chargement instantané à
+  // chaque fois plutôt qu'une vérification réseau systématique.
+  function refreshShellCache() {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+    navigator.serviceWorker.controller.postMessage({ type: 'REFRESH_SHELL' });
+  }
+
   // ---------------------------------------------------------------------
   // Init / filtres / recherche
   // ---------------------------------------------------------------------
@@ -1379,7 +1390,10 @@
     debounceTimer = setTimeout(() => applyFilters(searchInput.value.trim()), 120);
   });
 
-  refreshBtn.addEventListener('click', () => loadCatalog(true));
+  refreshBtn.addEventListener('click', () => {
+    loadCatalog(true);
+    refreshShellCache();
+  });
 
   offlineToggleBtn.addEventListener('click', () => {
     syncPanel.classList.toggle('hidden');
