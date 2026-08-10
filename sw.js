@@ -4,7 +4,7 @@
 // lesquelles le lecteur de partitions ne peut pas s'afficher hors-ligne.
 // Les PDF eux-mêmes sont gérés séparément côté page (IndexedDB), pas ici.
 
-const CACHE_NAME = 'partotheque-shell-v8';
+const CACHE_NAME = 'partotheque-shell-v9';
 
 // La page HTML elle-même n'est plus un nom fixe ("index.html") : elle
 // est mise en cache et servie sous son propre chemin exact au moment de
@@ -47,6 +47,34 @@ const LIB_FILES = [
   'https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js',
 ];
+
+// Dernier recours absolu : si on est hors-ligne ET que rien n'est en
+// cache pour cette page précise (ex. tout premier lancement de ce
+// device fait sans réseau, ou URL jamais visitée avant), on affiche ce
+// mini message plutôt que de laisser Safari planter avec une erreur
+// technique brute ("FetchEvent.respondWith received an error...").
+function offlineFallbackPage() {
+  return new Response(
+    `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hors ligne — Partothèque</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center;
+         justify-content:center; padding:32px; box-sizing:border-box;
+         background:#15122E; color:#fff; font-family:-apple-system,
+         BlinkMacSystemFont,'Segoe UI',sans-serif; text-align:center; }
+  div { max-width:320px; }
+  h1 { font-size:19px; margin:0 0 12px; }
+  p { color:#B8B2A8; line-height:1.5; font-size:14px; margin:0; }
+</style></head><body><div>
+  <h1>Hors ligne</h1>
+  <p>Cette page n'a pas encore été enregistrée sur cet appareil.
+  Connecte-toi une première fois (wifi ou données mobiles) pour
+  qu'elle fonctionne ensuite sans réseau.</p>
+</div></body></html>`,
+    { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  );
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -94,7 +122,12 @@ self.addEventListener('fetch', (event) => {
   // (message REFRESH_SHELL plus bas), pas automatiquement à chaque
   // ouverture.
   if (req.mode === 'navigate') {
-    const pageKey = new URL(req.url).pathname;
+    // Un site servi à la racine (ex. bandaesperanza.github.io/) envoie
+    // une navigation vers "/", pas "/index.html" — on traite les deux
+    // comme la même page pour éviter que le cache les considère comme
+    // deux entrées différentes selon la façon dont l'app a été ouverte.
+    const url = new URL(req.url);
+    const pageKey = url.pathname.endsWith('/') ? url.pathname + 'index.html' : url.pathname;
     event.respondWith(
       caches.match(pageKey).then((cached) => {
         if (cached) return cached;
@@ -103,7 +136,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(pageKey, copy));
           return res;
         });
-      })
+      }).catch(() => offlineFallbackPage())
     );
     return;
   }
@@ -120,7 +153,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
           return res;
         });
-      })
+      }).catch(() => new Response('', { status: 504, statusText: 'Hors ligne' }))
     );
     return;
   }
@@ -138,7 +171,7 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
         return res;
       });
-    })
+    }).catch(() => new Response('', { status: 504, statusText: 'Hors ligne' }))
   );
 });
 
@@ -152,7 +185,11 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (!event.data || event.data.type !== 'REFRESH_SHELL') return;
 
-  const pageKey = event.source ? new URL(event.source.url).pathname : null;
+  const pageKey = (() => {
+    if (!event.source) return null;
+    const url = new URL(event.source.url);
+    return url.pathname.endsWith('/') ? url.pathname + 'index.html' : url.pathname;
+  })();
   const targets = pageKey ? [...SHELL_FILES, ...LIB_FILES, pageKey] : [...SHELL_FILES, ...LIB_FILES];
 
   event.waitUntil(
