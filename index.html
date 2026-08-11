@@ -300,6 +300,105 @@
     padding: 16px 18px;
     margin-bottom: 20px;
   }
+
+  /* --- Accordeur ------------------------------------------------------------ */
+  .tuner-panel {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 20px 18px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .tuner-note {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 52px;
+    line-height: 1;
+    color: var(--ink);
+    margin-bottom: 4px;
+    min-height: 58px;
+  }
+  .tuner-note.silent { color: var(--ink-soft); font-size: 20px; font-weight: 500; }
+  .tuner-freq {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 18px;
+    min-height: 16px;
+  }
+  .tuner-gauge-track {
+    position: relative;
+    height: 8px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #C4302A 0%, #E2A93A 22%, #3E9B5C 44%, #3E9B5C 56%, #E2A93A 78%, #C4302A 100%);
+    margin: 0 6px 6px;
+  }
+  .tuner-gauge-center {
+    position: absolute;
+    left: 50%;
+    top: -4px;
+    width: 2px;
+    height: 16px;
+    background: rgba(32, 29, 61, 0.35);
+    transform: translateX(-50%);
+  }
+  .tuner-gauge-needle {
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    width: 3px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--ink);
+    transform: translateX(-50%);
+    transition: left 0.08s linear;
+  }
+  .tuner-gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    padding: 0 4px;
+    margin-bottom: 18px;
+  }
+  .tuner-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .tuner-ref-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tuner-ref-label select {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink);
+  }
+  #tuner-mic-btn.active {
+    background: var(--stamp);
+    color: #fff;
+    border-color: var(--stamp);
+  }
+  .tuner-hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
   .sync-panel-label {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -748,6 +847,11 @@
   }
   .pdf-viewer-actions button:hover { background: rgba(255,255,255,0.14); }
   .pdf-viewer-actions button:active { transform: scale(0.94); }
+  #pdf-annot-toggle.active, #pdf-metro-toggle.active {
+    background: var(--gold, #D9574B);
+    border-color: var(--gold, #D9574B);
+    color: #15122E;
+  }
   #pdf-live-broadcast.active {
     background: var(--stamp);
     border-color: var(--stamp);
@@ -828,6 +932,55 @@
   .annot-dynamic-select.hidden { display: none; }
 
   .annot-hairpin-btn { font-family: serif; font-size: 20px; font-weight: 700; }
+
+  /* --- Métronome (lecteur PDF) ----------------------------------------------- */
+  .pdf-metro-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: #1c1a19;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+  .metro-play-btn, .metro-step-btn, .metro-tap-btn {
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: #F0ECE4;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .metro-play-btn { width: 40px; font-size: 15px; }
+  .metro-play-btn.active { background: var(--gold, #D9574B); border-color: var(--gold, #D9574B); color: #15122E; }
+  .metro-step-btn { width: 32px; font-size: 18px; }
+  .metro-tap-btn { padding: 0 12px; font-size: 12px; letter-spacing: 0.04em; }
+  .metro-bpm-display {
+    font-family: 'IBM Plex Mono', monospace;
+    color: #F0ECE4;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 74px;
+    justify-content: center;
+  }
+  .metro-bpm-display span:first-child { font-size: 22px; font-weight: 700; }
+  .metro-bpm-unit { font-size: 10px; color: #B8B2A8; }
+  .metro-pulse-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    flex-shrink: 0;
+    transition: background 0.05s linear, transform 0.05s linear;
+  }
+  .metro-pulse-dot.beat { background: var(--gold, #D9574B); transform: scale(1.3); }
+  .metro-pulse-dot.beat.accent { background: #fff; }
 
   .annot-size-label {
     color: #B8B2A8;
@@ -943,6 +1096,31 @@
     <div class="playlist-admin-bar">
       <button type="button" id="playlist-admin-toggle-btn" class="playlist-admin-bar-btn" title="Créer et gérer les playlists">🎼 Gérer les playlists</button>
       <button type="button" id="live-follow-toggle-btn" class="playlist-admin-bar-btn hidden" title="Suivre en direct la partition affichée par le chef">📡 Suivre le chef</button>
+      <button type="button" id="tuner-toggle-btn" class="playlist-admin-bar-btn" title="Accordeur">🎵 Accordeur</button>
+    </div>
+
+    <div class="tuner-panel hidden" id="tuner-panel">
+      <div class="tuner-note silent" id="tuner-note">En attente…</div>
+      <div class="tuner-freq" id="tuner-freq"></div>
+      <div class="tuner-gauge-track">
+        <div class="tuner-gauge-center"></div>
+        <div class="tuner-gauge-needle" id="tuner-needle" style="left:50%;"></div>
+      </div>
+      <div class="tuner-gauge-labels"><span>♭ bémol</span><span>♯ dièse</span></div>
+      <div class="tuner-controls">
+        <label class="tuner-ref-label">La =
+          <select id="tuner-ref-select">
+            <option value="438">438</option>
+            <option value="439">439</option>
+            <option value="440" selected>440</option>
+            <option value="441">441</option>
+            <option value="442">442</option>
+            <option value="443">443</option>
+          </select> Hz
+        </label>
+        <button type="button" id="tuner-mic-btn" class="sync-row-btn">🎤 Démarrer</button>
+      </div>
+      <p class="tuner-hint" id="tuner-hint">Appuie sur démarrer et joue une note tenue, près du micro.</p>
     </div>
 
     <div class="sync-panel hidden" id="playlist-admin-panel">
@@ -1011,6 +1189,7 @@
     <span class="pdf-viewer-title" id="pdf-viewer-title"></span>
     <div class="pdf-viewer-actions">
       <button type="button" id="pdf-annot-toggle" title="Annoter" aria-label="Annoter">✏️</button>
+      <button type="button" id="pdf-metro-toggle" title="Métronome" aria-label="Métronome">♩</button>
       <button type="button" id="pdf-rotate-left" title="Pivoter à gauche (-90°)" aria-label="Pivoter à gauche">⟲</button>
       <button type="button" id="pdf-rotate-right" title="Pivoter à droite (+90°)" aria-label="Pivoter à droite">⟳</button>
       <button type="button" id="pdf-fullscreen" class="hidden" title="Plein écran" aria-label="Plein écran">⛶</button>
@@ -1050,6 +1229,14 @@
       <button type="button" id="annot-undo-btn" class="annot-icon-btn" title="Annuler le dernier trait">↩</button>
       <button type="button" id="annot-clear-btn" class="annot-icon-btn" title="Effacer les annotations de la page">🗑</button>
     </div>
+  </div>
+  <div class="pdf-metro-bar hidden" id="pdf-metro-bar">
+    <button type="button" id="metro-playpause-btn" class="metro-play-btn" title="Démarrer/Arrêter">▶</button>
+    <button type="button" id="metro-bpm-minus" class="metro-step-btn" title="-1 BPM">–</button>
+    <div class="metro-bpm-display"><span id="metro-bpm-value">100</span><span class="metro-bpm-unit">BPM</span></div>
+    <button type="button" id="metro-bpm-plus" class="metro-step-btn" title="+1 BPM">+</button>
+    <button type="button" id="metro-tap-btn" class="metro-tap-btn" title="Tapote au tempo, plusieurs fois">TAP</button>
+    <span class="metro-pulse-dot" id="metro-pulse-dot"></span>
   </div>
   <div class="pdf-viewer-body" id="pdf-viewer-body">
     <div class="pdf-viewer-status" id="pdf-viewer-status">Chargement…</div>
@@ -1131,6 +1318,14 @@
   const liveBannerLabel               = document.getElementById('live-banner-label');
   const liveBannerOpenBtn             = document.getElementById('live-banner-open-btn');
   const liveBannerCloseBtn            = document.getElementById('live-banner-close-btn');
+  const tunerToggleBtn                = document.getElementById('tuner-toggle-btn');
+  const tunerPanel                    = document.getElementById('tuner-panel');
+  const tunerNoteEl                   = document.getElementById('tuner-note');
+  const tunerFreqEl                   = document.getElementById('tuner-freq');
+  const tunerNeedle                   = document.getElementById('tuner-needle');
+  const tunerRefSelect                = document.getElementById('tuner-ref-select');
+  const tunerMicBtn                   = document.getElementById('tuner-mic-btn');
+  const tunerHintEl                   = document.getElementById('tuner-hint');
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
   // l'appli : si un élément venait à manquer, on désactive juste la
@@ -1178,7 +1373,7 @@
   // IndexedDB : stockage local des PDF (blobs) et du dernier catalogue connu
   // ---------------------------------------------------------------------
   const DB_NAME = 'partotheque-db';
-  const DB_VERSION = 3;
+  const DB_VERSION = 4;
   let dbPromise = null;
 
   function openDB() {
@@ -1194,6 +1389,9 @@
         // par page de PDF, stockées uniquement sur cet appareil — jamais
         // synchronisées.
         if (!db.objectStoreNames.contains('annotations')) db.createObjectStore('annotations', { keyPath: 'id' });
+        // Tempo du métronome mémorisé par morceau (fileKey), local à
+        // l'appareil comme les annotations.
+        if (!db.objectStoreNames.contains('metronome')) db.createObjectStore('metronome', { keyPath: 'id' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -1804,6 +2002,161 @@
   }
 
   // ---------------------------------------------------------------------
+  // Accordeur (écran d'accueil) — capture le micro (Web Audio API +
+  // getUserMedia) et détecte la hauteur jouée par autocorrélation du
+  // signal temporel, une technique standard de détection de pitch qui ne
+  // nécessite aucune librairie externe. Rien n'est enregistré ni envoyé :
+  // le flux micro reste local au navigateur, coupé dès qu'on arrête.
+  // ---------------------------------------------------------------------
+  const tunerReady = !!(tunerToggleBtn && tunerPanel && tunerNoteEl && tunerFreqEl &&
+    tunerNeedle && tunerRefSelect && tunerMicBtn);
+
+  const TUNER_NOTE_NAMES = ['Do', 'Do♯', 'Ré', 'Ré♯', 'Mi', 'Fa', 'Fa♯', 'Sol', 'Sol♯', 'La', 'La♯', 'Si'];
+
+  let tunerAudioCtx = null;
+  let tunerStream = null;
+  let tunerAnalyser = null;
+  let tunerBuffer = null;
+  let tunerRunning = false;
+  let tunerRafId = null;
+
+  // Détection de hauteur par autocorrélation : on cherche le décalage
+  // (en échantillons) pour lequel le signal se ressemble le plus à
+  // lui-même — ce décalage correspond à la période du son, donc à sa
+  // fréquence. -1 si le signal est trop faible pour être fiable.
+  function tunerAutoCorrelate(buf, sampleRate) {
+    const size = buf.length;
+    let rms = 0;
+    for (let i = 0; i < size; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / size);
+    if (rms < 0.01) return -1;
+
+    let start = 0, end = size - 1;
+    const threshold = 0.2;
+    for (let i = 0; i < size / 2; i++) { if (Math.abs(buf[i]) >= threshold) { start = i; break; } }
+    for (let i = 1; i < size / 2; i++) { if (Math.abs(buf[size - i]) >= threshold) { end = size - i; break; } }
+    const trimmed = buf.slice(start, end);
+    const n = trimmed.length;
+    if (n < 8) return -1;
+
+    const correlations = new Array(n).fill(0);
+    for (let lag = 0; lag < n; lag++) {
+      let sum = 0;
+      for (let i = 0; i < n - lag; i++) sum += trimmed[i] * trimmed[i + lag];
+      correlations[lag] = sum;
+    }
+
+    let d = 0;
+    while (d < n - 1 && correlations[d] > correlations[d + 1]) d++;
+    let bestLag = -1, bestVal = -1;
+    for (let i = d; i < n; i++) {
+      if (correlations[i] > bestVal) { bestVal = correlations[i]; bestLag = i; }
+    }
+    if (bestLag <= 0) return -1;
+
+    // Interpolation parabolique autour du pic pour affiner l'estimation.
+    const x1 = correlations[bestLag - 1] || correlations[bestLag];
+    const x2 = correlations[bestLag];
+    const x3 = correlations[bestLag + 1] || correlations[bestLag];
+    const a = (x1 + x3 - 2 * x2) / 2;
+    const b = (x3 - x1) / 2;
+    const refinedLag = a ? bestLag - b / (2 * a) : bestLag;
+
+    return sampleRate / refinedLag;
+  }
+
+  function tunerRefPitch() {
+    return Number(tunerRefSelect.value) || 440;
+  }
+
+  function tunerNoteNumberFromFrequency(freq) {
+    return 12 * Math.log2(freq / tunerRefPitch()) + 69;
+  }
+
+  function tunerFrequencyFromNoteNumber(note) {
+    return tunerRefPitch() * Math.pow(2, (note - 69) / 12);
+  }
+
+  function tunerUpdateDisplay(freq) {
+    const exactNote = tunerNoteNumberFromFrequency(freq);
+    const roundedNote = Math.round(exactNote);
+    const cents = Math.round(1200 * Math.log2(freq / tunerFrequencyFromNoteNumber(roundedNote)));
+    const name = TUNER_NOTE_NAMES[((roundedNote % 12) + 12) % 12];
+    const octave = Math.floor(roundedNote / 12) - 1;
+
+    tunerNoteEl.classList.remove('silent');
+    tunerNoteEl.textContent = `${name}${octave}`;
+    tunerFreqEl.textContent = `${freq.toFixed(1)} Hz · ${cents > 0 ? '+' : ''}${cents} cents`;
+
+    const clampedCents = Math.max(-50, Math.min(50, cents));
+    const posPercent = 50 + (clampedCents / 50) * 46; // 46 pour ne pas coller aux bords
+    tunerNeedle.style.left = posPercent + '%';
+  }
+
+  function tunerShowSilence() {
+    tunerNoteEl.classList.add('silent');
+    tunerNoteEl.textContent = 'En attente…';
+    tunerFreqEl.textContent = '';
+    tunerNeedle.style.left = '50%';
+  }
+
+  function tunerLoop() {
+    if (!tunerRunning) return;
+    tunerAnalyser.getFloatTimeDomainData(tunerBuffer);
+    const freq = tunerAutoCorrelate(tunerBuffer, tunerAudioCtx.sampleRate);
+    if (freq > 0 && freq < 5000) tunerUpdateDisplay(freq); else tunerShowSilence();
+    tunerRafId = requestAnimationFrame(tunerLoop);
+  }
+
+  async function tunerStart() {
+    if (tunerRunning || !tunerReady) return;
+    tunerHintEl.textContent = 'Demande d\u2019accès au micro…';
+    try {
+      tunerStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      });
+    } catch (e) {
+      tunerHintEl.textContent = "Micro refusé ou indisponible. Autorise l'accès au micro dans les réglages du navigateur.";
+      return;
+    }
+    tunerAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = tunerAudioCtx.createMediaStreamSource(tunerStream);
+    tunerAnalyser = tunerAudioCtx.createAnalyser();
+    tunerAnalyser.fftSize = 2048;
+    source.connect(tunerAnalyser);
+    tunerBuffer = new Float32Array(tunerAnalyser.fftSize);
+    tunerRunning = true;
+    tunerMicBtn.textContent = '⏹ Arrêter';
+    tunerMicBtn.classList.add('active');
+    tunerHintEl.textContent = 'Joue une note tenue, près du micro.';
+    tunerLoop();
+  }
+
+  function tunerStop() {
+    tunerRunning = false;
+    if (tunerRafId) cancelAnimationFrame(tunerRafId);
+    if (tunerStream) { tunerStream.getTracks().forEach(t => t.stop()); tunerStream = null; }
+    if (tunerAudioCtx) { tunerAudioCtx.close().catch(() => {}); tunerAudioCtx = null; }
+    if (!tunerReady) return;
+    tunerMicBtn.textContent = '🎤 Démarrer';
+    tunerMicBtn.classList.remove('active');
+    tunerHintEl.textContent = 'Appuie sur démarrer et joue une note tenue, près du micro.';
+    tunerShowSilence();
+  }
+
+  if (tunerReady) {
+    tunerToggleBtn.addEventListener('click', () => {
+      const showing = !tunerPanel.classList.contains('hidden');
+      tunerPanel.classList.toggle('hidden', showing);
+      tunerToggleBtn.classList.toggle('active', !showing);
+      if (showing) tunerStop(); // referme = coupe le micro, jamais laissé actif en fond
+    });
+    tunerMicBtn.addEventListener('click', () => {
+      if (tunerRunning) tunerStop(); else tunerStart();
+    });
+  }
+
+  // ---------------------------------------------------------------------
   // Init / filtres / recherche
   // ---------------------------------------------------------------------
   function loadStoredInstrument() {
@@ -2116,6 +2469,14 @@
   const annotSizeRange   = document.getElementById('annot-size-range');
   const annotSizeLabel   = document.getElementById('annot-size-label');
   const annotToolButtons = pdfAnnotToolbar ? Array.from(pdfAnnotToolbar.querySelectorAll('.annot-tool-btn')) : [];
+  const pdfMetroToggleBtn = document.getElementById('pdf-metro-toggle');
+  const pdfMetroBar      = document.getElementById('pdf-metro-bar');
+  const metroPlayPauseBtn = document.getElementById('metro-playpause-btn');
+  const metroBpmMinusBtn = document.getElementById('metro-bpm-minus');
+  const metroBpmPlusBtn  = document.getElementById('metro-bpm-plus');
+  const metroBpmValue    = document.getElementById('metro-bpm-value');
+  const metroTapBtn      = document.getElementById('metro-tap-btn');
+  const metroPulseDot    = document.getElementById('metro-pulse-dot');
 
   // Tous les éléments du lecteur doivent être présents pour l'activer ;
   // sinon on se contente de ne pas le brancher, sans jamais faire
@@ -2472,6 +2833,152 @@
     pdfAnnotCanvas.addEventListener('pointerleave', endStroke);
   }
 
+  // ---------------------------------------------------------------------
+  // Métronome (lecteur PDF) — clic audio via Web Audio API (aucun fichier
+  // son requis, fonctionne hors-ligne), avec un ordonnanceur "look-ahead"
+  // pour rester précis même si l'onglet ralentit un peu. Le tempo choisi
+  // est mémorisé par morceau (IndexedDB, local à l'appareil).
+  // ---------------------------------------------------------------------
+  const metroReady = !!(pdfMetroToggleBtn && pdfMetroBar && metroPlayPauseBtn &&
+    metroBpmMinusBtn && metroBpmPlusBtn && metroBpmValue && metroTapBtn && metroPulseDot);
+
+  const METRO_MIN_BPM = 30;
+  const METRO_MAX_BPM = 260;
+  const METRO_BEATS_PER_BAR = 4;
+  const METRO_SCHEDULE_AHEAD = 0.12; // secondes de marge programmées à l'avance
+  const METRO_LOOKAHEAD_MS = 25;     // fréquence de vérification de l'ordonnanceur
+
+  let metroAudioCtx = null;
+  let metroBpm = 100;
+  let metroRunning = false;
+  let metroBeatInBar = 0;
+  let metroNextNoteTime = 0;
+  let metroTimerId = null;
+  let metroSaveTimer = null;
+  let metroTapTimes = [];
+
+  function metroClampBpm(v) {
+    return Math.max(METRO_MIN_BPM, Math.min(METRO_MAX_BPM, Math.round(v)));
+  }
+
+  function metroSetBpm(v) {
+    metroBpm = metroClampBpm(v);
+    if (metroReady) metroBpmValue.textContent = String(metroBpm);
+    const key = pdfCurrentFileKey;
+    if (!key) return;
+    clearTimeout(metroSaveTimer);
+    metroSaveTimer = setTimeout(() => {
+      idbPut('metronome', { id: key, bpm: metroBpm }).catch(() => {});
+    }, 300);
+  }
+
+  async function loadMetroBpmForCurrentFile() {
+    metroBpm = 100;
+    const key = pdfCurrentFileKey;
+    if (key) {
+      try {
+        const row = await idbGet('metronome', key);
+        if (row && Number.isFinite(row.bpm)) metroBpm = metroClampBpm(row.bpm);
+      } catch (e) { /* pas grave : tempo par défaut */ }
+    }
+    if (metroReady) metroBpmValue.textContent = String(metroBpm);
+  }
+
+  function metroFlashBeat(accent) {
+    if (!metroReady) return;
+    metroPulseDot.classList.remove('beat', 'accent');
+    // Force un reflow pour rejouer l'animation même sur des battements rapprochés.
+    void metroPulseDot.offsetWidth;
+    metroPulseDot.classList.add('beat');
+    if (accent) metroPulseDot.classList.add('accent');
+    setTimeout(() => metroPulseDot.classList.remove('beat', 'accent'), 90);
+  }
+
+  function metroScheduleClick(beatInBar, time) {
+    const accent = beatInBar === 0;
+    const osc = metroAudioCtx.createOscillator();
+    const gain = metroAudioCtx.createGain();
+    osc.frequency.value = accent ? 1600 : 1000;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(0.55, time + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+    osc.connect(gain).connect(metroAudioCtx.destination);
+    osc.start(time);
+    osc.stop(time + 0.07);
+    const delayMs = Math.max(0, (time - metroAudioCtx.currentTime) * 1000);
+    setTimeout(() => metroFlashBeat(accent), delayMs);
+  }
+
+  function metroAdvanceNote() {
+    metroNextNoteTime += 60.0 / metroBpm;
+    metroBeatInBar = (metroBeatInBar + 1) % METRO_BEATS_PER_BAR;
+  }
+
+  function metroScheduler() {
+    while (metroNextNoteTime < metroAudioCtx.currentTime + METRO_SCHEDULE_AHEAD) {
+      metroScheduleClick(metroBeatInBar, metroNextNoteTime);
+      metroAdvanceNote();
+    }
+    metroTimerId = setTimeout(metroScheduler, METRO_LOOKAHEAD_MS);
+  }
+
+  function metroStart() {
+    if (metroRunning || !metroReady) return;
+    if (!metroAudioCtx) metroAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (metroAudioCtx.state === 'suspended') metroAudioCtx.resume();
+    metroRunning = true;
+    metroBeatInBar = 0;
+    metroNextNoteTime = metroAudioCtx.currentTime + 0.05;
+    metroScheduler();
+    metroPlayPauseBtn.textContent = '⏸';
+    metroPlayPauseBtn.classList.add('active');
+  }
+
+  function metroStop() {
+    metroRunning = false;
+    clearTimeout(metroTimerId);
+    if (metroReady) {
+      metroPlayPauseBtn.textContent = '▶';
+      metroPlayPauseBtn.classList.remove('active');
+      metroPulseDot.classList.remove('beat', 'accent');
+    }
+  }
+
+  if (metroReady) {
+    metroBpmValue.textContent = String(metroBpm);
+
+    pdfMetroToggleBtn.addEventListener('click', () => {
+      const showing = !pdfMetroBar.classList.contains('hidden');
+      pdfMetroBar.classList.toggle('hidden', showing);
+      pdfMetroToggleBtn.classList.toggle('active', !showing);
+      if (showing) metroStop(); // referme = arrête, pour ne pas laisser tourner en fond sans contrôle visible
+    });
+
+    metroPlayPauseBtn.addEventListener('click', () => {
+      if (metroRunning) metroStop(); else metroStart();
+    });
+
+    metroBpmMinusBtn.addEventListener('click', () => metroSetBpm(metroBpm - 1));
+    metroBpmPlusBtn.addEventListener('click', () => metroSetBpm(metroBpm + 1));
+
+    metroTapBtn.addEventListener('click', () => {
+      const now = performance.now();
+      // On ne garde que des tapotements rapprochés (moins de 2s d'écart) :
+      // au-delà, on considère que c'est une nouvelle série.
+      if (metroTapTimes.length && now - metroTapTimes[metroTapTimes.length - 1] > 2000) {
+        metroTapTimes = [];
+      }
+      metroTapTimes.push(now);
+      if (metroTapTimes.length > 6) metroTapTimes.shift();
+      if (metroTapTimes.length >= 2) {
+        const intervals = [];
+        for (let i = 1; i < metroTapTimes.length; i++) intervals.push(metroTapTimes[i] - metroTapTimes[i - 1]);
+        const avgMs = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        metroSetBpm(60000 / avgMs);
+      }
+    });
+  }
+
   async function openPdfViewer(url, name, isBlobUrl, id, folderPath) {
     if (!pdfViewerReady) {
       // Lecteur indisponible : on retombe sur le lien direct plutôt
@@ -2494,6 +3001,12 @@
     currentStroke = null;
     currentHairpin = null;
     if (annotReady) setAnnotateMode(false);
+    if (metroReady) {
+      metroStop();
+      pdfMetroBar.classList.add('hidden');
+      pdfMetroToggleBtn.classList.remove('active');
+    }
+    loadMetroBpmForCurrentFile();
     pdfViewerTitle.textContent = name || '';
     pdfViewerStatus.textContent = 'Chargement…';
     pdfViewerStatus.classList.remove('hidden');
@@ -2638,6 +3151,7 @@
     currentStroke = null;
     currentHairpin = null;
     if (annotReady) setAnnotateMode(false);
+    if (metroReady) metroStop();
   }
 
   if (pdfViewerReady) {
