@@ -3045,6 +3045,7 @@
   let pageAnnotations = [];       // traits/tampons/soufflets de la page affichée
   let currentStroke = null;       // trait libre en cours (pointerdown → pointerup)
   let currentHairpin = null;      // crescendo/decrescendo en cours de glissement
+  let currentStamp = null;        // dièse/bémol/nuance… en cours de placement (déplaçable tant que le doigt reste posé)
   let annotSaveTimer = null;
 
   function annotCurrentColor() {
@@ -3256,11 +3257,10 @@
       const [pdfX, pdfY] = pdfViewportForAnnot.convertToPdfPoint(px, py);
 
       if (STAMP_TOOLS.includes(annotTool)) {
-        const item = { tool: annotTool, x: pdfX, y: pdfY, size: annotCurrentStampSize(), color: annotCurrentColor() };
-        if (annotTool === 'dynamic') item.text = annotDynamicSelect ? annotDynamicSelect.value : 'mf';
-        pageAnnotations.push(item);
+        currentStamp = { tool: annotTool, x: pdfX, y: pdfY, size: annotCurrentStampSize(), color: annotCurrentColor() };
+        if (annotTool === 'dynamic') currentStamp.text = annotDynamicSelect ? annotDynamicSelect.value : 'mf';
         redrawAnnotations();
-        savePageAnnotations();
+        drawStamp(pdfAnnotCanvas.getContext('2d'), currentStamp, pdfViewportForAnnot);
         return;
       }
 
@@ -3284,11 +3284,19 @@
 
     pdfAnnotCanvas.addEventListener('pointermove', (e) => {
       if (!annotateMode) return;
-      if (!currentStroke && !currentHairpin) return;
+      if (!currentStroke && !currentHairpin && !currentStamp) return;
       e.preventDefault();
       const [px, py] = annotCanvasPixel(e);
       const [pdfX, pdfY] = pdfViewportForAnnot.convertToPdfPoint(px, py);
       const ctx = pdfAnnotCanvas.getContext('2d');
+
+      if (currentStamp) {
+        currentStamp.x = pdfX;
+        currentStamp.y = pdfY;
+        redrawAnnotations();
+        drawStamp(ctx, currentStamp, pdfViewportForAnnot);
+        return;
+      }
 
       if (currentHairpin) {
         currentHairpin.x2 = pdfX;
@@ -3304,6 +3312,11 @@
     });
 
     const endStroke = () => {
+      if (currentStamp) {
+        pageAnnotations.push(currentStamp);
+        savePageAnnotations();
+        currentStamp = null;
+      }
       if (currentStroke) {
         if (currentStroke.points.length > 1) {
           pageAnnotations.push(currentStroke);
@@ -3625,6 +3638,7 @@
     pageAnnotations = [];
     currentStroke = null;
     currentHairpin = null;
+    currentStamp = null;
     if (annotReady) setAnnotateMode(false);
     pdfViewerTitle.textContent = name || '';
     pdfViewerStatus.textContent = 'Chargement…';
@@ -3769,6 +3783,7 @@
     pdfCurrentFileKey = null;
     currentStroke = null;
     currentHairpin = null;
+    currentStamp = null;
     if (annotReady) setAnnotateMode(false);
   }
 
