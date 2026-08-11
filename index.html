@@ -998,6 +998,9 @@
     align-items: flex-start;
     justify-content: center;
     padding: 18px 12px 90px;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
 
   .pdf-viewer-status {
@@ -1010,6 +1013,9 @@
   .pdf-canvas-wrap {
     position: relative;
     line-height: 0;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
 
   #pdf-canvas {
@@ -1020,12 +1026,19 @@
 
   /* Calque d'annotation : posé pile sur #pdf-canvas (même taille, fixée en
      JS). pointer-events est activé seulement en mode annotation, pour ne
-     jamais gêner le zoom/swipe normal du lecteur. */
+     jamais gêner le zoom/swipe normal du lecteur.
+     user-select/touch-callout à none : sans ça, un doigt qui reste posé
+     pour ajuster un tampon (dièse, bémol…) déclenche la sélection native
+     du navigateur (surbrillance bleue, menu "Copier"/loupe système iOS)
+     au lieu de notre propre loupe. */
   #pdf-annot-canvas {
     position: absolute;
     left: 0;
     top: 0;
     pointer-events: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
   #pdf-annot-canvas.hidden { display: none; }
   #pdf-annot-canvas.annot-active { pointer-events: auto; touch-action: none; }
