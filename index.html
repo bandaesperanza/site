@@ -324,9 +324,18 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
     color: var(--ink-soft);
-    margin-bottom: 18px;
     min-height: 16px;
   }
+  .tuner-status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    min-height: 15px;
+    margin-bottom: 14px;
+  }
+  .tuner-status.in-tune { color: #3E9B5C; }
+  .tuner-status.off-tune { color: #C4302A; }
   .tuner-gauge-track {
     position: relative;
     height: 8px;
@@ -343,6 +352,18 @@
     background: rgba(32, 29, 61, 0.35);
     transform: translateX(-50%);
   }
+  /* Petits traits de tolérance : au-delà, la note est considérée hors
+     justesse (±5 cents, seuil standard d'accordeur). */
+  .tuner-gauge-tick {
+    position: absolute;
+    top: -3px;
+    width: 2px;
+    height: 14px;
+    background: rgba(32, 29, 61, 0.55);
+    border-radius: 999px;
+  }
+  .tuner-gauge-tick-low { left: 45.4%; }
+  .tuner-gauge-tick-high { left: 54.6%; }
   .tuner-gauge-needle {
     position: absolute;
     top: -7px;
@@ -352,8 +373,10 @@
     border-radius: 999px;
     background: var(--ink);
     transform: translateX(-50%);
-    transition: left 0.08s linear;
+    transition: left 0.08s linear, background 0.12s linear;
   }
+  .tuner-gauge-needle.in-tune { background: #3E9B5C; }
+  .tuner-gauge-needle.off-tune { background: #C4302A; }
   .tuner-gauge-labels {
     display: flex;
     justify-content: space-between;
@@ -370,6 +393,26 @@
     gap: 14px;
     flex-wrap: wrap;
     margin-bottom: 10px;
+  }
+  .tuner-ref-presets {
+    display: flex;
+    gap: 6px;
+  }
+  .tuner-ref-preset-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .tuner-ref-preset-btn.active {
+    background: var(--focus);
+    border-color: var(--focus);
+    color: #fff;
   }
   .tuner-ref-label {
     font-family: 'IBM Plex Mono', monospace;
@@ -847,7 +890,7 @@
   }
   .pdf-viewer-actions button:hover { background: rgba(255,255,255,0.14); }
   .pdf-viewer-actions button:active { transform: scale(0.94); }
-  #pdf-annot-toggle.active, #pdf-metro-toggle.active {
+  #pdf-annot-toggle.active {
     background: var(--gold, #D9574B);
     border-color: var(--gold, #D9574B);
     color: #15122E;
@@ -933,54 +976,63 @@
 
   .annot-hairpin-btn { font-family: serif; font-size: 20px; font-weight: 700; }
 
-  /* --- Métronome (lecteur PDF) ----------------------------------------------- */
-  .pdf-metro-bar {
+  /* --- Métronome (page d'accueil) --------------------------------------------- */
+  .metro-panel {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 20px 18px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .metro-bpm-big {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .metro-bpm-big span:first-child { font-size: 44px; color: var(--ink); line-height: 1; }
+  .metro-bpm-unit { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-soft); }
+  .metro-main-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 8px 10px;
-    background: #1c1a19;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    flex-shrink: 0;
+    gap: 16px;
+    margin-bottom: 16px;
   }
-  .metro-play-btn, .metro-step-btn, .metro-tap-btn {
-    height: 36px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.15);
-    background: rgba(255,255,255,0.06);
-    color: #F0ECE4;
-    font-family: 'IBM Plex Mono', monospace;
+  .metro-play-btn, .metro-step-btn {
+    border-radius: 50%;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .metro-play-btn { width: 40px; font-size: 15px; }
-  .metro-play-btn.active { background: var(--gold, #D9574B); border-color: var(--gold, #D9574B); color: #15122E; }
-  .metro-step-btn { width: 32px; font-size: 18px; }
-  .metro-tap-btn { padding: 0 12px; font-size: 12px; letter-spacing: 0.04em; }
-  .metro-bpm-display {
-    font-family: 'IBM Plex Mono', monospace;
-    color: #F0ECE4;
+  .metro-play-btn { width: 56px; height: 56px; font-size: 20px; }
+  .metro-play-btn.active { background: var(--stamp); border-color: var(--stamp); color: #fff; }
+  .metro-step-btn { width: 40px; height: 40px; font-size: 20px; }
+  .metro-secondary-row {
     display: flex;
-    align-items: baseline;
-    gap: 4px;
-    min-width: 74px;
+    align-items: center;
     justify-content: center;
+    gap: 12px;
+    margin-bottom: 10px;
   }
-  .metro-bpm-display span:first-child { font-size: 22px; font-weight: 700; }
-  .metro-bpm-unit { font-size: 10px; color: #B8B2A8; }
   .metro-pulse-dot {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.15);
+    background: var(--rule);
     flex-shrink: 0;
     transition: background 0.05s linear, transform 0.05s linear;
   }
-  .metro-pulse-dot.beat { background: var(--gold, #D9574B); transform: scale(1.3); }
-  .metro-pulse-dot.beat.accent { background: #fff; }
+  .metro-pulse-dot.beat { background: var(--stamp); transform: scale(1.3); }
+  .metro-pulse-dot.beat.accent { background: var(--focus); }
 
   .annot-size-label {
     color: #B8B2A8;
@@ -1097,30 +1149,58 @@
       <button type="button" id="playlist-admin-toggle-btn" class="playlist-admin-bar-btn" title="Créer et gérer les playlists">🎼 Gérer les playlists</button>
       <button type="button" id="live-follow-toggle-btn" class="playlist-admin-bar-btn hidden" title="Suivre en direct la partition affichée par le chef">📡 Suivre le chef</button>
       <button type="button" id="tuner-toggle-btn" class="playlist-admin-bar-btn" title="Accordeur">🎵 Accordeur</button>
+      <button type="button" id="metro-toggle-btn" class="playlist-admin-bar-btn" title="Métronome">♩ Métronome</button>
     </div>
 
     <div class="tuner-panel hidden" id="tuner-panel">
       <div class="tuner-note silent" id="tuner-note">En attente…</div>
       <div class="tuner-freq" id="tuner-freq"></div>
+      <div class="tuner-status" id="tuner-status"></div>
       <div class="tuner-gauge-track">
+        <div class="tuner-gauge-tick tuner-gauge-tick-low"></div>
+        <div class="tuner-gauge-tick tuner-gauge-tick-high"></div>
         <div class="tuner-gauge-center"></div>
         <div class="tuner-gauge-needle" id="tuner-needle" style="left:50%;"></div>
       </div>
       <div class="tuner-gauge-labels"><span>♭ bémol</span><span>♯ dièse</span></div>
       <div class="tuner-controls">
+        <div class="tuner-ref-presets">
+          <button type="button" class="tuner-ref-preset-btn active" data-ref="440">440</button>
+          <button type="button" class="tuner-ref-preset-btn" data-ref="442">442</button>
+        </div>
         <label class="tuner-ref-label">La =
           <select id="tuner-ref-select">
+            <option value="435">435</option>
+            <option value="436">436</option>
+            <option value="437">437</option>
             <option value="438">438</option>
             <option value="439">439</option>
             <option value="440" selected>440</option>
             <option value="441">441</option>
             <option value="442">442</option>
             <option value="443">443</option>
+            <option value="444">444</option>
+            <option value="445">445</option>
+            <option value="446">446</option>
           </select> Hz
         </label>
         <button type="button" id="tuner-mic-btn" class="sync-row-btn">🎤 Démarrer</button>
       </div>
-      <p class="tuner-hint" id="tuner-hint">Appuie sur démarrer et joue une note tenue, près du micro.</p>
+      <p class="tuner-hint" id="tuner-hint">Appuie sur démarrer et joue une note tenue, près du micro. Les petits traits sur la jauge marquent la tolérance (±5 cents).</p>
+    </div>
+
+    <div class="metro-panel hidden" id="metro-panel">
+      <div class="metro-bpm-big"><span id="metro-bpm-value">100</span><span class="metro-bpm-unit">BPM</span></div>
+      <div class="metro-main-row">
+        <button type="button" id="metro-bpm-minus" class="metro-step-btn" title="-1 BPM">–</button>
+        <button type="button" id="metro-playpause-btn" class="metro-play-btn" title="Démarrer/Arrêter">▶</button>
+        <button type="button" id="metro-bpm-plus" class="metro-step-btn" title="+1 BPM">+</button>
+      </div>
+      <div class="metro-secondary-row">
+        <button type="button" id="metro-tap-btn" class="sync-row-btn" title="Tapote au tempo, plusieurs fois">Tap tempo</button>
+        <span class="metro-pulse-dot" id="metro-pulse-dot"></span>
+      </div>
+      <p class="tuner-hint">Le tempo choisi reste mémorisé sur cet appareil.</p>
     </div>
 
     <div class="sync-panel hidden" id="playlist-admin-panel">
@@ -1189,7 +1269,6 @@
     <span class="pdf-viewer-title" id="pdf-viewer-title"></span>
     <div class="pdf-viewer-actions">
       <button type="button" id="pdf-annot-toggle" title="Annoter" aria-label="Annoter">✏️</button>
-      <button type="button" id="pdf-metro-toggle" title="Métronome" aria-label="Métronome">♩</button>
       <button type="button" id="pdf-rotate-left" title="Pivoter à gauche (-90°)" aria-label="Pivoter à gauche">⟲</button>
       <button type="button" id="pdf-rotate-right" title="Pivoter à droite (+90°)" aria-label="Pivoter à droite">⟳</button>
       <button type="button" id="pdf-fullscreen" class="hidden" title="Plein écran" aria-label="Plein écran">⛶</button>
@@ -1229,14 +1308,6 @@
       <button type="button" id="annot-undo-btn" class="annot-icon-btn" title="Annuler le dernier trait">↩</button>
       <button type="button" id="annot-clear-btn" class="annot-icon-btn" title="Effacer les annotations de la page">🗑</button>
     </div>
-  </div>
-  <div class="pdf-metro-bar hidden" id="pdf-metro-bar">
-    <button type="button" id="metro-playpause-btn" class="metro-play-btn" title="Démarrer/Arrêter">▶</button>
-    <button type="button" id="metro-bpm-minus" class="metro-step-btn" title="-1 BPM">–</button>
-    <div class="metro-bpm-display"><span id="metro-bpm-value">100</span><span class="metro-bpm-unit">BPM</span></div>
-    <button type="button" id="metro-bpm-plus" class="metro-step-btn" title="+1 BPM">+</button>
-    <button type="button" id="metro-tap-btn" class="metro-tap-btn" title="Tapote au tempo, plusieurs fois">TAP</button>
-    <span class="metro-pulse-dot" id="metro-pulse-dot"></span>
   </div>
   <div class="pdf-viewer-body" id="pdf-viewer-body">
     <div class="pdf-viewer-status" id="pdf-viewer-status">Chargement…</div>
@@ -1322,10 +1393,20 @@
   const tunerPanel                    = document.getElementById('tuner-panel');
   const tunerNoteEl                   = document.getElementById('tuner-note');
   const tunerFreqEl                   = document.getElementById('tuner-freq');
+  const tunerStatusEl                 = document.getElementById('tuner-status');
   const tunerNeedle                   = document.getElementById('tuner-needle');
   const tunerRefSelect                = document.getElementById('tuner-ref-select');
+  const tunerRefPresetButtons         = Array.from(document.querySelectorAll('.tuner-ref-preset-btn'));
   const tunerMicBtn                   = document.getElementById('tuner-mic-btn');
   const tunerHintEl                   = document.getElementById('tuner-hint');
+  const metroToggleBtn                = document.getElementById('metro-toggle-btn');
+  const metroPanel                    = document.getElementById('metro-panel');
+  const metroPlayPauseBtn             = document.getElementById('metro-playpause-btn');
+  const metroBpmMinusBtn              = document.getElementById('metro-bpm-minus');
+  const metroBpmPlusBtn               = document.getElementById('metro-bpm-plus');
+  const metroBpmValue                 = document.getElementById('metro-bpm-value');
+  const metroTapBtn                   = document.getElementById('metro-tap-btn');
+  const metroPulseDot                 = document.getElementById('metro-pulse-dot');
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
   // l'appli : si un élément venait à manquer, on désactive juste la
@@ -2009,9 +2090,10 @@
   // le flux micro reste local au navigateur, coupé dès qu'on arrête.
   // ---------------------------------------------------------------------
   const tunerReady = !!(tunerToggleBtn && tunerPanel && tunerNoteEl && tunerFreqEl &&
-    tunerNeedle && tunerRefSelect && tunerMicBtn);
+    tunerStatusEl && tunerNeedle && tunerRefSelect && tunerMicBtn);
 
   const TUNER_NOTE_NAMES = ['Do', 'Do♯', 'Ré', 'Ré♯', 'Mi', 'Fa', 'Fa♯', 'Sol', 'Sol♯', 'La', 'La♯', 'Si'];
+  const TUNER_TOLERANCE_CENTS = 5; // seuil standard "dans la justesse" pour un accordeur
 
   let tunerAudioCtx = null;
   let tunerStream = null;
@@ -2069,6 +2151,16 @@
     return Number(tunerRefSelect.value) || 440;
   }
 
+  function tunerSyncRefPresets() {
+    const current = String(tunerRefPitch());
+    tunerRefPresetButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.ref === current));
+  }
+
+  function tunerSetRefPitch(hz) {
+    tunerRefSelect.value = String(hz);
+    tunerSyncRefPresets();
+  }
+
   function tunerNoteNumberFromFrequency(freq) {
     return 12 * Math.log2(freq / tunerRefPitch()) + 69;
   }
@@ -2083,10 +2175,22 @@
     const cents = Math.round(1200 * Math.log2(freq / tunerFrequencyFromNoteNumber(roundedNote)));
     const name = TUNER_NOTE_NAMES[((roundedNote % 12) + 12) % 12];
     const octave = Math.floor(roundedNote / 12) - 1;
+    const inTune = Math.abs(cents) <= TUNER_TOLERANCE_CENTS;
 
     tunerNoteEl.classList.remove('silent');
     tunerNoteEl.textContent = `${name}${octave}`;
     tunerFreqEl.textContent = `${freq.toFixed(1)} Hz · ${cents > 0 ? '+' : ''}${cents} cents`;
+
+    tunerStatusEl.classList.toggle('in-tune', inTune);
+    tunerStatusEl.classList.toggle('off-tune', !inTune);
+    if (inTune) {
+      tunerStatusEl.textContent = '✓ Dans la tolérance';
+    } else {
+      tunerStatusEl.textContent = cents > 0 ? '♯ Trop haut' : '♭ Trop bas';
+    }
+
+    tunerNeedle.classList.toggle('in-tune', inTune);
+    tunerNeedle.classList.toggle('off-tune', !inTune);
 
     const clampedCents = Math.max(-50, Math.min(50, cents));
     const posPercent = 50 + (clampedCents / 50) * 46; // 46 pour ne pas coller aux bords
@@ -2097,6 +2201,9 @@
     tunerNoteEl.classList.add('silent');
     tunerNoteEl.textContent = 'En attente…';
     tunerFreqEl.textContent = '';
+    tunerStatusEl.textContent = '';
+    tunerStatusEl.classList.remove('in-tune', 'off-tune');
+    tunerNeedle.classList.remove('in-tune', 'off-tune');
     tunerNeedle.style.left = '50%';
   }
 
@@ -2154,6 +2261,13 @@
     tunerMicBtn.addEventListener('click', () => {
       if (tunerRunning) tunerStop(); else tunerStart();
     });
+    tunerRefPresetButtons.forEach(btn => {
+      btn.addEventListener('click', () => tunerSetRefPitch(Number(btn.dataset.ref)));
+    });
+    // Le select couvre les valeurs fines (435-446) : s'il change vers 440
+    // ou 442, on remet le preset correspondant en évidence, sinon on les
+    // désélectionne tous les deux (valeur "libre").
+    tunerRefSelect.addEventListener('change', tunerSyncRefPresets);
   }
 
   // ---------------------------------------------------------------------
@@ -2469,14 +2583,6 @@
   const annotSizeRange   = document.getElementById('annot-size-range');
   const annotSizeLabel   = document.getElementById('annot-size-label');
   const annotToolButtons = pdfAnnotToolbar ? Array.from(pdfAnnotToolbar.querySelectorAll('.annot-tool-btn')) : [];
-  const pdfMetroToggleBtn = document.getElementById('pdf-metro-toggle');
-  const pdfMetroBar      = document.getElementById('pdf-metro-bar');
-  const metroPlayPauseBtn = document.getElementById('metro-playpause-btn');
-  const metroBpmMinusBtn = document.getElementById('metro-bpm-minus');
-  const metroBpmPlusBtn  = document.getElementById('metro-bpm-plus');
-  const metroBpmValue    = document.getElementById('metro-bpm-value');
-  const metroTapBtn      = document.getElementById('metro-tap-btn');
-  const metroPulseDot    = document.getElementById('metro-pulse-dot');
 
   // Tous les éléments du lecteur doivent être présents pour l'activer ;
   // sinon on se contente de ne pas le brancher, sans jamais faire
@@ -2834,12 +2940,15 @@
   }
 
   // ---------------------------------------------------------------------
-  // Métronome (lecteur PDF) — clic audio via Web Audio API (aucun fichier
-  // son requis, fonctionne hors-ligne), avec un ordonnanceur "look-ahead"
-  // pour rester précis même si l'onglet ralentit un peu. Le tempo choisi
-  // est mémorisé par morceau (IndexedDB, local à l'appareil).
+  // Métronome (page d'accueil) — clic audio via Web Audio API (aucun
+  // fichier son requis, fonctionne hors-ligne), avec un ordonnanceur
+  // "look-ahead" pour rester précis même si l'onglet ralentit un peu.
+  // Le tempo choisi est mémorisé sur cet appareil (localStorage, comme le
+  // filtre d'instrument), indépendamment du morceau ouvert.
   // ---------------------------------------------------------------------
-  const metroReady = !!(pdfMetroToggleBtn && pdfMetroBar && metroPlayPauseBtn &&
+  const METRO_BPM_STORAGE_KEY = 'partotheque-metro-bpm';
+
+  const metroReady = !!(metroToggleBtn && metroPanel && metroPlayPauseBtn &&
     metroBpmMinusBtn && metroBpmPlusBtn && metroBpmValue && metroTapBtn && metroPulseDot);
 
   const METRO_MIN_BPM = 30;
@@ -2854,34 +2963,24 @@
   let metroBeatInBar = 0;
   let metroNextNoteTime = 0;
   let metroTimerId = null;
-  let metroSaveTimer = null;
   let metroTapTimes = [];
 
   function metroClampBpm(v) {
     return Math.max(METRO_MIN_BPM, Math.min(METRO_MAX_BPM, Math.round(v)));
   }
 
+  function metroLoadStoredBpm() {
+    try {
+      const stored = Number(localStorage.getItem(METRO_BPM_STORAGE_KEY));
+      if (Number.isFinite(stored) && stored > 0) return metroClampBpm(stored);
+    } catch (e) { /* localStorage indisponible : tant pis, non bloquant */ }
+    return 100;
+  }
+
   function metroSetBpm(v) {
     metroBpm = metroClampBpm(v);
     if (metroReady) metroBpmValue.textContent = String(metroBpm);
-    const key = pdfCurrentFileKey;
-    if (!key) return;
-    clearTimeout(metroSaveTimer);
-    metroSaveTimer = setTimeout(() => {
-      idbPut('metronome', { id: key, bpm: metroBpm }).catch(() => {});
-    }, 300);
-  }
-
-  async function loadMetroBpmForCurrentFile() {
-    metroBpm = 100;
-    const key = pdfCurrentFileKey;
-    if (key) {
-      try {
-        const row = await idbGet('metronome', key);
-        if (row && Number.isFinite(row.bpm)) metroBpm = metroClampBpm(row.bpm);
-      } catch (e) { /* pas grave : tempo par défaut */ }
-    }
-    if (metroReady) metroBpmValue.textContent = String(metroBpm);
+    try { localStorage.setItem(METRO_BPM_STORAGE_KEY, String(metroBpm)); } catch (e) { /* non bloquant */ }
   }
 
   function metroFlashBeat(accent) {
@@ -2945,12 +3044,13 @@
   }
 
   if (metroReady) {
+    metroBpm = metroLoadStoredBpm();
     metroBpmValue.textContent = String(metroBpm);
 
-    pdfMetroToggleBtn.addEventListener('click', () => {
-      const showing = !pdfMetroBar.classList.contains('hidden');
-      pdfMetroBar.classList.toggle('hidden', showing);
-      pdfMetroToggleBtn.classList.toggle('active', !showing);
+    metroToggleBtn.addEventListener('click', () => {
+      const showing = !metroPanel.classList.contains('hidden');
+      metroPanel.classList.toggle('hidden', showing);
+      metroToggleBtn.classList.toggle('active', !showing);
       if (showing) metroStop(); // referme = arrête, pour ne pas laisser tourner en fond sans contrôle visible
     });
 
@@ -3001,12 +3101,6 @@
     currentStroke = null;
     currentHairpin = null;
     if (annotReady) setAnnotateMode(false);
-    if (metroReady) {
-      metroStop();
-      pdfMetroBar.classList.add('hidden');
-      pdfMetroToggleBtn.classList.remove('active');
-    }
-    loadMetroBpmForCurrentFile();
     pdfViewerTitle.textContent = name || '';
     pdfViewerStatus.textContent = 'Chargement…';
     pdfViewerStatus.classList.remove('hidden');
@@ -3151,7 +3245,6 @@
     currentStroke = null;
     currentHairpin = null;
     if (annotReady) setAnnotateMode(false);
-    if (metroReady) metroStop();
   }
 
   if (pdfViewerReady) {
