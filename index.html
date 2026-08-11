@@ -843,16 +843,37 @@
     border: 1px solid transparent;
   }
   .status-badge:active { opacity: 0.65; }
-  .status-badge.status-none {
-    color: var(--ink-soft);
-    background: var(--paper);
-    border-color: var(--rule);
-    border-style: dashed;
-  }
-  .status-badge.status-nouveau { color: #1D4E9E; background: #E3ECFB; border-color: #C2D6F5; }
-  .status-badge.status-preparation { color: #8A6410; background: #FBEFD4; border-color: #F0DBA0; }
   .status-badge.status-pret { color: #2E7D4E; background: #E4F1E7; border-color: #BFDDC5; }
+  .status-badge.status-nouveau { color: #1D4E9E; background: #E3ECFB; border-color: #C2D6F5; }
+  .status-badge.status-repet { color: #8A6410; background: #FBEFD4; border-color: #F0DBA0; }
   .status-badge.status-a-revoir { color: #A6302B; background: #F9E1DF; border-color: #F0C3BF; }
+
+  .status-menu {
+    position: fixed;
+    z-index: 60;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    box-shadow: 0 8px 28px rgba(32, 29, 61, 0.22);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 176px;
+  }
+  .status-menu-item {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-align: left;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    cursor: pointer;
+  }
+  .status-menu-item:hover { background: var(--paper); }
+  .status-menu-item.active { font-weight: 600; background: var(--paper); }
 
   .card-result .detail {
     font-family: 'IBM Plex Mono', monospace;
@@ -1295,6 +1316,7 @@
     </div>
 
     <div class="filter-row" id="filter-row"></div>
+    <div class="filter-row hidden" id="status-filter-row"></div>
     <div class="search-row">
       <div class="search-field">
         <input type="text" id="search-input" placeholder="Chercher un PDF par nom…" autocomplete="off">
@@ -1422,6 +1444,7 @@
   const appScreen     = document.getElementById('app-screen');
   const searchInput   = document.getElementById('search-input');
   const filterRow      = document.getElementById('filter-row');
+  const statusFilterRow = document.getElementById('status-filter-row');
   const statusLine     = document.getElementById('status-line');
   const resultsEl       = document.getElementById('results');
   const netStatusEl      = document.getElementById('net-status');
@@ -1723,22 +1746,25 @@
   }
 
   // -------------------------------------------------------------------
-  // Statut par morceau (nouveau / en préparation / prêt / à revoir) —
+  // Statut par morceau (prêt / nouveau / en cours de répét / à revoir) —
   // partagé entre tous les musiciens via Firestore, exactement comme les
   // playlists. Le statut se pose sur le dossier (= le morceau), pas sur
   // un fichier précis : tous les pupitres d'un même morceau partagent
   // donc le même badge, qui se met à jour en direct chez tout le monde.
+  // Par défaut (rien d'enregistré), un morceau est considéré "Prêt" —
+  // on ne stocke donc dans Firestore que les exceptions à ce statut par
+  // défaut, pour garder le document léger.
   // -------------------------------------------------------------------
-  const SONG_STATUS_ORDER = ['none', 'nouveau', 'preparation', 'pret', 'a-revoir'];
+  const SONG_STATUS_ORDER = ['pret', 'nouveau', 'repet', 'a-revoir'];
   const SONG_STATUS_INFO = {
-    none:        { label: 'Statut', emoji: '➕' },
-    nouveau:     { label: 'Nouveau', emoji: '🆕' },
-    preparation: { label: 'En préparation', emoji: '🛠️' },
-    pret:        { label: 'Prêt', emoji: '✅' },
-    'a-revoir':  { label: 'À revoir', emoji: '⚠️' },
+    pret:       { label: 'Prêt', emoji: '✅' },
+    nouveau:    { label: 'Nouveau', emoji: '🆕' },
+    repet:      { label: 'En cours de répét', emoji: '🛠️' },
+    'a-revoir': { label: 'À revoir', emoji: '⚠️' },
   };
+  const SONG_STATUS_DEFAULT = 'pret';
 
-  let songStatuses = {}; // { "dossier / sous-dossier": "nouveau" | "preparation" | "pret" | "a-revoir" }
+  let songStatuses = {}; // { "dossier / sous-dossier": "nouveau" | "repet" | "a-revoir" } — "pret" n'est jamais stocké (c'est le défaut)
 
   function songStatusDocRef() {
     return fbDb.collection('partotheque').doc('song-status');
@@ -1748,15 +1774,14 @@
     return (f.folderPath || []).join(' / ');
   }
 
-  function songStatusNext(current) {
-    const idx = SONG_STATUS_ORDER.indexOf(current || 'none');
-    return SONG_STATUS_ORDER[(idx + 1) % SONG_STATUS_ORDER.length];
+  function songStatusFor(folderKey) {
+    return songStatuses[folderKey] || SONG_STATUS_DEFAULT;
   }
 
   async function saveSongStatusRemote(folderKey, statusId) {
     if (!firebaseReady || !fbDb) throw new Error('Firebase indisponible');
     const updated = { ...songStatuses };
-    if (statusId && statusId !== 'none') updated[folderKey] = statusId;
+    if (statusId && statusId !== SONG_STATUS_DEFAULT) updated[folderKey] = statusId;
     else delete updated[folderKey];
     await songStatusDocRef().set({
       statuses: updated,
@@ -1775,6 +1800,65 @@
       },
       () => { songStatuses = {}; }
     );
+  }
+
+  // Petit menu contextuel (les 4 statuts d'un coup) plutôt que de cliquer
+  // plusieurs fois pour cycler — on choisit directement le bon statut.
+  function closeStatusMenu() {
+    const existing = document.querySelector('.status-menu');
+    if (existing) existing.remove();
+    document.removeEventListener('click', closeStatusMenuOnOutsideClick, true);
+  }
+
+  function closeStatusMenuOnOutsideClick(e) {
+    const menu = document.querySelector('.status-menu');
+    if (menu && !menu.contains(e.target)) closeStatusMenu();
+  }
+
+  async function applyStatusChange(folderKey, previousStatus, nextStatus) {
+    if (nextStatus === previousStatus) return;
+    const previousMap = songStatuses;
+    const updated = { ...songStatuses };
+    if (nextStatus === SONG_STATUS_DEFAULT) delete updated[folderKey];
+    else updated[folderKey] = nextStatus;
+    songStatuses = updated; // mise à jour optimiste, avant même la confirmation réseau
+    applyFilters(searchInput.value.trim());
+    try {
+      songStatuses = await saveSongStatusRemote(folderKey, nextStatus);
+    } catch (err) {
+      songStatuses = previousMap;
+      applyFilters(searchInput.value.trim());
+      alert("Échec de l'enregistrement du statut (pas de réseau ?).");
+    }
+  }
+
+  function openStatusMenu(badge, folderKey, current) {
+    closeStatusMenu();
+    const menu = document.createElement('div');
+    menu.className = 'status-menu';
+    menu.innerHTML = SONG_STATUS_ORDER.map(id => `
+      <button type="button" class="status-menu-item status-${id}${id === current ? ' active' : ''}" data-status="${id}">${SONG_STATUS_INFO[id].emoji} ${escapeHtml(SONG_STATUS_INFO[id].label)}</button>
+    `).join('');
+    document.body.appendChild(menu);
+
+    const rect = badge.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    let left = rect.left;
+    if (left + menuRect.width > window.innerWidth - 8) left = window.innerWidth - menuRect.width - 8;
+    if (left < 8) left = 8;
+    let top = rect.bottom + 4;
+    if (top + menuRect.height > window.innerHeight - 8) top = rect.top - menuRect.height - 4;
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    menu.addEventListener('click', async (e) => {
+      const item = e.target.closest('.status-menu-item');
+      if (!item) return;
+      const next = item.dataset.status;
+      closeStatusMenu();
+      await applyStatusChange(folderKey, current, next);
+    });
+    setTimeout(() => document.addEventListener('click', closeStatusMenuOnOutsideClick, true), 0);
   }
 
   // -------------------------------------------------------------------
@@ -2435,12 +2519,38 @@
     });
   }
 
+  // Filtre par statut de morceau : seulement utile (et affiché) si les
+  // statuts sont réellement partagés via Firestore.
+  const STATUS_FILTERS = [
+    { id: 'tous', label: 'Tous les statuts' },
+    ...SONG_STATUS_ORDER.map(id => ({ id, label: `${SONG_STATUS_INFO[id].emoji} ${SONG_STATUS_INFO[id].label}` })),
+  ];
+  let activeStatusFilterId = 'tous';
+
+  function renderStatusFilterButtons() {
+    if (!statusFilterRow) return;
+    if (!(firebaseReady && fbDb)) { statusFilterRow.classList.add('hidden'); return; }
+    statusFilterRow.classList.remove('hidden');
+    statusFilterRow.innerHTML = STATUS_FILTERS.map(s => `
+      <button type="button" class="filter-btn${s.id === activeStatusFilterId ? ' active' : ''}" data-status-filter-id="${s.id}">${s.label}</button>
+    `).join('');
+
+    statusFilterRow.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeStatusFilterId = btn.dataset.statusFilterId;
+        statusFilterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+        applyFilters(searchInput.value.trim());
+      });
+    });
+  }
+
   function init() {
     appScreen.classList.remove('hidden');
     updateNetStatus();
     const storedInstrument = loadStoredInstrument();
     if (storedInstrument) activeFilterId = storedInstrument;
     renderFilterButtons();
+    renderStatusFilterButtons();
     searchInput.focus();
     if (navigator.storage && navigator.storage.persist) {
       navigator.storage.persist().catch(() => {});
@@ -2558,8 +2668,9 @@
     if (!fileIndex) return;
 
     const activePlaylist = playlists.find(p => p.id === activePlaylistId) || null;
+    const statusFilterActive = activeStatusFilterId && activeStatusFilterId !== 'tous';
 
-    if (activeFilterId === 'tous' && !term && !activePlaylist) {
+    if (activeFilterId === 'tous' && !term && !activePlaylist && !statusFilterActive) {
       renderResults([], term, true);
       return;
     }
@@ -2574,6 +2685,7 @@
       const haystack = normName + ' ' + normPath;
       if (normTerm && !haystack.includes(normTerm)) return false;
       if (!matchesInstrument(f, activeFilter)) return false;
+      if (statusFilterActive && songStatusFor(songStatusFolderKey(f)) !== activeStatusFilterId) return false;
       return true;
     });
 
@@ -2614,7 +2726,7 @@
 
     resultsEl.innerHTML = files.map(f => {
       const folderKey = songStatusFolderKey(f);
-      const statusId = (firebaseReady && fbDb) ? (songStatuses[folderKey] || 'none') : null;
+      const statusId = (firebaseReady && fbDb) ? songStatusFor(folderKey) : null;
       const statusInfo = statusId ? SONG_STATUS_INFO[statusId] : null;
       const statusBadge = statusInfo
         ? `<span class="status-badge status-${statusId}" data-folder-key="${escapeHtml(folderKey)}" data-status="${statusId}" title="Changer le statut du morceau">${statusInfo.emoji} ${escapeHtml(statusInfo.label)}</span>`
@@ -2623,7 +2735,7 @@
       <div class="card-result">
         <div class="icon">PDF</div>
         <div class="meta">
-          <p class="name">${escapeHtml(f.name)}${cachedIds.has(fileKey(f)) ? '<span class="offline-badge">✓ Synchronisé en local</span>' : ''}${statusBadge}</p>
+          <p class="name">${escapeHtml(f.name)}${cachedIds.has(fileKey(f)) ? '<span class="offline-badge">✓ En local</span>' : ''}${statusBadge}</p>
           <div class="detail">
             ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)}${f.modifiedTime ? ' · modifié le ' + formatDate(f.modifiedTime) : ''}
           </div>
@@ -2666,22 +2778,10 @@
   resultsEl.addEventListener('click', async (e) => {
     const badge = e.target.closest('.status-badge');
     if (badge) {
+      e.stopPropagation();
       const folderKey = badge.dataset.folderKey || '';
-      const current = badge.dataset.status || 'none';
-      const next = songStatusNext(current);
-      const previous = songStatuses;
-      badge.dataset.status = next;
-      badge.className = `status-badge status-${next}`;
-      badge.textContent = `${SONG_STATUS_INFO[next].emoji} ${SONG_STATUS_INFO[next].label}`;
-      try {
-        songStatuses = await saveSongStatusRemote(folderKey, next);
-      } catch (err) {
-        songStatuses = previous; // échec : on annule le changement local
-        badge.dataset.status = current;
-        badge.className = `status-badge status-${current}`;
-        badge.textContent = `${SONG_STATUS_INFO[current].emoji} ${SONG_STATUS_INFO[current].label}`;
-        alert("Échec de l'enregistrement du statut (pas de réseau ?).");
-      }
+      const current = badge.dataset.status || SONG_STATUS_DEFAULT;
+      openStatusMenu(badge, folderKey, current);
       return;
     }
 
