@@ -1051,23 +1051,34 @@
   }
   .repertoire-body.hidden { display: none; }
 
-  .repertoire-search-row { margin-bottom: 14px; }
+  .repertoire-sticky-controls {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--paper);
+    padding-top: 2px;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    box-shadow: 0 6px 8px -6px rgba(32, 29, 61, 0.15);
+  }
+
+  .repertoire-search-row { margin-bottom: 8px; }
 
   .repertoire-theme-shortcuts {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: 5px;
+    margin-bottom: 8px;
   }
   .repertoire-theme-chip {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 0.02em;
     color: var(--ink-soft);
     background: var(--card);
     border: 1px solid var(--rule);
     border-radius: 999px;
-    padding: 5px 12px;
+    padding: 4px 10px;
     cursor: pointer;
   }
   .repertoire-theme-chip:hover { border-color: var(--gold); color: var(--ink); }
@@ -1077,15 +1088,14 @@
     align-items: center;
     gap: 4px;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
+    font-size: 10.5px;
     letter-spacing: 0.02em;
     color: var(--ink-soft);
     background: var(--card);
     border: 1px solid var(--rule);
     border-radius: 999px;
-    padding: 6px 13px;
+    padding: 5px 11px;
     cursor: pointer;
-    margin-bottom: 14px;
   }
   .repertoire-new-filter-btn:hover { border-color: var(--gold); color: var(--ink); }
   .repertoire-new-filter-btn.active {
@@ -1098,8 +1108,8 @@
     width: 100%;
     box-sizing: border-box;
     font-family: 'Inter', sans-serif;
-    font-size: 15px;
-    padding: 10px 14px;
+    font-size: 13px;
+    padding: 8px 12px;
     border-radius: 8px;
     border: 1px solid var(--rule);
     background: var(--card);
@@ -1117,9 +1127,6 @@
     padding: 4px 0 6px;
     border-bottom: 1px solid var(--rule);
     margin-bottom: 6px;
-    position: sticky;
-    top: 0;
-    background: var(--paper);
   }
   .repertoire-genre-heading {
     font-family: 'IBM Plex Mono', monospace;
@@ -1764,11 +1771,13 @@
   </div>
 
   <div class="repertoire-body" id="repertoire-tab-liste">
-    <div class="repertoire-search-row">
-      <input type="text" id="repertoire-search" placeholder="Chercher un morceau…" autocomplete="off">
+    <div class="repertoire-sticky-controls" id="repertoire-sticky-controls">
+      <div class="repertoire-search-row">
+        <input type="text" id="repertoire-search" placeholder="Chercher un morceau…" autocomplete="off">
+      </div>
+      <div class="repertoire-theme-shortcuts" id="repertoire-theme-shortcuts"></div>
+      <button type="button" id="repertoire-new-filter-btn" class="repertoire-new-filter-btn">🆕 Nouveautés seulement</button>
     </div>
-    <div class="repertoire-theme-shortcuts" id="repertoire-theme-shortcuts"></div>
-    <button type="button" id="repertoire-new-filter-btn" class="repertoire-new-filter-btn">🆕 Nouveautés seulement</button>
     <div id="repertoire-list"></div>
   </div>
 
