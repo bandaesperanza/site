@@ -394,42 +394,18 @@
     flex-wrap: wrap;
     margin-bottom: 10px;
   }
-  .tuner-ref-presets {
-    display: flex;
-    gap: 6px;
-  }
-  .tuner-ref-preset-btn {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 6px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--rule);
-    background: var(--paper);
-    color: var(--ink-soft);
-    cursor: pointer;
-  }
-  .tuner-ref-preset-btn.active {
-    background: var(--focus);
-    border-color: var(--focus);
-    color: #fff;
-  }
-  .tuner-ref-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--ink-soft);
+  .tuner-ref-stepper {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
   }
-  .tuner-ref-label select {
+  .tuner-ref-stepper .metro-step-btn { width: 32px; height: 32px; font-size: 16px; }
+  .tuner-ref-value {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    padding: 4px 6px;
-    border-radius: 6px;
-    border: 1px solid var(--rule);
-    background: var(--paper);
+    font-size: 13px;
     color: var(--ink);
+    min-width: 84px;
+    text-align: center;
   }
   #tuner-mic-btn.active {
     background: var(--stamp);
@@ -995,6 +971,23 @@
     margin-bottom: 16px;
   }
   .metro-bpm-big span:first-child { font-size: 44px; color: var(--ink); line-height: 1; }
+  .metro-bpm-input {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 44px;
+    color: var(--ink);
+    line-height: 1;
+    width: 88px;
+    text-align: right;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    padding: 0;
+    -moz-appearance: textfield;
+  }
+  .metro-bpm-input:focus { outline: none; border-bottom-color: var(--focus); }
+  .metro-bpm-input::-webkit-outer-spin-button,
+  .metro-bpm-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .metro-bpm-unit { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-soft); }
   .metro-main-row {
     display: flex;
@@ -1164,33 +1157,18 @@
       </div>
       <div class="tuner-gauge-labels"><span>♭ bémol</span><span>♯ dièse</span></div>
       <div class="tuner-controls">
-        <div class="tuner-ref-presets">
-          <button type="button" class="tuner-ref-preset-btn active" data-ref="440">440</button>
-          <button type="button" class="tuner-ref-preset-btn" data-ref="442">442</button>
+        <div class="tuner-ref-stepper">
+          <button type="button" id="tuner-ref-minus" class="metro-step-btn" title="-1 Hz">–</button>
+          <span class="tuner-ref-value">La = <span id="tuner-ref-value">442</span> Hz</span>
+          <button type="button" id="tuner-ref-plus" class="metro-step-btn" title="+1 Hz">+</button>
         </div>
-        <label class="tuner-ref-label">La =
-          <select id="tuner-ref-select">
-            <option value="435">435</option>
-            <option value="436">436</option>
-            <option value="437">437</option>
-            <option value="438">438</option>
-            <option value="439">439</option>
-            <option value="440" selected>440</option>
-            <option value="441">441</option>
-            <option value="442">442</option>
-            <option value="443">443</option>
-            <option value="444">444</option>
-            <option value="445">445</option>
-            <option value="446">446</option>
-          </select> Hz
-        </label>
         <button type="button" id="tuner-mic-btn" class="sync-row-btn">🎤 Démarrer</button>
       </div>
       <p class="tuner-hint" id="tuner-hint">Appuie sur démarrer et joue une note tenue, près du micro. Les petits traits sur la jauge marquent la tolérance (±5 cents).</p>
     </div>
 
     <div class="metro-panel hidden" id="metro-panel">
-      <div class="metro-bpm-big"><span id="metro-bpm-value">100</span><span class="metro-bpm-unit">BPM</span></div>
+      <div class="metro-bpm-big"><input type="number" id="metro-bpm-value" class="metro-bpm-input" inputmode="numeric" min="30" max="260" value="100"><span class="metro-bpm-unit">BPM</span></div>
       <div class="metro-main-row">
         <button type="button" id="metro-bpm-minus" class="metro-step-btn" title="-1 BPM">–</button>
         <button type="button" id="metro-playpause-btn" class="metro-play-btn" title="Démarrer/Arrêter">▶</button>
@@ -1395,10 +1373,11 @@
   const tunerFreqEl                   = document.getElementById('tuner-freq');
   const tunerStatusEl                 = document.getElementById('tuner-status');
   const tunerNeedle                   = document.getElementById('tuner-needle');
-  const tunerRefSelect                = document.getElementById('tuner-ref-select');
-  const tunerRefPresetButtons         = Array.from(document.querySelectorAll('.tuner-ref-preset-btn'));
   const tunerMicBtn                   = document.getElementById('tuner-mic-btn');
   const tunerHintEl                   = document.getElementById('tuner-hint');
+  const tunerRefMinusBtn              = document.getElementById('tuner-ref-minus');
+  const tunerRefPlusBtn               = document.getElementById('tuner-ref-plus');
+  const tunerRefValueEl               = document.getElementById('tuner-ref-value');
   const metroToggleBtn                = document.getElementById('metro-toggle-btn');
   const metroPanel                    = document.getElementById('metro-panel');
   const metroPlayPauseBtn             = document.getElementById('metro-playpause-btn');
@@ -2090,7 +2069,7 @@
   // le flux micro reste local au navigateur, coupé dès qu'on arrête.
   // ---------------------------------------------------------------------
   const tunerReady = !!(tunerToggleBtn && tunerPanel && tunerNoteEl && tunerFreqEl &&
-    tunerStatusEl && tunerNeedle && tunerRefSelect && tunerMicBtn);
+    tunerStatusEl && tunerNeedle && tunerMicBtn && tunerRefMinusBtn && tunerRefPlusBtn && tunerRefValueEl);
 
   const TUNER_NOTE_NAMES = ['Do', 'Do♯', 'Ré', 'Ré♯', 'Mi', 'Fa', 'Fa♯', 'Sol', 'Sol♯', 'La', 'La♯', 'Si'];
   const TUNER_TOLERANCE_CENTS = 5; // seuil standard "dans la justesse" pour un accordeur
@@ -2147,18 +2126,31 @@
     return sampleRate / refinedLag;
   }
 
-  function tunerRefPitch() {
-    return Number(tunerRefSelect.value) || 440;
-  }
+  // Diapason ajustable au pas de 1 Hz via +/-, 442 Hz par défaut (standard
+  // de la banda). Mémorisé sur l'appareil comme le tempo du métronome.
+  const TUNER_REF_DEFAULT_HZ = 442;
+  const TUNER_REF_MIN_HZ = 415;
+  const TUNER_REF_MAX_HZ = 466;
+  const TUNER_REF_STORAGE_KEY = 'partotheque-tuner-ref';
 
-  function tunerSyncRefPresets() {
-    const current = String(tunerRefPitch());
-    tunerRefPresetButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.ref === current));
+  let tunerRefHz = TUNER_REF_DEFAULT_HZ;
+
+  function tunerLoadStoredRefPitch() {
+    try {
+      const stored = Number(localStorage.getItem(TUNER_REF_STORAGE_KEY));
+      if (Number.isFinite(stored) && stored >= TUNER_REF_MIN_HZ && stored <= TUNER_REF_MAX_HZ) return stored;
+    } catch (e) { /* localStorage indisponible : tant pis, non bloquant */ }
+    return TUNER_REF_DEFAULT_HZ;
   }
 
   function tunerSetRefPitch(hz) {
-    tunerRefSelect.value = String(hz);
-    tunerSyncRefPresets();
+    tunerRefHz = Math.max(TUNER_REF_MIN_HZ, Math.min(TUNER_REF_MAX_HZ, Math.round(hz)));
+    if (tunerReady) tunerRefValueEl.textContent = String(tunerRefHz);
+    try { localStorage.setItem(TUNER_REF_STORAGE_KEY, String(tunerRefHz)); } catch (e) { /* non bloquant */ }
+  }
+
+  function tunerRefPitch() {
+    return tunerRefHz;
   }
 
   function tunerNoteNumberFromFrequency(freq) {
@@ -2252,6 +2244,9 @@
   }
 
   if (tunerReady) {
+    tunerRefHz = tunerLoadStoredRefPitch();
+    tunerRefValueEl.textContent = String(tunerRefHz);
+
     tunerToggleBtn.addEventListener('click', () => {
       const showing = !tunerPanel.classList.contains('hidden');
       tunerPanel.classList.toggle('hidden', showing);
@@ -2261,13 +2256,8 @@
     tunerMicBtn.addEventListener('click', () => {
       if (tunerRunning) tunerStop(); else tunerStart();
     });
-    tunerRefPresetButtons.forEach(btn => {
-      btn.addEventListener('click', () => tunerSetRefPitch(Number(btn.dataset.ref)));
-    });
-    // Le select couvre les valeurs fines (435-446) : s'il change vers 440
-    // ou 442, on remet le preset correspondant en évidence, sinon on les
-    // désélectionne tous les deux (valeur "libre").
-    tunerRefSelect.addEventListener('change', tunerSyncRefPresets);
+    tunerRefMinusBtn.addEventListener('click', () => tunerSetRefPitch(tunerRefHz - 1));
+    tunerRefPlusBtn.addEventListener('click', () => tunerSetRefPitch(tunerRefHz + 1));
   }
 
   // ---------------------------------------------------------------------
@@ -2979,7 +2969,7 @@
 
   function metroSetBpm(v) {
     metroBpm = metroClampBpm(v);
-    if (metroReady) metroBpmValue.textContent = String(metroBpm);
+    if (metroReady) metroBpmValue.value = String(metroBpm);
     try { localStorage.setItem(METRO_BPM_STORAGE_KEY, String(metroBpm)); } catch (e) { /* non bloquant */ }
   }
 
@@ -2991,6 +2981,13 @@
     metroPulseDot.classList.add('beat');
     if (accent) metroPulseDot.classList.add('accent');
     setTimeout(() => metroPulseDot.classList.remove('beat', 'accent'), 90);
+    // Vibration en secours (surtout utile sur Android, où elle passe même
+    // en mode silencieux/vibreur). L'API Vibration n'existe pas du tout
+    // sur Safari iOS — 'vibrate' in navigator vaut alors false, on ne
+    // tente rien.
+    if (navigator.vibrate) {
+      try { navigator.vibrate(accent ? 30 : 15); } catch (e) { /* non bloquant */ }
+    }
   }
 
   function metroScheduleClick(beatInBar, time) {
@@ -3045,7 +3042,7 @@
 
   if (metroReady) {
     metroBpm = metroLoadStoredBpm();
-    metroBpmValue.textContent = String(metroBpm);
+    metroBpmValue.value = String(metroBpm);
 
     metroToggleBtn.addEventListener('click', () => {
       const showing = !metroPanel.classList.contains('hidden');
@@ -3060,6 +3057,18 @@
 
     metroBpmMinusBtn.addEventListener('click', () => metroSetBpm(metroBpm - 1));
     metroBpmPlusBtn.addEventListener('click', () => metroSetBpm(metroBpm + 1));
+
+    // Saisie manuelle du tempo : on ne clampe/valide qu'à la validation
+    // (Entrée ou perte de focus), pas à chaque frappe, pour ne pas gêner
+    // la frappe d'un nombre à 3 chiffres.
+    metroBpmValue.addEventListener('focus', () => metroBpmValue.select());
+    metroBpmValue.addEventListener('change', () => {
+      const v = Number(metroBpmValue.value);
+      metroSetBpm(Number.isFinite(v) && v > 0 ? v : metroBpm);
+    });
+    metroBpmValue.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') metroBpmValue.blur();
+    });
 
     metroTapBtn.addEventListener('click', () => {
       const now = performance.now();
