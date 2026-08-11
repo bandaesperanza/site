@@ -560,6 +560,50 @@
     padding: 14px 16px;
     margin-bottom: 18px;
   }
+
+  .tools-zone {
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: var(--card);
+    padding: 14px 16px;
+    margin-bottom: 18px;
+  }
+  .tools-zone-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .tools-zone-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .tools-zone-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 140px;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+  }
+  .tools-zone-icon { font-size: 18px; line-height: 1; }
+  .tools-zone-btn:hover { border-color: var(--gold); color: var(--ink); }
+  .tools-zone-btn.active {
+    color: #fff;
+    background: var(--stamp);
+    border-color: var(--stamp);
+  }
   .playlist-zone-label {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
@@ -1139,10 +1183,25 @@
   <!-- Écran principal -->
   <div id="app-screen" class="hidden">
     <div class="playlist-admin-bar">
-      <button type="button" id="playlist-admin-toggle-btn" class="playlist-admin-bar-btn" title="Créer et gérer les playlists">🎼 Gérer les playlists</button>
       <button type="button" id="live-follow-toggle-btn" class="playlist-admin-bar-btn hidden" title="Suivre en direct la partition affichée par le chef">📡 Suivre le chef</button>
-      <button type="button" id="tuner-toggle-btn" class="playlist-admin-bar-btn" title="Accordeur">🎵 Accordeur</button>
-      <button type="button" id="metro-toggle-btn" class="playlist-admin-bar-btn" title="Métronome">♩ Métronome</button>
+    </div>
+
+    <div class="tools-zone" id="tools-zone">
+      <div class="tools-zone-label">Outils</div>
+      <div class="tools-zone-row">
+        <button type="button" id="playlist-admin-toggle-btn" class="tools-zone-btn" title="Créer et gérer les playlists">
+          <span class="tools-zone-icon">🎼</span>
+          <span class="tools-zone-text">Playlists</span>
+        </button>
+        <button type="button" id="tuner-toggle-btn" class="tools-zone-btn" title="Accordeur">
+          <span class="tools-zone-icon">🎵</span>
+          <span class="tools-zone-text">Accordeur</span>
+        </button>
+        <button type="button" id="metro-toggle-btn" class="tools-zone-btn" title="Métronome">
+          <span class="tools-zone-icon">♩</span>
+          <span class="tools-zone-text">Métronome</span>
+        </button>
+      </div>
     </div>
 
     <div class="tuner-panel hidden" id="tuner-panel">
