@@ -1052,6 +1052,48 @@
   .repertoire-body.hidden { display: none; }
 
   .repertoire-search-row { margin-bottom: 14px; }
+
+  .repertoire-theme-shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .repertoire-theme-chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+  .repertoire-theme-chip:hover { border-color: var(--gold); color: var(--ink); }
+
+  .repertoire-new-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 6px 13px;
+    cursor: pointer;
+    margin-bottom: 14px;
+  }
+  .repertoire-new-filter-btn:hover { border-color: var(--gold); color: var(--ink); }
+  .repertoire-new-filter-btn.active {
+    background: var(--stamp);
+    border-color: var(--stamp);
+    color: #fff;
+    font-weight: 600;
+  }
   #repertoire-search {
     width: 100%;
     box-sizing: border-box;
@@ -1101,9 +1143,10 @@
     font-size: 14.5px;
     color: var(--ink);
   }
-  .repertoire-song-row.played .repertoire-song-title { color: var(--ink-soft); }
+  .repertoire-song-row.played .repertoire-song-title { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: var(--ink-soft); }
   .repertoire-new-badge {
     display: inline-block;
+    text-decoration: none;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     font-weight: 600;
@@ -1164,6 +1207,16 @@
   }
   .repertoire-sortie-history-row .name { color: var(--ink); font-weight: 600; font-family: 'Fraunces', serif; font-size: 14px; }
   .repertoire-sortie-history-row .meta { color: var(--ink-soft); white-space: nowrap; }
+  .repertoire-sortie-delete-btn {
+    border: none;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 4px;
+    margin-left: 4px;
+  }
+  .repertoire-sortie-delete-btn:hover { color: var(--stamp); }
 
   .repertoire-stats-row {
     display: flex;
@@ -1714,6 +1767,8 @@
     <div class="repertoire-search-row">
       <input type="text" id="repertoire-search" placeholder="Chercher un morceau…" autocomplete="off">
     </div>
+    <div class="repertoire-theme-shortcuts" id="repertoire-theme-shortcuts"></div>
+    <button type="button" id="repertoire-new-filter-btn" class="repertoire-new-filter-btn">🆕 Nouveautés seulement</button>
     <div id="repertoire-list"></div>
   </div>
 
@@ -1912,6 +1967,8 @@
   const repertoireListEl              = document.getElementById('repertoire-list');
   const repertoireHistoryListEl       = document.getElementById('repertoire-history-list');
   const repertoireStatsListEl         = document.getElementById('repertoire-stats-list');
+  const repertoireThemeShortcutsEl    = document.getElementById('repertoire-theme-shortcuts');
+  const repertoireNewFilterBtn        = document.getElementById('repertoire-new-filter-btn');
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
   // l'appli : si un élément venait à manquer, on désactive juste la
@@ -2298,6 +2355,7 @@
   let repertoireThemesOrder = [];
   let repertoireLoadPromise = null;
   let repertoireActiveTab = 'liste';
+  let repertoireNewOnly = false;
   let sortiesData = { activeSortieId: null, list: [] }; // { activeSortieId, list: [{id,name,date,playedKeys,createdAt}] }
 
   async function loadRepertoireData() {
@@ -2307,12 +2365,24 @@
       .then(data => {
         repertoireSongs = Array.isArray(data.songs) ? data.songs : [];
         repertoireThemesOrder = Array.isArray(data.themesOrder) ? data.themesOrder : [];
+        renderRepertoireThemeShortcuts();
       })
       .catch(() => {
         repertoireSongs = [];
         repertoireThemesOrder = [];
       });
     return repertoireLoadPromise;
+  }
+
+  function repertoireThemeAnchorId(theme) {
+    return 'repertoire-theme-' + repertoireThemesOrder.indexOf(theme);
+  }
+
+  function renderRepertoireThemeShortcuts() {
+    if (!repertoireThemeShortcutsEl) return;
+    repertoireThemeShortcutsEl.innerHTML = repertoireThemesOrder.map(theme => `
+      <button type="button" class="repertoire-theme-chip" data-theme-anchor="${repertoireThemeAnchorId(theme)}">${escapeHtml(theme)}</button>
+    `).join('');
   }
 
   function sortiesDocRef() {
@@ -2387,6 +2457,26 @@
     }
   }
 
+  async function deleteSortie(id) {
+    if (!chefMode) return;
+    const sortie = sortiesData.list.find(s => s.id === id);
+    if (!sortie) return;
+    if (!confirm(`Supprimer la sortie "${sortie.name}" et son historique ? Cette action est irréversible.`)) return;
+    const previous = sortiesData;
+    const list = sortiesData.list.filter(s => s.id !== id);
+    const activeSortieId = sortiesData.activeSortieId === id ? null : sortiesData.activeSortieId;
+    const next = { activeSortieId, list };
+    sortiesData = next;
+    renderRepertoireActiveTab();
+    try {
+      sortiesData = await saveSortiesRemote(next);
+    } catch (err) {
+      sortiesData = previous;
+      renderRepertoireActiveTab();
+      alert("Échec de la suppression (pas de réseau ?).");
+    }
+  }
+
   async function toggleSongPlayed(songId) {
     if (!chefMode) return;
     const sortie = currentSortie();
@@ -2455,9 +2545,13 @@
 
     let html = '';
     for (const theme of repertoireThemesOrder) {
-      const themeSongs = repertoireSongs.filter(s => s.theme === theme && (!normTerm || normalize(s.title).includes(normTerm)));
+      const themeSongs = repertoireSongs.filter(s =>
+        s.theme === theme &&
+        (!normTerm || normalize(s.title).includes(normTerm)) &&
+        (!repertoireNewOnly || s.new)
+      );
       if (!themeSongs.length) continue;
-      html += `<div class="repertoire-theme-group"><div class="repertoire-theme-heading">${escapeHtml(theme)}</div>`;
+      html += `<div class="repertoire-theme-group" id="${repertoireThemeAnchorId(theme)}"><div class="repertoire-theme-heading">${escapeHtml(theme)}</div>`;
       let lastGenre;
       for (const song of themeSongs) {
         if (song.genre !== lastGenre) {
@@ -2488,7 +2582,7 @@
       repertoireHistoryListEl.innerHTML = list.map(s => `
         <div class="repertoire-sortie-history-row">
           <span class="name">${escapeHtml(s.name)}${s.id === sortiesData.activeSortieId ? ' · <span style="color:var(--stamp)">active</span>' : ''}</span>
-          <span class="meta">${escapeHtml(s.date || '')} · ${(s.playedKeys || []).length}/${repertoireSongs.length} joués</span>
+          <span class="meta">${escapeHtml(s.date || '')} · ${(s.playedKeys || []).length}/${repertoireSongs.length} joués${chefMode ? ` <button type="button" class="repertoire-sortie-delete-btn" data-sortie-id="${escapeHtml(s.id)}" title="Supprimer cette sortie">🗑</button>` : ''}</span>
         </div>
       `).join('');
     }
@@ -2541,10 +2635,30 @@
       });
     });
     repertoireSearchInput.addEventListener('input', () => renderRepertoireList(repertoireSearchInput.value.trim()));
+    if (repertoireThemeShortcutsEl) {
+      repertoireThemeShortcutsEl.addEventListener('click', (e) => {
+        const chip = e.target.closest('.repertoire-theme-chip');
+        if (!chip) return;
+        const target = document.getElementById(chip.dataset.themeAnchor);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+    if (repertoireNewFilterBtn) {
+      repertoireNewFilterBtn.addEventListener('click', () => {
+        repertoireNewOnly = !repertoireNewOnly;
+        repertoireNewFilterBtn.classList.toggle('active', repertoireNewOnly);
+        renderRepertoireList(repertoireSearchInput.value.trim());
+      });
+    }
     repertoireListEl.addEventListener('click', (e) => {
       const btn = e.target.closest('.repertoire-play-check');
       if (!btn) return;
       toggleSongPlayed(btn.dataset.songId);
+    });
+    repertoireHistoryListEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.repertoire-sortie-delete-btn');
+      if (!btn) return;
+      deleteSortie(btn.dataset.sortieId);
     });
   }
 
