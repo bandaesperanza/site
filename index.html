@@ -1047,22 +1047,21 @@
   .repertoire-body {
     flex: 1;
     overflow-y: auto;
-    padding: 14px 16px 40px;
+    padding: 10px 16px 40px;
   }
   .repertoire-body.hidden { display: none; }
 
-  .repertoire-sticky-controls {
-    position: sticky;
-    top: 0;
-    z-index: 5;
+  /* Rangée de contrôles (raccourcis de thème + filtre nouveautés) placée
+     HORS de la zone qui défile (.repertoire-body), donc toujours visible
+     sans recourir à `position: sticky` — plus simple et sans risque de
+     superposition avec le contenu qui défile en dessous. */
+  .repertoire-controls-row {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--rule);
     background: var(--paper);
-    padding-top: 2px;
-    padding-bottom: 8px;
-    margin-bottom: 4px;
-    box-shadow: 0 6px 8px -6px rgba(32, 29, 61, 0.15);
   }
-
-  .repertoire-search-row { margin-bottom: 8px; }
+  .repertoire-controls-row.hidden { display: none; }
 
   .repertoire-theme-shortcuts {
     display: flex;
@@ -1103,17 +1102,6 @@
     border-color: var(--stamp);
     color: #fff;
     font-weight: 600;
-  }
-  #repertoire-search {
-    width: 100%;
-    box-sizing: border-box;
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--rule);
-    background: var(--card);
-    color: var(--ink);
   }
 
   .repertoire-theme-group { margin-bottom: 18px; }
@@ -1770,14 +1758,12 @@
     <button type="button" class="repertoire-tab-btn" data-repertoire-tab="historique">Historique &amp; stats</button>
   </div>
 
+  <div class="repertoire-controls-row" id="repertoire-controls-row">
+    <div class="repertoire-theme-shortcuts" id="repertoire-theme-shortcuts"></div>
+    <button type="button" id="repertoire-new-filter-btn" class="repertoire-new-filter-btn">🆕 Nouveautés seulement</button>
+  </div>
+
   <div class="repertoire-body" id="repertoire-tab-liste">
-    <div class="repertoire-sticky-controls" id="repertoire-sticky-controls">
-      <div class="repertoire-search-row">
-        <input type="text" id="repertoire-search" placeholder="Chercher un morceau…" autocomplete="off">
-      </div>
-      <div class="repertoire-theme-shortcuts" id="repertoire-theme-shortcuts"></div>
-      <button type="button" id="repertoire-new-filter-btn" class="repertoire-new-filter-btn">🆕 Nouveautés seulement</button>
-    </div>
     <div id="repertoire-list"></div>
   </div>
 
@@ -1972,7 +1958,7 @@
   const repertoireTabListaEl          = document.getElementById('repertoire-tab-liste');
   const repertoireTabHistoriqueEl     = document.getElementById('repertoire-tab-historique');
   const repertoireSortieBar           = document.getElementById('repertoire-sortie-bar');
-  const repertoireSearchInput         = document.getElementById('repertoire-search');
+  const repertoireControlsRow         = document.getElementById('repertoire-controls-row');
   const repertoireListEl              = document.getElementById('repertoire-list');
   const repertoireHistoryListEl       = document.getElementById('repertoire-history-list');
   const repertoireStatsListEl         = document.getElementById('repertoire-stats-list');
@@ -2357,7 +2343,7 @@
   // -------------------------------------------------------------------
   const repertoireReady = !!(repertoireToggleBtn && repertoireOverlay && repertoireCloseBtn &&
     repertoireTabButtons.length && repertoireTabListaEl && repertoireTabHistoriqueEl &&
-    repertoireSortieBar && repertoireSearchInput && repertoireListEl &&
+    repertoireSortieBar && repertoireListEl &&
     repertoireHistoryListEl && repertoireStatsListEl);
 
   let repertoireSongs = [];
@@ -2565,7 +2551,7 @@
     if (newBtn) newBtn.addEventListener('click', createNewSortie);
   }
 
-  function renderRepertoireList(term) {
+  function renderRepertoireList() {
     if (!repertoireListEl) return;
     if (!repertoireSongs.length) {
       repertoireListEl.innerHTML = repertoireOfflineNoCache
@@ -2573,18 +2559,13 @@
         : `<div class="repertoire-empty-note">Chargement du répertoire…</div>`;
       return;
     }
-    const normTerm = term ? normalize(term) : '';
     const sortie = currentSortie();
     const playedSet = new Set(sortie ? (sortie.playedKeys || []) : []);
     const canCheck = chefMode && !!sortie;
 
     let html = '';
     for (const theme of repertoireThemesOrder) {
-      const themeSongs = repertoireSongs.filter(s =>
-        s.theme === theme &&
-        (!normTerm || normalize(s.title).includes(normTerm)) &&
-        (!repertoireNewOnly || s.new)
-      );
+      const themeSongs = repertoireSongs.filter(s => s.theme === theme && (!repertoireNewOnly || s.new));
       if (!themeSongs.length) continue;
       html += `<div class="repertoire-theme-group" id="${repertoireThemeAnchorId(theme)}"><div class="repertoire-theme-heading">${escapeHtml(theme)}</div>`;
       let lastGenre;
@@ -2645,7 +2626,7 @@
 
   function renderRepertoireActiveTab() {
     renderRepertoireSortieBar();
-    if (repertoireActiveTab === 'liste') renderRepertoireList(repertoireSearchInput.value.trim());
+    if (repertoireActiveTab === 'liste') renderRepertoireList();
     else renderRepertoireHistory();
   }
 
@@ -2666,10 +2647,10 @@
         repertoireTabButtons.forEach(b => b.classList.toggle('active', b === btn));
         repertoireTabListaEl.classList.toggle('hidden', repertoireActiveTab !== 'liste');
         repertoireTabHistoriqueEl.classList.toggle('hidden', repertoireActiveTab !== 'historique');
+        if (repertoireControlsRow) repertoireControlsRow.classList.toggle('hidden', repertoireActiveTab !== 'liste');
         renderRepertoireActiveTab();
       });
     });
-    repertoireSearchInput.addEventListener('input', () => renderRepertoireList(repertoireSearchInput.value.trim()));
     if (repertoireThemeShortcutsEl) {
       repertoireThemeShortcutsEl.addEventListener('click', (e) => {
         const chip = e.target.closest('.repertoire-theme-chip');
@@ -2682,7 +2663,7 @@
       repertoireNewFilterBtn.addEventListener('click', () => {
         repertoireNewOnly = !repertoireNewOnly;
         repertoireNewFilterBtn.classList.toggle('active', repertoireNewOnly);
-        renderRepertoireList(repertoireSearchInput.value.trim());
+        renderRepertoireList();
       });
     }
     repertoireListEl.addEventListener('click', (e) => {
