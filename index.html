@@ -1062,6 +1062,27 @@
 
   .annot-hairpin-btn { font-family: serif; font-size: 20px; font-weight: 700; }
 
+  /* --- Sauvegarde des annotations (page d'accueil) --------------------------- */
+  .backup-panel {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 20px 18px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .backup-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0 10px;
+  }
+  #backup-status:empty { display: none; }
+  #backup-status.success { color: #2E7D4E; }
+  #backup-status.error { color: #C4302A; }
+
   /* --- Métronome (page d'accueil) --------------------------------------------- */
   .metro-panel {
     background: var(--card);
@@ -1268,6 +1289,10 @@
           <span class="tools-zone-icon">♩</span>
           <span class="tools-zone-text">Métronome</span>
         </button>
+        <button type="button" id="backup-toggle-btn" class="tools-zone-btn" title="Sauvegarde des annotations">
+          <span class="tools-zone-icon">💾</span>
+          <span class="tools-zone-text">Sauvegarde</span>
+        </button>
       </div>
     </div>
 
@@ -1305,6 +1330,16 @@
         <span class="metro-pulse-dot" id="metro-pulse-dot"></span>
       </div>
       <p class="tuner-hint">Le tempo choisi reste mémorisé sur cet appareil.</p>
+    </div>
+
+    <div class="backup-panel hidden" id="backup-panel">
+      <p class="tuner-hint">Tes annotations sur les partitions (stylo, fluo, dièse/bémol, nuances, crescendo…) sont enregistrées uniquement sur cet appareil. Exporte-les avant de changer de téléphone, puis importe le fichier sur le nouveau pour les retrouver.</p>
+      <div class="backup-actions">
+        <button type="button" id="backup-export-btn" class="sync-row-btn">⬇️ Exporter (JSON)</button>
+        <button type="button" id="backup-import-btn" class="sync-row-btn">⬆️ Importer une sauvegarde</button>
+      </div>
+      <input type="file" id="backup-import-input" accept="application/json,.json" class="hidden">
+      <p class="tuner-hint" id="backup-status"></p>
     </div>
 
     <div class="sync-panel hidden" id="playlist-admin-panel">
@@ -1546,6 +1581,12 @@
   const metroBpmValue                 = document.getElementById('metro-bpm-value');
   const metroTapBtn                   = document.getElementById('metro-tap-btn');
   const metroPulseDot                 = document.getElementById('metro-pulse-dot');
+  const backupToggleBtn               = document.getElementById('backup-toggle-btn');
+  const backupPanel                   = document.getElementById('backup-panel');
+  const backupExportBtn               = document.getElementById('backup-export-btn');
+  const backupImportBtn               = document.getElementById('backup-import-btn');
+  const backupImportInput             = document.getElementById('backup-import-input');
+  const backupStatusEl                = document.getElementById('backup-status');
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
   // l'appli : si un élément venait à manquer, on désactive juste la
@@ -3444,6 +3485,100 @@
         const avgMs = intervals.reduce((a, b) => a + b, 0) / intervals.length;
         metroSetBpm(60000 / avgMs);
       }
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Sauvegarde des annotations (page d'accueil) — les annotations sur les
+  // PDF (stylo, fluo, dièse/bémol, nuances, crescendo/decrescendo) sont
+  // stockées uniquement dans IndexedDB, sur cet appareil : elles ne sont
+  // ni synchronisées ni envoyées ailleurs. Ce panneau permet de les
+  // exporter dans un fichier JSON à conserver (ex. dans les fichiers du
+  // téléphone, un mail à soi-même, un espace de stockage perso), puis de
+  // les réimporter sur un nouvel appareil pour ne pas repartir de zéro.
+  // ---------------------------------------------------------------------
+  const backupReady = !!(backupToggleBtn && backupPanel && backupExportBtn &&
+    backupImportBtn && backupImportInput && backupStatusEl);
+
+  function backupSetStatus(text, kind) {
+    if (!backupReady) return;
+    backupStatusEl.textContent = text;
+    backupStatusEl.classList.remove('success', 'error');
+    if (kind) backupStatusEl.classList.add(kind);
+  }
+
+  async function exportAnnotationsBackup() {
+    try {
+      const items = await idbGetAll('annotations');
+      if (!items.length) {
+        backupSetStatus("Aucune annotation à exporter pour l'instant.", null);
+        return;
+      }
+      const payload = {
+        app: 'partotheque',
+        type: 'annotations-backup',
+        exportedAt: new Date().toISOString(),
+        items,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `partotheque-annotations-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+      backupSetStatus(`${items.length} page${items.length > 1 ? 's' : ''} annotée${items.length > 1 ? 's' : ''} exportée${items.length > 1 ? 's' : ''}.`, 'success');
+    } catch (err) {
+      backupSetStatus("Échec de l'export.", 'error');
+    }
+  }
+
+  async function importAnnotationsBackup(file) {
+    let data;
+    try {
+      const text = await file.text();
+      data = JSON.parse(text);
+    } catch (err) {
+      backupSetStatus("Fichier illisible : ce n'est pas un export valide.", 'error');
+      return;
+    }
+    if (!data || data.type !== 'annotations-backup' || !Array.isArray(data.items)) {
+      backupSetStatus("Ce fichier ne ressemble pas à une sauvegarde d'annotations.", 'error');
+      return;
+    }
+    if (!data.items.length) {
+      backupSetStatus('Ce fichier ne contient aucune annotation.', null);
+      return;
+    }
+    if (!confirm(`Importer ${data.items.length} page${data.items.length > 1 ? 's' : ''} annotée${data.items.length > 1 ? 's' : ''} ? Ça remplacera les annotations existantes pour ces mêmes pages sur cet appareil.`)) {
+      return;
+    }
+    try {
+      for (const item of data.items) {
+        if (item && item.id) await idbPut('annotations', item);
+      }
+      backupSetStatus(`${data.items.length} page${data.items.length > 1 ? 's' : ''} importée${data.items.length > 1 ? 's' : ''}.`, 'success');
+    } catch (err) {
+      backupSetStatus("Échec de l'import.", 'error');
+    }
+  }
+
+  if (backupReady) {
+    backupToggleBtn.addEventListener('click', () => {
+      const showing = !backupPanel.classList.contains('hidden');
+      backupPanel.classList.toggle('hidden', showing);
+      backupToggleBtn.classList.toggle('active', !showing);
+      backupSetStatus('', null);
+    });
+    backupExportBtn.addEventListener('click', exportAnnotationsBackup);
+    backupImportBtn.addEventListener('click', () => backupImportInput.click());
+    backupImportInput.addEventListener('change', async () => {
+      const file = backupImportInput.files && backupImportInput.files[0];
+      backupImportInput.value = ''; // permet de réimporter le même fichier deux fois de suite si besoin
+      if (file) await importAnnotationsBackup(file);
     });
   }
 
