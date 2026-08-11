@@ -147,6 +147,31 @@
   .page-reload-btn:disabled { opacity: 0.5; cursor: default; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .chef-mode-btn {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(246, 243, 236, 0.35);
+    background: rgba(246, 243, 236, 0.08);
+    color: var(--paper);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .chef-mode-btn:hover { background: rgba(246, 243, 236, 0.18); }
+  .chef-mode-btn.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #15122E;
+  }
+
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -1199,6 +1224,7 @@
 
 <div class="wrap">
   <header>
+    <button type="button" id="chef-mode-toggle" class="chef-mode-btn" title="Mode chef d'orchestre" aria-label="Mode chef d'orchestre">🔑</button>
     <button type="button" id="page-reload-btn" class="page-reload-btn" title="Actualiser le catalogue et la page" aria-label="Actualiser">↻</button>
     <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
     <div class="eyebrow">Partothèque</div>
@@ -1221,14 +1247,14 @@
 
   <!-- Écran principal -->
   <div id="app-screen" class="hidden">
-    <div class="playlist-admin-bar">
+    <div class="playlist-admin-bar hidden">
       <button type="button" id="live-follow-toggle-btn" class="playlist-admin-bar-btn hidden" title="Suivre en direct la partition affichée par le chef">📡 Suivre le chef</button>
     </div>
 
     <div class="tools-zone" id="tools-zone">
       <div class="tools-zone-label">Outils</div>
       <div class="tools-zone-row">
-        <button type="button" id="playlist-admin-toggle-btn" class="tools-zone-btn" title="Créer et gérer les playlists">
+        <button type="button" id="playlist-admin-toggle-btn" class="tools-zone-btn hidden" title="Créer et gérer les playlists">
           <span class="tools-zone-icon">🎼</span>
           <span class="tools-zone-text">Playlists</span>
         </button>
@@ -1418,6 +1444,28 @@
   let activeFilterId = 'tous';
   let fileIndex = null;
   let basePath = 'partitions';
+
+  // -------------------------------------------------------------------
+  // Mode chef d'orchestre : masque les fonctions d'administration
+  // (gestion des playlists, filtre par statut de morceau) pour la
+  // plupart des musiciens, qui n'ont besoin que de retrouver leurs
+  // partitions. Un tap sur 🔑 en haut à gauche les fait réapparaître.
+  // Purement local à l'appareil (pas de mot de passe) : c'est un
+  // confort d'affichage, pas une vraie protection.
+  // -------------------------------------------------------------------
+  const CHEF_MODE_STORAGE_KEY = 'partotheque-chef-mode';
+  let chefMode = false;
+
+  function loadStoredChefMode() {
+    try { return localStorage.getItem(CHEF_MODE_STORAGE_KEY) === '1'; }
+    catch (e) { return false; }
+  }
+
+  function storeChefMode(on) {
+    try { localStorage.setItem(CHEF_MODE_STORAGE_KEY, on ? '1' : '0'); }
+    catch (e) { /* non bloquant */ }
+  }
+
   let isIndexing = false;
   let cachedIds = new Set(); // ids des PDF déjà téléchargés en local (IndexedDB)
   let playlists = [];
@@ -1458,6 +1506,7 @@
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
   const fileModifiedEl                = document.getElementById('file-modified');
   const pageReloadBtn                 = document.getElementById('page-reload-btn');
+  const chefModeToggleBtn             = document.getElementById('chef-mode-toggle');
   const playlistRow                   = document.getElementById('playlist-row');
   const playlistAdminToggleBtn        = document.getElementById('playlist-admin-toggle-btn');
   const playlistAdminPanel            = document.getElementById('playlist-admin-panel');
@@ -2531,7 +2580,7 @@
 
   function renderStatusFilterButtons() {
     if (!statusFilterRow) return;
-    if (!(firebaseReady && fbDb)) { if (statusZone) statusZone.classList.add('hidden'); return; }
+    if (!(chefMode && firebaseReady && fbDb)) { if (statusZone) statusZone.classList.add('hidden'); return; }
     if (statusZone) statusZone.classList.remove('hidden');
     statusFilterRow.innerHTML = STATUS_FILTERS.map(s => `
       <button type="button" class="filter-btn${s.id === activeStatusFilterId ? ' active' : ''}" data-status-filter-id="${s.id}">${s.label}</button>
@@ -2546,13 +2595,50 @@
     });
   }
 
+  // Applique la visibilité des fonctions réservées au mode chef : le
+  // bouton "Playlists" dans le pavé Outils, et le pavé "Statut du
+  // morceau". Le reste de l'appli (recherche, filtres instrument,
+  // playlist déjà créée) reste visible pour tout le monde.
+  function applyChefModeVisibility() {
+    if (chefModeToggleBtn) chefModeToggleBtn.classList.toggle('active', chefMode);
+    if (playlistAdminToggleBtn) playlistAdminToggleBtn.classList.toggle('hidden', !chefMode);
+    renderStatusFilterButtons();
+  }
+
+  // Code d'accès simple pour activer le mode chef — en clair ici, ce
+  // n'est pas une vraie protection, juste un frein pour éviter qu'un
+  // musicien l'active par curiosité en tapant dessus.
+  const CHEF_MODE_CODE = '40230';
+
+  if (chefModeToggleBtn) {
+    chefModeToggleBtn.addEventListener('click', () => {
+      if (chefMode) {
+        // Désactiver ne demande pas de code.
+        chefMode = false;
+        storeChefMode(chefMode);
+        applyChefModeVisibility();
+        return;
+      }
+      const entered = prompt('Code du mode chef :');
+      if (entered === null) return; // annulé
+      if (entered.trim() !== CHEF_MODE_CODE) {
+        alert('Code incorrect.');
+        return;
+      }
+      chefMode = true;
+      storeChefMode(chefMode);
+      applyChefModeVisibility();
+    });
+  }
+
   function init() {
     appScreen.classList.remove('hidden');
     updateNetStatus();
     const storedInstrument = loadStoredInstrument();
     if (storedInstrument) activeFilterId = storedInstrument;
     renderFilterButtons();
-    renderStatusFilterButtons();
+    chefMode = loadStoredChefMode();
+    applyChefModeVisibility();
     searchInput.focus();
     if (navigator.storage && navigator.storage.persist) {
       navigator.storage.persist().catch(() => {});
@@ -2560,10 +2646,9 @@
     refreshCachedIds().then(loadCatalog);
     subscribeToPlaylists();
     subscribeToSongStatuses();
-    if (liveReady && firebaseReady && fbDb) {
-      liveFollowToggleBtn.classList.remove('hidden');
-      subscribeToLive();
-    }
+    // "Suivre le chef" est mis de côté pour le moment (fonction cachée en
+    // permanence) — on ne l'affiche pas et on ne s'y abonne pas, en
+    // attendant de la reprendre plus tard.
   }
 
   searchInput.addEventListener('input', () => {
