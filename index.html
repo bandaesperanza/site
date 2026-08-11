@@ -3344,8 +3344,9 @@
   const METRO_MIN_BPM = 30;
   const METRO_MAX_BPM = 260;
   const METRO_BEATS_PER_BAR = 4;
-  const METRO_SCHEDULE_AHEAD = 0.12; // secondes de marge programmées à l'avance
+  const METRO_SCHEDULE_AHEAD = 0.3; // secondes de marge programmées à l'avance
   const METRO_LOOKAHEAD_MS = 25;     // fréquence de vérification de l'ordonnanceur
+  const METRO_RESYNC_THRESHOLD = 0.5; // au-delà, on resynchronise plutôt que de rattraper en rafale
 
   let metroAudioCtx = null;
   let metroBpm = 100;
@@ -3411,7 +3412,16 @@
   }
 
   function metroScheduler() {
-    while (metroNextNoteTime < metroAudioCtx.currentTime + METRO_SCHEDULE_AHEAD) {
+    const now = metroAudioCtx.currentTime;
+    // Si l'appli a pris du retard (onglet mis en pause, écran verrouillé,
+    // le thread principal occupé un instant...), on resynchronise sur le
+    // tempo au lieu de rejouer d'un coup tous les battements manqués —
+    // c'est ce rattrapage en rafale qui donnait l'impression que le
+    // métronome "saute".
+    if (metroNextNoteTime < now - METRO_RESYNC_THRESHOLD) {
+      metroNextNoteTime = now + 0.05;
+    }
+    while (metroNextNoteTime < now + METRO_SCHEDULE_AHEAD) {
       metroScheduleClick(metroBeatInBar, metroNextNoteTime);
       metroAdvanceNote();
     }
@@ -3487,6 +3497,18 @@
       }
     });
   }
+
+  // Comme le wake lock du lecteur PDF, l'AudioContext peut être suspendu
+  // par le système quand l'appli passe en arrière-plan (écran verrouillé,
+  // changement d'appli...). Sans ça, au retour, l'ordonnanceur croit avoir
+  // pris énormément de retard et le rattrapage se ferait en rafale — d'où
+  // la resynchronisation ici plutôt qu'un simple resume().
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && metroRunning && metroAudioCtx) {
+      if (metroAudioCtx.state === 'suspended') metroAudioCtx.resume();
+      metroNextNoteTime = metroAudioCtx.currentTime + 0.05;
+    }
+  });
 
   // ---------------------------------------------------------------------
   // Sauvegarde des annotations (page d'accueil) — les annotations sur les
