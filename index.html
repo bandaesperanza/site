@@ -975,6 +975,14 @@
     border-bottom: 1px solid var(--rule);
     flex-shrink: 0;
   }
+  .repertoire-season-label-inline {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
   .repertoire-sortie-current {
     display: flex;
     align-items: center;
@@ -1189,6 +1197,15 @@
     margin: 18px 0 8px;
   }
   .repertoire-section-label:first-child { margin-top: 0; }
+
+  .repertoire-season-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
 
   .repertoire-sortie-history-row {
     display: flex;
@@ -1768,9 +1785,10 @@
   </div>
 
   <div class="repertoire-body hidden" id="repertoire-tab-historique">
-    <div class="repertoire-section-label">Sorties précédentes</div>
+    <div class="repertoire-season-row" id="repertoire-season-row"></div>
+    <div class="repertoire-section-label">Sorties de la saison</div>
     <div id="repertoire-history-list"></div>
-    <div class="repertoire-section-label">Morceaux les plus joués</div>
+    <div class="repertoire-section-label">Morceaux les plus joués — saison</div>
     <div id="repertoire-stats-list"></div>
   </div>
 </div>
@@ -2351,7 +2369,9 @@
   let repertoireLoadPromise = null;
   let repertoireActiveTab = 'liste';
   let repertoireNewOnly = false;
-  let sortiesData = { activeSortieId: null, list: [] }; // { activeSortieId, list: [{id,name,date,playedKeys,createdAt}] }
+  let repertoireSeasonFilter = null; // saison affichée dans l'onglet Historique & stats ; null = saison en cours
+  // { activeSortieId, currentSeason, list: [{id,name,date,playedKeys,createdAt,season}] }
+  let sortiesData = { activeSortieId: null, currentSeason: String(new Date().getFullYear()), list: [] };
 
   let repertoireOfflineNoCache = false; // vrai seulement si le chargement a échoué ET qu'aucune copie locale n'existe
 
@@ -2415,11 +2435,12 @@
         const data = doc.exists ? doc.data() : null;
         sortiesData = {
           activeSortieId: (data && data.activeSortieId) || null,
+          currentSeason: (data && data.currentSeason) || String(new Date().getFullYear()),
           list: (data && Array.isArray(data.list)) ? data.list : [],
         };
         if (repertoireReady && !repertoireOverlay.classList.contains('hidden')) renderRepertoireActiveTab();
       },
-      () => { sortiesData = { activeSortieId: null, list: [] }; }
+      () => { sortiesData = { activeSortieId: null, currentSeason: String(new Date().getFullYear()), list: [] }; }
     );
   }
 
@@ -2427,6 +2448,7 @@
     if (!firebaseReady || !fbDb) throw new Error('Firebase indisponible');
     await sortiesDocRef().set({
       activeSortieId: next.activeSortieId || null,
+      currentSeason: next.currentSeason || String(new Date().getFullYear()),
       list: next.list || [],
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -2435,6 +2457,19 @@
 
   function currentSortie() {
     return sortiesData.list.find(s => s.id === sortiesData.activeSortieId) || null;
+  }
+
+  // Une sortie sans saison enregistrée (créée avant l'ajout de cette
+  // fonction) est considérée comme faisant partie de la saison en cours —
+  // évite de perdre ou d'égarer des sorties déjà existantes.
+  function sortieSeason(s) {
+    return s.season || sortiesData.currentSeason;
+  }
+
+  function repertoireAllSeasons() {
+    const set = new Set([sortiesData.currentSeason]);
+    for (const s of sortiesData.list) set.add(sortieSeason(s));
+    return Array.from(set).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   }
 
   async function createNewSortie() {
@@ -2447,9 +2482,10 @@
       date: new Date().toLocaleDateString('fr-FR'),
       playedKeys: [],
       createdAt: new Date().toISOString(),
+      season: sortiesData.currentSeason,
     };
     const previous = sortiesData;
-    const next = { activeSortieId: newSortie.id, list: [newSortie, ...sortiesData.list] };
+    const next = { ...sortiesData, activeSortieId: newSortie.id, list: [newSortie, ...sortiesData.list] };
     sortiesData = next;
     renderRepertoireActiveTab();
     try {
@@ -2484,7 +2520,7 @@
     const previous = sortiesData;
     const list = sortiesData.list.filter(s => s.id !== id);
     const activeSortieId = sortiesData.activeSortieId === id ? null : sortiesData.activeSortieId;
-    const next = { activeSortieId, list };
+    const next = { ...sortiesData, activeSortieId, list };
     sortiesData = next;
     renderRepertoireActiveTab();
     try {
@@ -2493,6 +2529,32 @@
       sortiesData = previous;
       renderRepertoireActiveTab();
       alert("Échec de la suppression (pas de réseau ?).");
+    }
+  }
+
+  // Archiver une saison ne supprime rien : les sorties déjà créées gardent
+  // leur "season" d'origine et restent consultables (sélecteur de saison
+  // dans l'onglet Historique & stats). Seule la saison en cours change,
+  // et aucune sortie n'est active au démarrage de la nouvelle saison.
+  async function archiveSeason() {
+    if (!chefMode) return;
+    const currentYear = Number(sortiesData.currentSeason);
+    const suggestion = Number.isFinite(currentYear) ? String(currentYear + 1) : String(new Date().getFullYear() + 1);
+    const label = prompt(`Archiver la saison "${sortiesData.currentSeason}" et en démarrer une nouvelle.\nNom de la nouvelle saison :`, suggestion);
+    if (!label || !label.trim()) return;
+    if (!confirm(`Confirmer : la saison "${sortiesData.currentSeason}" est archivée (toujours consultable dans l'historique), et "${label.trim()}" démarre sans sortie active.`)) return;
+    const previous = sortiesData;
+    const next = { ...sortiesData, currentSeason: label.trim(), activeSortieId: null };
+    sortiesData = next;
+    repertoireSeasonFilter = next.currentSeason;
+    renderRepertoireActiveTab();
+    try {
+      sortiesData = await saveSortiesRemote(next);
+    } catch (err) {
+      sortiesData = previous;
+      repertoireSeasonFilter = sortiesData.currentSeason;
+      renderRepertoireActiveTab();
+      alert("Échec de l'archivage (pas de réseau ?).");
     }
   }
 
@@ -2525,7 +2587,7 @@
   function renderRepertoireSortieBar() {
     if (!repertoireSortieBar) return;
     const sortie = currentSortie();
-    let html = '';
+    let html = `<div class="repertoire-season-label-inline">Saison ${escapeHtml(sortiesData.currentSeason)}</div>`;
     if (sortie) {
       const total = repertoireSongs.length;
       const played = (sortie.playedKeys || []).length;
@@ -2534,11 +2596,12 @@
       html += `<div class="repertoire-sortie-none">Aucune sortie active${chefMode ? ' — crée-en une pour commencer à cocher.' : '.'}</div>`;
     }
     if (chefMode) {
+      const seasonSorties = sortiesData.list.filter(s => sortieSeason(s) === sortiesData.currentSeason);
       html += `<div class="repertoire-sortie-controls">`;
-      if (sortiesData.list.length) {
+      if (seasonSorties.length) {
         html += `<select id="repertoire-sortie-select" class="repertoire-sortie-select">`;
         html += `<option value="">— Choisir la sortie active —</option>`;
-        html += sortiesData.list.map(s => `<option value="${escapeHtml(s.id)}"${s.id === sortiesData.activeSortieId ? ' selected' : ''}>${escapeHtml(s.name)} (${escapeHtml(s.date || '')})</option>`).join('');
+        html += seasonSorties.map(s => `<option value="${escapeHtml(s.id)}"${s.id === sortiesData.activeSortieId ? ' selected' : ''}>${escapeHtml(s.name)} (${escapeHtml(s.date || '')})</option>`).join('');
         html += `</select>`;
       }
       html += `<button type="button" id="repertoire-sortie-new-btn" class="repertoire-sortie-new-btn">+ Nouvelle sortie</button>`;
@@ -2589,11 +2652,35 @@
     repertoireListEl.innerHTML = html || `<div class="repertoire-empty-note">Aucun morceau ne correspond.</div>`;
   }
 
+  function renderRepertoireSeasonRow() {
+    const row = document.getElementById('repertoire-season-row');
+    if (!row) return;
+    if (!repertoireSeasonFilter) repertoireSeasonFilter = sortiesData.currentSeason;
+    const seasons = repertoireAllSeasons();
+    let html = `<select id="repertoire-season-select" class="repertoire-sortie-select">`;
+    html += seasons.map(s => `<option value="${escapeHtml(s)}"${s === repertoireSeasonFilter ? ' selected' : ''}>${escapeHtml(s)}${s === sortiesData.currentSeason ? ' (en cours)' : ''}</option>`).join('');
+    html += `</select>`;
+    if (chefMode) {
+      html += `<button type="button" id="repertoire-archive-btn" class="repertoire-sortie-new-btn">📦 Archiver la saison</button>`;
+    }
+    row.innerHTML = html;
+    const sel = document.getElementById('repertoire-season-select');
+    if (sel) sel.addEventListener('change', () => {
+      repertoireSeasonFilter = sel.value;
+      renderRepertoireHistory();
+    });
+    const archBtn = document.getElementById('repertoire-archive-btn');
+    if (archBtn) archBtn.addEventListener('click', archiveSeason);
+  }
+
   function renderRepertoireHistory() {
     if (!repertoireHistoryListEl || !repertoireStatsListEl) return;
-    const list = [...sortiesData.list].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    renderRepertoireSeasonRow();
+    const season = repertoireSeasonFilter || sortiesData.currentSeason;
+    const seasonSorties = sortiesData.list.filter(s => sortieSeason(s) === season);
+    const list = [...seasonSorties].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     if (!list.length) {
-      repertoireHistoryListEl.innerHTML = `<div class="repertoire-empty-note">Aucune sortie enregistrée pour l'instant.</div>`;
+      repertoireHistoryListEl.innerHTML = `<div class="repertoire-empty-note">Aucune sortie enregistrée pour cette saison.</div>`;
     } else {
       repertoireHistoryListEl.innerHTML = list.map(s => `
         <div class="repertoire-sortie-history-row">
@@ -2604,7 +2691,7 @@
     }
 
     const counts = {};
-    for (const s of sortiesData.list) {
+    for (const s of seasonSorties) {
       for (const key of (s.playedKeys || [])) counts[key] = (counts[key] || 0) + 1;
     }
     const songsById = {};
@@ -2621,7 +2708,7 @@
           <span class="count">${x.count} fois</span>
         </div>
       `).join('')
-      : `<div class="repertoire-empty-note">Pas encore de morceaux joués.</div>`;
+      : `<div class="repertoire-empty-note">Pas encore de morceaux joués cette saison.</div>`;
   }
 
   function renderRepertoireActiveTab() {
