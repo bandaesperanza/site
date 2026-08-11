@@ -829,6 +829,31 @@
     letter-spacing: 0.02em;
   }
 
+  .status-badge {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    border-radius: 3px;
+    padding: 2px 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+  }
+  .status-badge:active { opacity: 0.65; }
+  .status-badge.status-none {
+    color: var(--ink-soft);
+    background: var(--paper);
+    border-color: var(--rule);
+    border-style: dashed;
+  }
+  .status-badge.status-nouveau { color: #1D4E9E; background: #E3ECFB; border-color: #C2D6F5; }
+  .status-badge.status-preparation { color: #8A6410; background: #FBEFD4; border-color: #F0DBA0; }
+  .status-badge.status-pret { color: #2E7D4E; background: #E4F1E7; border-color: #BFDDC5; }
+  .status-badge.status-a-revoir { color: #A6302B; background: #F9E1DF; border-color: #F0C3BF; }
+
   .card-result .detail {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
@@ -1698,6 +1723,61 @@
   }
 
   // -------------------------------------------------------------------
+  // Statut par morceau (nouveau / en préparation / prêt / à revoir) —
+  // partagé entre tous les musiciens via Firestore, exactement comme les
+  // playlists. Le statut se pose sur le dossier (= le morceau), pas sur
+  // un fichier précis : tous les pupitres d'un même morceau partagent
+  // donc le même badge, qui se met à jour en direct chez tout le monde.
+  // -------------------------------------------------------------------
+  const SONG_STATUS_ORDER = ['none', 'nouveau', 'preparation', 'pret', 'a-revoir'];
+  const SONG_STATUS_INFO = {
+    none:        { label: 'Statut', emoji: '➕' },
+    nouveau:     { label: 'Nouveau', emoji: '🆕' },
+    preparation: { label: 'En préparation', emoji: '🛠️' },
+    pret:        { label: 'Prêt', emoji: '✅' },
+    'a-revoir':  { label: 'À revoir', emoji: '⚠️' },
+  };
+
+  let songStatuses = {}; // { "dossier / sous-dossier": "nouveau" | "preparation" | "pret" | "a-revoir" }
+
+  function songStatusDocRef() {
+    return fbDb.collection('partotheque').doc('song-status');
+  }
+
+  function songStatusFolderKey(f) {
+    return (f.folderPath || []).join(' / ');
+  }
+
+  function songStatusNext(current) {
+    const idx = SONG_STATUS_ORDER.indexOf(current || 'none');
+    return SONG_STATUS_ORDER[(idx + 1) % SONG_STATUS_ORDER.length];
+  }
+
+  async function saveSongStatusRemote(folderKey, statusId) {
+    if (!firebaseReady || !fbDb) throw new Error('Firebase indisponible');
+    const updated = { ...songStatuses };
+    if (statusId && statusId !== 'none') updated[folderKey] = statusId;
+    else delete updated[folderKey];
+    await songStatusDocRef().set({
+      statuses: updated,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    return updated;
+  }
+
+  function subscribeToSongStatuses() {
+    if (!firebaseReady || !fbDb) return;
+    songStatusDocRef().onSnapshot(
+      (doc) => {
+        const data = doc.exists ? doc.data() : null;
+        songStatuses = (data && data.statuses) || {};
+        applyFilters(searchInput.value.trim());
+      },
+      () => { songStatuses = {}; }
+    );
+  }
+
+  // -------------------------------------------------------------------
   // Mode "chef d'orchestre" : un musicien peut diffuser en direct la
   // partition et la page qu'il regarde ("📡" dans le lecteur). Les
   // autres, s'ils ont activé "Suivre le chef", reçoivent une bannière
@@ -2367,6 +2447,7 @@
     }
     refreshCachedIds().then(loadCatalog);
     subscribeToPlaylists();
+    subscribeToSongStatuses();
     if (liveReady && firebaseReady && fbDb) {
       liveFollowToggleBtn.classList.remove('hidden');
       subscribeToLive();
@@ -2531,11 +2612,18 @@
 
     statusLine.textContent = `${files.length} résultat${files.length > 1 ? 's' : ''}`;
 
-    resultsEl.innerHTML = files.map(f => `
+    resultsEl.innerHTML = files.map(f => {
+      const folderKey = songStatusFolderKey(f);
+      const statusId = (firebaseReady && fbDb) ? (songStatuses[folderKey] || 'none') : null;
+      const statusInfo = statusId ? SONG_STATUS_INFO[statusId] : null;
+      const statusBadge = statusInfo
+        ? `<span class="status-badge status-${statusId}" data-folder-key="${escapeHtml(folderKey)}" data-status="${statusId}" title="Changer le statut du morceau">${statusInfo.emoji} ${escapeHtml(statusInfo.label)}</span>`
+        : '';
+      return `
       <div class="card-result">
         <div class="icon">PDF</div>
         <div class="meta">
-          <p class="name">${escapeHtml(f.name)}${cachedIds.has(fileKey(f)) ? '<span class="offline-badge">✓ Synchronisé en local</span>' : ''}</p>
+          <p class="name">${escapeHtml(f.name)}${cachedIds.has(fileKey(f)) ? '<span class="offline-badge">✓ Synchronisé en local</span>' : ''}${statusBadge}</p>
           <div class="detail">
             ${f.folderPath && f.folderPath.length ? escapeHtml(f.folderPath.join(' › ')) + ' · ' : ''}${formatSize(f.size)}${f.modifiedTime ? ' · modifié le ' + formatDate(f.modifiedTime) : ''}
           </div>
@@ -2545,7 +2633,8 @@
           </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   // Ouverture par clé (dossier/nom) : utilisée par le clic normal sur un
@@ -2575,6 +2664,27 @@
   // Téléchargement : utilise le blob local si synchronisé, sinon laisse
   // le lien standard agir normalement (télécharge depuis le serveur).
   resultsEl.addEventListener('click', async (e) => {
+    const badge = e.target.closest('.status-badge');
+    if (badge) {
+      const folderKey = badge.dataset.folderKey || '';
+      const current = badge.dataset.status || 'none';
+      const next = songStatusNext(current);
+      const previous = songStatuses;
+      badge.dataset.status = next;
+      badge.className = `status-badge status-${next}`;
+      badge.textContent = `${SONG_STATUS_INFO[next].emoji} ${SONG_STATUS_INFO[next].label}`;
+      try {
+        songStatuses = await saveSongStatusRemote(folderKey, next);
+      } catch (err) {
+        songStatuses = previous; // échec : on annule le changement local
+        badge.dataset.status = current;
+        badge.className = `status-badge status-${current}`;
+        badge.textContent = `${SONG_STATUS_INFO[current].emoji} ${SONG_STATUS_INFO[current].label}`;
+        alert("Échec de l'enregistrement du statut (pas de réseau ?).");
+      }
+      return;
+    }
+
     const link = e.target.closest('a[data-id]');
     if (!link) return;
     const id = link.dataset.id;
