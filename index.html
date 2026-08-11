@@ -2358,19 +2358,43 @@
   let repertoireNewOnly = false;
   let sortiesData = { activeSortieId: null, list: [] }; // { activeSortieId, list: [{id,name,date,playedKeys,createdAt}] }
 
+  let repertoireOfflineNoCache = false; // vrai seulement si le chargement a échoué ET qu'aucune copie locale n'existe
+
   async function loadRepertoireData() {
     if (repertoireLoadPromise) return repertoireLoadPromise;
-    repertoireLoadPromise = fetch('./repertoire.json')
-      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(data => {
-        repertoireSongs = Array.isArray(data.songs) ? data.songs : [];
-        repertoireThemesOrder = Array.isArray(data.themesOrder) ? data.themesOrder : [];
-        renderRepertoireThemeShortcuts();
-      })
-      .catch(() => {
-        repertoireSongs = [];
-        repertoireThemesOrder = [];
-      });
+    repertoireLoadPromise = (async () => {
+      let loadedFromNetwork = false;
+      try {
+        const res = await fetch('./repertoire.json', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          repertoireSongs = Array.isArray(data.songs) ? data.songs : [];
+          repertoireThemesOrder = Array.isArray(data.themesOrder) ? data.themesOrder : [];
+          loadedFromNetwork = true;
+          idbPut('catalog', {
+            key: 'repertoire',
+            songs: repertoireSongs,
+            themesOrder: repertoireThemesOrder,
+            fetchedAt: Date.now(),
+          }).catch(() => {});
+        }
+      } catch (e) { /* pas de réseau : on retente le cache local ci-dessous */ }
+
+      if (!loadedFromNetwork) {
+        const cached = await idbGet('catalog', 'repertoire').catch(() => null);
+        if (cached && Array.isArray(cached.songs)) {
+          repertoireSongs = cached.songs;
+          repertoireThemesOrder = cached.themesOrder || [];
+        } else {
+          repertoireSongs = [];
+          repertoireThemesOrder = [];
+          repertoireOfflineNoCache = true;
+        }
+      } else {
+        repertoireOfflineNoCache = false;
+      }
+      renderRepertoireThemeShortcuts();
+    })();
     return repertoireLoadPromise;
   }
 
@@ -2535,7 +2559,9 @@
   function renderRepertoireList(term) {
     if (!repertoireListEl) return;
     if (!repertoireSongs.length) {
-      repertoireListEl.innerHTML = `<div class="repertoire-empty-note">Chargement du répertoire…</div>`;
+      repertoireListEl.innerHTML = repertoireOfflineNoCache
+        ? `<div class="repertoire-empty-note">Impossible de charger le répertoire : pas de réseau, et aucune copie enregistrée sur cet appareil. Connecte-toi une première fois pour l'initialiser, il restera ensuite disponible hors-ligne.</div>`
+        : `<div class="repertoire-empty-note">Chargement du répertoire…</div>`;
       return;
     }
     const normTerm = term ? normalize(term) : '';
