@@ -150,7 +150,7 @@
   .chef-mode-btn {
     position: absolute;
     top: 16px;
-    left: 16px;
+    right: 58px;
     width: 34px;
     height: 34px;
     border-radius: 50%;
@@ -861,6 +861,8 @@
     border: 1px solid transparent;
   }
   .status-badge:active { opacity: 0.65; }
+  .status-badge.status-badge-readonly { cursor: default; }
+  .status-badge.status-badge-readonly:active { opacity: 1; }
   .status-badge.status-pret { color: #2E7D4E; background: #E4F1E7; border-color: #BFDDC5; }
   .status-badge.status-nouveau { color: #1D4E9E; background: #E3ECFB; border-color: #C2D6F5; }
   .status-badge.status-repet { color: #8A6410; background: #FBEFD4; border-color: #F0DBA0; }
@@ -2816,7 +2818,7 @@
       const statusId = (firebaseReady && fbDb) ? songStatusFor(folderKey) : null;
       const statusInfo = statusId ? SONG_STATUS_INFO[statusId] : null;
       const statusBadge = statusInfo
-        ? `<span class="status-badge status-${statusId}" data-folder-key="${escapeHtml(folderKey)}" data-status="${statusId}" title="Changer le statut du morceau">${statusInfo.emoji} ${escapeHtml(statusInfo.label)}</span>`
+        ? `<span class="status-badge status-${statusId}${chefMode ? '' : ' status-badge-readonly'}" data-folder-key="${escapeHtml(folderKey)}" data-status="${statusId}" title="${chefMode ? 'Changer le statut du morceau' : statusInfo.label}">${statusInfo.emoji} ${escapeHtml(statusInfo.label)}</span>`
         : '';
       return `
       <div class="card-result">
@@ -2866,6 +2868,7 @@
     const badge = e.target.closest('.status-badge');
     if (badge) {
       e.stopPropagation();
+      if (!chefMode) return; // lecture seule pour les musiciens hors mode chef
       const folderKey = badge.dataset.folderKey || '';
       const current = badge.dataset.status || SONG_STATUS_DEFAULT;
       openStatusMenu(badge, folderKey, current);
