@@ -1207,13 +1207,15 @@
     border-bottom: 1px solid var(--rule);
   }
 
+  .repertoire-sortie-history-item {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(220, 213, 222, 0.5);
+  }
   .repertoire-sortie-history-row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(220, 213, 222, 0.5);
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
   }
@@ -1229,6 +1231,38 @@
     margin-left: 4px;
   }
   .repertoire-sortie-delete-btn:hover { color: var(--stamp); }
+
+  .repertoire-notes-block { margin-top: 8px; }
+  .repertoire-notes-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .repertoire-notes-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    line-height: 1.4;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--rule);
+    background: var(--card);
+    color: var(--ink);
+    resize: vertical;
+    min-height: 52px;
+  }
+  .repertoire-notes-textarea:focus { outline: none; border-color: var(--gold); }
+  .repertoire-notes-chef-only {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    color: var(--stamp);
+    letter-spacing: 0.02em;
+    margin-top: 3px;
+  }
 
   .repertoire-stats-row {
     display: flex;
@@ -2438,7 +2472,16 @@
           currentSeason: (data && data.currentSeason) || String(new Date().getFullYear()),
           list: (data && Array.isArray(data.list)) ? data.list : [],
         };
-        if (repertoireReady && !repertoireOverlay.classList.contains('hidden')) renderRepertoireActiveTab();
+        // On ne redessine pas si on est en train de taper dans un champ de
+        // notes : ça ferait sauter le curseur en pleine frappe pour un
+        // contenu qui, de toute façon, correspond déjà à ce qui vient
+        // d'être tapé (mise à jour optimiste locale déjà appliquée).
+        const typingNotes = document.activeElement &&
+          document.activeElement.classList &&
+          document.activeElement.classList.contains('repertoire-notes-textarea');
+        if (repertoireReady && !repertoireOverlay.classList.contains('hidden') && !typingNotes) {
+          renderRepertoireActiveTab();
+        }
       },
       () => { sortiesData = { activeSortieId: null, currentSeason: String(new Date().getFullYear()), list: [] }; }
     );
@@ -2558,6 +2601,41 @@
     }
   }
 
+  // -------------------------------------------------------------------
+  // Notes de répétition par sortie (morceaux à revoir, problèmes
+  // rencontrés…) — réservées au mode chef : ni affichées ni accessibles
+  // aux autres musiciens, contrairement au reste de la sortie (nom,
+  // statut joué/pas joué). Sauvegarde à la volée, avec anti-rebond pour
+  // ne pas écrire à chaque frappe.
+  // -------------------------------------------------------------------
+  let sortieNotesSaveTimer = null;
+
+  function scheduleSortieNotesSave(sortieId, notes) {
+    // Mise à jour optimiste locale sans redessiner la liste : sinon on
+    // perdrait le focus et la position du curseur en pleine frappe.
+    sortiesData = {
+      ...sortiesData,
+      list: sortiesData.list.map(s => s.id === sortieId ? { ...s, notes } : s),
+    };
+    clearTimeout(sortieNotesSaveTimer);
+    sortieNotesSaveTimer = setTimeout(async () => {
+      try {
+        sortiesData = await saveSortiesRemote(sortiesData);
+      } catch (err) {
+        console.error('Échec de la sauvegarde des notes de répétition', err);
+      }
+    }, 700);
+  }
+
+  function repertoireNotesBlockHtml(sortie) {
+    if (!chefMode) return ''; // invisible pour les musiciens hors mode chef
+    const notes = sortie.notes || '';
+    return `<div class="repertoire-notes-block">
+      <div class="repertoire-notes-label">📝 Notes de répét (visibles chef uniquement)</div>
+      <textarea class="repertoire-notes-textarea" data-sortie-id="${escapeHtml(sortie.id)}" placeholder="Ex. : trompettes en retard sur El Tuyo, revoir la coda du Pasodoble…">${escapeHtml(notes)}</textarea>
+    </div>`;
+  }
+
   async function toggleSongPlayed(songId) {
     if (!chefMode) return;
     const sortie = currentSortie();
@@ -2592,6 +2670,7 @@
       const total = repertoireSongs.length;
       const played = (sortie.playedKeys || []).length;
       html += `<div class="repertoire-sortie-current"><strong>${escapeHtml(sortie.name)}</strong><span>${escapeHtml(sortie.date || '')}</span><span class="repertoire-sortie-count">${played}/${total} joués</span></div>`;
+      html += repertoireNotesBlockHtml(sortie);
     } else {
       html += `<div class="repertoire-sortie-none">Aucune sortie active${chefMode ? ' — crée-en une pour commencer à cocher.' : '.'}</div>`;
     }
@@ -2683,9 +2762,12 @@
       repertoireHistoryListEl.innerHTML = `<div class="repertoire-empty-note">Aucune sortie enregistrée pour cette saison.</div>`;
     } else {
       repertoireHistoryListEl.innerHTML = list.map(s => `
-        <div class="repertoire-sortie-history-row">
-          <span class="name">${escapeHtml(s.name)}${s.id === sortiesData.activeSortieId ? ' · <span style="color:var(--stamp)">active</span>' : ''}</span>
-          <span class="meta">${escapeHtml(s.date || '')} · ${(s.playedKeys || []).length}/${repertoireSongs.length} joués${chefMode ? ` <button type="button" class="repertoire-sortie-delete-btn" data-sortie-id="${escapeHtml(s.id)}" title="Supprimer cette sortie">🗑</button>` : ''}</span>
+        <div class="repertoire-sortie-history-item">
+          <div class="repertoire-sortie-history-row">
+            <span class="name">${escapeHtml(s.name)}${s.id === sortiesData.activeSortieId ? ' · <span style="color:var(--stamp)">active</span>' : ''}</span>
+            <span class="meta">${escapeHtml(s.date || '')} · ${(s.playedKeys || []).length}/${repertoireSongs.length} joués${chefMode ? ` <button type="button" class="repertoire-sortie-delete-btn" data-sortie-id="${escapeHtml(s.id)}" title="Supprimer cette sortie">🗑</button>` : ''}</span>
+          </div>
+          ${repertoireNotesBlockHtml(s)}
         </div>
       `).join('');
     }
@@ -2718,6 +2800,11 @@
   }
 
   if (repertoireReady) {
+    repertoireOverlay.addEventListener('input', (e) => {
+      const ta = e.target.closest('.repertoire-notes-textarea');
+      if (!ta || !chefMode) return;
+      scheduleSortieNotesSave(ta.dataset.sortieId, ta.value);
+    });
     repertoireToggleBtn.addEventListener('click', async () => {
       repertoireOverlay.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
