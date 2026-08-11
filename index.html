@@ -259,13 +259,6 @@
   }
 
   /* --- Filter pills ------------------------------------------------------- */
-  .filter-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 18px;
-  }
-
   .filter-btn {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
@@ -553,12 +546,30 @@
     border-color: var(--stamp);
   }
 
-  .playlist-zone {
+  .filter-zone {
     border: 1px solid var(--rule);
     border-radius: 8px;
     background: var(--card);
     padding: 14px 16px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
+  }
+  .filter-zone-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .filter-zone-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .filter-zone-empty {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
   }
 
   .tools-zone {
@@ -603,24 +614,6 @@
     color: #fff;
     background: var(--stamp);
     border-color: var(--stamp);
-  }
-  .playlist-zone-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin-bottom: 10px;
-  }
-  .playlist-zone-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .playlist-zone-empty {
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    color: var(--ink);
   }
 
   .playlist-admin-editor {
@@ -1310,13 +1303,21 @@
       <p class="playlist-admin-note">Les changements sont visibles par tous les musiciens immédiatement, pas de fichier à déposer.</p>
     </div>
 
-    <div class="playlist-zone" id="playlist-zone">
-      <div class="playlist-zone-label">Playlist</div>
-      <div class="playlist-zone-row" id="playlist-row"><span class="playlist-zone-empty">Tous les morceaux</span></div>
+    <div class="filter-zone" id="playlist-zone">
+      <div class="filter-zone-label">Playlist</div>
+      <div class="filter-zone-row" id="playlist-row"><span class="filter-zone-empty">Tous les morceaux</span></div>
     </div>
 
-    <div class="filter-row" id="filter-row"></div>
-    <div class="filter-row hidden" id="status-filter-row"></div>
+    <div class="filter-zone" id="instrument-zone">
+      <div class="filter-zone-label">Instrument</div>
+      <div class="filter-zone-row" id="filter-row"></div>
+    </div>
+
+    <div class="filter-zone hidden" id="status-zone">
+      <div class="filter-zone-label">Statut du morceau</div>
+      <div class="filter-zone-row" id="status-filter-row"></div>
+    </div>
+
     <div class="search-row">
       <div class="search-field">
         <input type="text" id="search-input" placeholder="Chercher un PDF par nom…" autocomplete="off">
@@ -1445,6 +1446,7 @@
   const searchInput   = document.getElementById('search-input');
   const filterRow      = document.getElementById('filter-row');
   const statusFilterRow = document.getElementById('status-filter-row');
+  const statusZone      = document.getElementById('status-zone');
   const statusLine     = document.getElementById('status-line');
   const resultsEl       = document.getElementById('results');
   const netStatusEl      = document.getElementById('net-status');
@@ -1973,7 +1975,7 @@
   function renderPlaylistRow() {
     if (!playlistsReady) return;
     if (!playlists.length) {
-      playlistRow.innerHTML = `<span class="playlist-zone-empty">Tous les morceaux</span>`;
+      playlistRow.innerHTML = `<span class="filter-zone-empty">Tous les morceaux</span>`;
       return;
     }
     playlistRow.innerHTML = [
@@ -2529,8 +2531,8 @@
 
   function renderStatusFilterButtons() {
     if (!statusFilterRow) return;
-    if (!(firebaseReady && fbDb)) { statusFilterRow.classList.add('hidden'); return; }
-    statusFilterRow.classList.remove('hidden');
+    if (!(firebaseReady && fbDb)) { if (statusZone) statusZone.classList.add('hidden'); return; }
+    if (statusZone) statusZone.classList.remove('hidden');
     statusFilterRow.innerHTML = STATUS_FILTERS.map(s => `
       <button type="button" class="filter-btn${s.id === activeStatusFilterId ? ' active' : ''}" data-status-filter-id="${s.id}">${s.label}</button>
     `).join('');
