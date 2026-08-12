@@ -1673,6 +1673,7 @@
     <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
     <div class="net-status" id="net-status"></div>
     <div class="file-modified" id="file-modified"></div>
+    <div class="file-modified" id="catalog-cache-info"></div>
   </header>
 
   <!-- Écran d'erreur (visible seulement si catalogue.json est introuvable) -->
@@ -2004,6 +2005,7 @@
   const debugLogEl             = document.getElementById('debug-log');
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
   const fileModifiedEl                = document.getElementById('file-modified');
+  const catalogCacheInfoEl            = document.getElementById('catalog-cache-info');
   const pageReloadBtn                 = document.getElementById('page-reload-btn');
   const chefModeToggleBtn             = document.getElementById('chef-mode-toggle');
   const playlistRow                   = document.getElementById('playlist-row');
@@ -2466,6 +2468,21 @@
   async function loadRepertoireData() {
     if (repertoireLoadPromise) return repertoireLoadPromise;
     repertoireLoadPromise = (async () => {
+      // Comme le catalogue : ce fichier ne sert que tant qu'aucun import
+      // Excel n'a jamais été fait (voir plus bas), et ne change de toute
+      // façon quasiment jamais. On charge la copie locale directement si
+      // elle existe, sans repasser par le réseau à chaque ouverture.
+      const cachedFirst = await idbGet('catalog', 'repertoire').catch(() => null);
+      if (cachedFirst && Array.isArray(cachedFirst.songs)) {
+        repertoireSongs = cachedFirst.songs;
+        repertoireThemesOrder = cachedFirst.themesOrder || [];
+        repertoireOfflineNoCache = false;
+        renderRepertoireThemeShortcuts();
+        return;
+      }
+
+      // Rien en local (tout premier lancement) : le réseau est le seul
+      // recours possible ici.
       let loadedFromNetwork = false;
       try {
         const res = await fetchWithShortTimeout('./repertoire.json', { cache: 'no-store' });
@@ -2481,18 +2498,12 @@
             fetchedAt: Date.now(),
           }).catch(() => {});
         }
-      } catch (e) { /* pas de réseau : on retente le cache local ci-dessous */ }
+      } catch (e) { /* pas de réseau : rien de plus à tenter */ }
 
       if (!loadedFromNetwork) {
-        const cached = await idbGet('catalog', 'repertoire').catch(() => null);
-        if (cached && Array.isArray(cached.songs)) {
-          repertoireSongs = cached.songs;
-          repertoireThemesOrder = cached.themesOrder || [];
-        } else {
-          repertoireSongs = [];
-          repertoireThemesOrder = [];
-          repertoireOfflineNoCache = true;
-        }
+        repertoireSongs = [];
+        repertoireThemesOrder = [];
+        repertoireOfflineNoCache = true;
       } else {
         repertoireOfflineNoCache = false;
       }
@@ -2561,8 +2572,23 @@
     exceljsLoadPromise = new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Impossible de charger l'outil de lecture Excel (réseau ?)."));
+      // Un <script src> n'a pas de délai limite natif : sur un réseau
+      // faible, il peut rester "en cours" très longtemps sans jamais
+      // déclencher onerror. On abandonne nous-mêmes au bout de 10s, et on
+      // retire le <script> pour permettre une nouvelle tentative (sinon
+      // exceljsLoadPromise resterait bloqué sur cet échec pour toujours).
+      const timeoutId = setTimeout(() => {
+        script.remove();
+        exceljsLoadPromise = null;
+        reject(new Error("L'outil de lecture Excel n'a pas pu se charger (réseau trop faible ?). Réessaie avec une meilleure connexion."));
+      }, 10000);
+      script.onload = () => { clearTimeout(timeoutId); resolve(); };
+      script.onerror = () => {
+        clearTimeout(timeoutId);
+        script.remove();
+        exceljsLoadPromise = null;
+        reject(new Error("Impossible de charger l'outil de lecture Excel (réseau ?)."));
+      };
       document.head.appendChild(script);
     });
     return exceljsLoadPromise;
@@ -3891,8 +3917,20 @@
     return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
+  // Petit indicateur discret dans le header : rappelle que ce qui est
+  // affiché est une copie locale, et depuis quand — utile maintenant que
+  // le catalogue ne repasse plus par le réseau à chaque ouverture (voir
+  // loadCatalog ci-dessous).
+  function updateCatalogCacheInfo(fetchedAt) {
+    if (!catalogCacheInfoEl) return;
+    catalogCacheInfoEl.textContent = fetchedAt
+      ? `Catalogue local du ${formatDate(new Date(fetchedAt).toISOString())}`
+      : '';
+  }
+
   // ---------------------------------------------------------------------
-  // Catalogue : réseau d'abord, cache local en secours si hors-ligne
+  // Catalogue : copie locale d'abord (le catalogue change rarement), réseau
+  // seulement au tout premier lancement ou sur un clic explicite sur ↻
   // ---------------------------------------------------------------------
   // Construit l'URL relative d'un PDF sur le site à partir de son chemin de
   // dossier + nom (chaque segment encodé séparément pour gérer espaces,
@@ -3930,6 +3968,29 @@
     statusLine.textContent = 'Chargement du catalogue…';
     resultsEl.innerHTML = '';
 
+    // Le catalogue ne change que quelques fois par an : pas la peine de
+    // repasser par le réseau à chaque ouverture de l'appli, même avec une
+    // bonne connexion. On charge la copie locale directement si elle
+    // existe — instantané. Le réseau n'est sollicité que sur un clic
+    // explicite sur ↻ (forceRefresh) ou au tout premier lancement, quand
+    // il n'y a encore rien en local.
+    if (!forceRefresh) {
+      const cachedFirst = await idbGet('catalog', 'catalog').catch(() => null);
+      if (cachedFirst && Array.isArray(cachedFirst.files)) {
+        fileIndex = cachedFirst.files;
+        basePath = cachedFirst.basePath || basePath;
+        updateCatalogCacheInfo(cachedFirst.fetchedAt);
+        setupScreen.classList.add('hidden');
+        applyFilters(searchInput.value.trim());
+        if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
+        isIndexing = false;
+        if (pageReloadBtn) pageReloadBtn.disabled = false;
+        return;
+      }
+      // Rien en local (tout premier lancement de cet appareil) : on tente
+      // le réseau ci-dessous, seul recours possible dans ce cas précis.
+    }
+
     let loadedFromNetwork = false;
     try {
       const res = await fetchWithShortTimeout(CONFIG.CATALOG_URL, { cache: 'no-store' });
@@ -3938,7 +3999,9 @@
         fileIndex = catalog.files || [];
         basePath = catalog.basePath || basePath;
         loadedFromNetwork = true;
-        idbPut('catalog', { key: 'catalog', files: fileIndex, basePath, fetchedAt: Date.now() }).catch(() => {});
+        const fetchedAt = Date.now();
+        idbPut('catalog', { key: 'catalog', files: fileIndex, basePath, fetchedAt }).catch(() => {});
+        updateCatalogCacheInfo(fetchedAt);
       }
     } catch (e) { /* pas de réseau, ou trop lent (timeout) : on retente le cache local ci-dessous */ }
 
@@ -3947,7 +4010,8 @@
       if (cached && cached.files) {
         fileIndex = cached.files;
         basePath = cached.basePath || basePath;
-        netStatusEl.textContent = `🔌 Hors-ligne — catalogue du ${formatDate(new Date(cached.fetchedAt).toISOString())} - Version du 03/08/2026`;
+        updateCatalogCacheInfo(cached.fetchedAt);
+        netStatusEl.textContent = `🔌 Hors-ligne — catalogue du ${formatDate(new Date(cached.fetchedAt).toISOString())}`;
       } else {
         fileIndex = null;
         setupScreen.classList.remove('hidden');
@@ -4931,7 +4995,20 @@
       // le lecteur ne dépend plus que du cache du fichier HTML principal
       // et de pdf.min.js, tous les deux bien couverts par le SW.
       const loadingTask = pdfjsLib.getDocument({ url, disableWorker: true });
-      pdfDoc = await loadingTask.promise;
+      // Un PDF non synchronisé hors-ligne se charge depuis le réseau : sur
+      // une connexion faible (pas coupée, juste lente), ça peut traîner
+      // très longtemps sans jamais échouer ni aboutir. Cette limite fait
+      // abandonner proprement au bout de 15s, avec un message qui pointe
+      // vers "Télécharger" plutôt que de laisser "Chargement…" indéfiniment.
+      const timeoutMs = isBlobUrl ? 30000 : 15000;
+      let timedOut = false;
+      const timeoutId = setTimeout(() => { timedOut = true; loadingTask.destroy(); }, timeoutMs);
+      try {
+        pdfDoc = await loadingTask.promise;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      if (timedOut) throw new Error('Délai dépassé');
       pdfViewerStatus.classList.add('hidden');
       pdfCanvas.classList.remove('hidden');
       if (annotReady) pdfAnnotCanvas.classList.remove('hidden');
