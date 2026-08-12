@@ -1132,6 +1132,19 @@
     color: #fff;
     font-weight: 600;
   }
+  .repertoire-controls-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .repertoire-import-status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin: 6px 0 0;
+  }
+  .repertoire-import-status.success { color: #2E7D4E; }
+  .repertoire-import-status.error { color: var(--stamp); }
 
   .repertoire-theme-group { margin-bottom: 18px; }
   .repertoire-theme-heading {
@@ -1838,7 +1851,12 @@
 
   <div class="repertoire-controls-row" id="repertoire-controls-row">
     <div class="repertoire-theme-shortcuts" id="repertoire-theme-shortcuts"></div>
-    <button type="button" id="repertoire-new-filter-btn" class="repertoire-new-filter-btn">🆕 Nouveautés seulement</button>
+    <div class="repertoire-controls-buttons">
+      <button type="button" id="repertoire-new-filter-btn" class="repertoire-new-filter-btn">🆕 Nouveautés seulement</button>
+      <button type="button" id="repertoire-import-btn" class="repertoire-new-filter-btn hidden">📤 Importer l'Excel</button>
+    </div>
+    <input type="file" id="repertoire-import-input" accept=".xlsx" class="hidden">
+    <p class="repertoire-import-status" id="repertoire-import-status"></p>
   </div>
 
   <div class="repertoire-body" id="repertoire-tab-liste">
@@ -2044,6 +2062,9 @@
   const repertoireStatsListEl         = document.getElementById('repertoire-stats-list');
   const repertoireThemeShortcutsEl    = document.getElementById('repertoire-theme-shortcuts');
   const repertoireNewFilterBtn        = document.getElementById('repertoire-new-filter-btn');
+  const repertoireImportBtn           = document.getElementById('repertoire-import-btn');
+  const repertoireImportInput         = document.getElementById('repertoire-import-input');
+  const repertoireImportStatusEl      = document.getElementById('repertoire-import-status');
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
   // l'appli : si un élément venait à manquer, on désactive juste la
@@ -2436,7 +2457,12 @@
   let sortiesData = { activeSortieId: null, currentSeason: String(new Date().getFullYear()), list: [] };
 
   let repertoireOfflineNoCache = false; // vrai seulement si le chargement a échoué ET qu'aucune copie locale n'existe
+  let repertoireFromFirestore = false; // vrai dès qu'un import Excel a déjà eu lieu au moins une fois
 
+  // Tant qu'aucun import Excel n'a jamais été fait, le répertoire vient du
+  // fichier statique repertoire.json (+ copie IndexedDB hors-ligne), exactement
+  // comme avant. Dès qu'un import a eu lieu (voir plus bas), Firestore devient
+  // la source de vérité et ce fichier statique n'est plus utilisé.
   async function loadRepertoireData() {
     if (repertoireLoadPromise) return repertoireLoadPromise;
     repertoireLoadPromise = (async () => {
@@ -2473,6 +2499,208 @@
       renderRepertoireThemeShortcuts();
     })();
     return repertoireLoadPromise;
+  }
+
+  function repertoireDocRef() {
+    return fbDb.collection('partotheque').doc('repertoire');
+  }
+
+  // Écoute Firestore en direct : si un import Excel a déjà été fait (par
+  // n'importe qui, n'importe quand), c'est cette copie qui fait autorité —
+  // synchronisée pour tout le monde, disponible hors-ligne automatiquement
+  // (comme les playlists et les sorties). Tant que rien n'a jamais été
+  // importé, on continue d'utiliser le fichier statique repertoire.json.
+  function subscribeToRepertoire() {
+    if (!firebaseReady || !fbDb) {
+      loadRepertoireData();
+      return;
+    }
+    repertoireDocRef().onSnapshot(
+      (doc) => {
+        const data = doc.exists ? doc.data() : null;
+        if (data && Array.isArray(data.songs) && data.songs.length) {
+          repertoireSongs = data.songs;
+          repertoireThemesOrder = Array.isArray(data.themesOrder) ? data.themesOrder : [];
+          repertoireFromFirestore = true;
+          repertoireOfflineNoCache = false;
+          renderRepertoireThemeShortcuts();
+          if (repertoireReady && !repertoireOverlay.classList.contains('hidden')) renderRepertoireActiveTab();
+        } else if (!repertoireFromFirestore) {
+          // Rien d'importé pour l'instant : on garde le fichier statique.
+          loadRepertoireData();
+        }
+      },
+      () => { loadRepertoireData(); }
+    );
+  }
+
+  async function saveRepertoireRemote(next) {
+    if (!firebaseReady || !fbDb) throw new Error('Firebase indisponible');
+    await repertoireDocRef().set({
+      themesOrder: next.themesOrder || [],
+      songs: next.songs || [],
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    return next;
+  }
+
+  // ---------------------------------------------------------------------
+  // Import du répertoire depuis le fichier Excel du groupe (mode chef) —
+  // lit directement le .xlsx dans le navigateur (thèmes en gras, sous-genres
+  // en italique souligné, nouveautés en rouge — mêmes règles que celles
+  // utilisées pour générer repertoire.json au départ) et enregistre le
+  // résultat dans Firestore, en remplacement de l'ancien répertoire. Aucun
+  // fichier à envoyer, aucun aller-retour : tout se passe dans l'appli.
+  // ---------------------------------------------------------------------
+  const repertoireImportReady = !!(repertoireImportBtn && repertoireImportInput && repertoireImportStatusEl);
+
+  let exceljsLoadPromise = null;
+  function ensureExcelJsLoaded() {
+    if (window.ExcelJS) return Promise.resolve();
+    if (exceljsLoadPromise) return exceljsLoadPromise;
+    exceljsLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Impossible de charger l'outil de lecture Excel (réseau ?)."));
+      document.head.appendChild(script);
+    });
+    return exceljsLoadPromise;
+  }
+
+  const REPERTOIRE_RED_COLORS = new Set(['FFFF0000', 'FFDD0806']);
+  const REPERTOIRE_THEME_ALIASES_RAW = {
+    'pasacalle "défilé"': 'Pasacalle "défilé"',
+    'pasacalle "ambiance"': 'Pasacalle "Ambiance"',
+    'corrida': 'Corrida',
+    'pasodoble': 'Pasodoble',
+    'ambiance "apero" suite': 'Ambiance "Apéro"',
+    'ambiance "apero"': 'Ambiance "Apéro"',
+    'ambiance "soirée" suite': 'Ambiance "Soirée"',
+    'ambiance "soirée"': 'Ambiance "Soirée"',
+  };
+
+  function repertoireNormKey(s) {
+    return s.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+  const REPERTOIRE_THEME_ALIASES = Object.fromEntries(
+    Object.entries(REPERTOIRE_THEME_ALIASES_RAW).map(([k, v]) => [repertoireNormKey(k), v])
+  );
+
+  function repertoireSlugify(s) {
+    return s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+  }
+
+  // Reproduit exactement la logique utilisée pour générer repertoire.json à
+  // l'origine (voir extract_repertoire.py) : les thèmes sont en gras (taille
+  // ≥ 11), les sous-genres en italique (non gras), les nouveautés en rouge —
+  // tout le reste, sous un thème déjà rencontré, est un morceau.
+  async function parseRepertoireExcel(file) {
+    await ensureExcelJsLoaded();
+    const workbook = new window.ExcelJS.Workbook();
+    const buf = await file.arrayBuffer();
+    await workbook.xlsx.load(buf);
+    const ws = workbook.getWorksheet('LISTE') || workbook.worksheets[0];
+    if (!ws) throw new Error('Feuille "LISTE" introuvable dans ce fichier.');
+
+    const columns = ['A', 'C', 'H', 'J'];
+    const songs = [];
+    const seenIds = new Set();
+    const themesOrder = [];
+
+    for (const col of columns) {
+      let currentTheme = null;
+      let currentGenre = null;
+      for (let r = 1; r <= 200; r++) {
+        const cell = ws.getCell(`${col}${r}`);
+        const raw = cell.value;
+        if (raw === null || raw === undefined || raw === '') continue;
+        const text = String(typeof raw === 'object' && raw.richText
+          ? raw.richText.map(rt => rt.text).join('')
+          : raw).trim();
+        if (!text) continue;
+        const font = cell.font || {};
+        const bold = !!font.bold;
+        const italic = !!font.italic;
+        const size = font.size || 11;
+        const argb = font.color && font.color.argb ? font.color.argb : null;
+
+        if (bold && size >= 11) {
+          const key = repertoireNormKey(text);
+          currentTheme = REPERTOIRE_THEME_ALIASES[key] || text.replace(/\n/g, ' ').trim();
+          currentGenre = null;
+          if (!themesOrder.includes(currentTheme)) themesOrder.push(currentTheme);
+          continue;
+        }
+        if (italic && !bold) {
+          currentGenre = text;
+          continue;
+        }
+        if (!currentTheme) continue;
+        const isNew = !!(argb && REPERTOIRE_RED_COLORS.has(argb));
+        const baseId = repertoireSlugify(currentTheme) + '__' + repertoireSlugify(text);
+        let sid = baseId, n = 2;
+        while (seenIds.has(sid)) { sid = baseId + '-' + n; n++; }
+        seenIds.add(sid);
+        songs.push({ id: sid, theme: currentTheme, genre: currentGenre, title: text, new: isNew });
+      }
+    }
+    if (!songs.length) throw new Error("Aucun morceau détecté — vérifie que la feuille s'appelle bien \"LISTE\" et garde la même mise en forme (thèmes en gras, nouveautés en rouge).");
+    return { themesOrder, songs };
+  }
+
+  function repertoireSetImportStatus(text, kind) {
+    if (!repertoireImportStatusEl) return;
+    repertoireImportStatusEl.textContent = text;
+    repertoireImportStatusEl.classList.remove('success', 'error');
+    if (kind) repertoireImportStatusEl.classList.add(kind);
+  }
+
+  async function handleRepertoireExcelImport(file) {
+    repertoireSetImportStatus('Lecture du fichier…', null);
+    let parsed;
+    try {
+      parsed = await parseRepertoireExcel(file);
+    } catch (err) {
+      repertoireSetImportStatus(err.message || "Échec de la lecture du fichier.", 'error');
+      return;
+    }
+    const newCount = parsed.songs.filter(s => s.new).length;
+    const summary = `${parsed.songs.length} morceau${parsed.songs.length > 1 ? 'x' : ''} trouvé${parsed.songs.length > 1 ? 's' : ''} dans ${parsed.themesOrder.length} thème${parsed.themesOrder.length > 1 ? 's' : ''} (dont ${newCount} nouveauté${newCount > 1 ? 's' : ''}).`;
+    if (!confirm(`${summary}\n\nRemplacer le répertoire actuel par celui-ci ? Cette action est visible par tout le monde immédiatement.`)) {
+      repertoireSetImportStatus('Import annulé.', null);
+      return;
+    }
+    repertoireSetImportStatus('Enregistrement…', null);
+    const previousSongs = repertoireSongs;
+    const previousThemes = repertoireThemesOrder;
+    const previousFromFirestore = repertoireFromFirestore;
+    repertoireSongs = parsed.songs;
+    repertoireThemesOrder = parsed.themesOrder;
+    repertoireFromFirestore = true;
+    renderRepertoireThemeShortcuts();
+    renderRepertoireActiveTab();
+    try {
+      await saveRepertoireRemote(parsed);
+      repertoireSetImportStatus(`✓ ${summary}`, 'success');
+    } catch (err) {
+      repertoireSongs = previousSongs;
+      repertoireThemesOrder = previousThemes;
+      repertoireFromFirestore = previousFromFirestore;
+      renderRepertoireThemeShortcuts();
+      renderRepertoireActiveTab();
+      repertoireSetImportStatus("Échec de l'enregistrement (pas de réseau ?).", 'error');
+    }
+  }
+
+  if (repertoireImportReady) {
+    repertoireImportBtn.addEventListener('click', () => repertoireImportInput.click());
+    repertoireImportInput.addEventListener('change', async () => {
+      const file = repertoireImportInput.files && repertoireImportInput.files[0];
+      repertoireImportInput.value = '';
+      if (file) await handleRepertoireExcelImport(file);
+    });
   }
 
   function repertoireThemeAnchorId(theme) {
@@ -2836,7 +3064,10 @@
     repertoireToggleBtn.addEventListener('click', async () => {
       repertoireOverlay.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
-      if (!repertoireSongs.length) await loadRepertoireData();
+      // Cas de repli : si l'abonnement Firestore n'a pas encore livré de
+      // données (ou est indisponible) et que le fichier statique non plus
+      // n'a jamais été chargé, on tente une dernière fois ici.
+      if (!repertoireSongs.length && !repertoireLoadPromise) await loadRepertoireData();
       renderRepertoireActiveTab();
     });
     repertoireCloseBtn.addEventListener('click', () => {
@@ -3570,6 +3801,7 @@
   function applyChefModeVisibility() {
     if (chefModeToggleBtn) chefModeToggleBtn.classList.toggle('active', chefMode);
     if (playlistAdminToggleBtn) playlistAdminToggleBtn.classList.toggle('hidden', !chefMode);
+    if (repertoireImportBtn) repertoireImportBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
     renderStatusFilterButtons();
     if (repertoireReady && !repertoireOverlay.classList.contains('hidden')) renderRepertoireActiveTab();
   }
@@ -3616,6 +3848,7 @@
     subscribeToPlaylists();
     subscribeToSongStatuses();
     subscribeToSorties();
+    subscribeToRepertoire();
     // "Suivre le chef" est mis de côté pour le moment (fonction cachée en
     // permanence) — on ne l'affiche pas et on ne s'y abonne pas, en
     // attendant de la reprendre plus tard.
