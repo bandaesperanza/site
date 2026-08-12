@@ -260,9 +260,10 @@
 
   .search-field input {
     width: 100%;
+    box-sizing: border-box;
     font-family: 'Inter', sans-serif;
     font-size: 15px;
-    padding: 13px 14px;
+    padding: 13px 38px 13px 14px;
     border: 1.5px solid var(--ink);
     border-radius: 3px;
     background: var(--card);
@@ -274,6 +275,26 @@
     box-shadow: 0 0 0 3px var(--stamp-soft);
   }
   .search-field input::placeholder { color: #9B97A8; }
+
+  .search-clear-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .search-clear-btn:hover { background: var(--stamp-soft); color: var(--stamp); }
+  .search-clear-btn.hidden { display: none; }
 
   .status-line {
     font-family: 'IBM Plex Mono', monospace;
@@ -1772,6 +1793,7 @@
     <div class="search-row">
       <div class="search-field">
         <input type="text" id="search-input" placeholder="Chercher un PDF par nom…" autocomplete="off">
+        <button type="button" id="search-clear-btn" class="search-clear-btn hidden" title="Effacer la recherche" aria-label="Effacer la recherche">✕</button>
       </div>
       <button type="button" id="offline-toggle-btn" class="filter-btn" title="Gérer les partitions disponibles hors-ligne">📥 Hors-ligne</button>
     </div>
@@ -1950,6 +1972,7 @@
   const setupScreen  = document.getElementById('setup-screen');
   const appScreen     = document.getElementById('app-screen');
   const searchInput   = document.getElementById('search-input');
+  const searchClearBtn = document.getElementById('search-clear-btn');
   const filterRow      = document.getElementById('filter-row');
   const statusFilterRow = document.getElementById('status-filter-row');
   const statusZone      = document.getElementById('status-zone');
@@ -2419,7 +2442,7 @@
     repertoireLoadPromise = (async () => {
       let loadedFromNetwork = false;
       try {
-        const res = await fetch('./repertoire.json', { cache: 'no-store' });
+        const res = await fetchWithShortTimeout('./repertoire.json', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           repertoireSongs = Array.isArray(data.songs) ? data.songs : [];
@@ -3598,10 +3621,24 @@
     // attendant de la reprendre plus tard.
   }
 
+  function updateSearchClearBtn() {
+    if (searchClearBtn) searchClearBtn.classList.toggle('hidden', !searchInput.value);
+  }
+
   searchInput.addEventListener('input', () => {
+    updateSearchClearBtn();
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => applyFilters(searchInput.value.trim()), 120);
   });
+
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      updateSearchClearBtn();
+      searchInput.focus();
+      applyFilters('');
+    });
+  }
 
   offlineToggleBtn.addEventListener('click', () => {
     syncPanel.classList.toggle('hidden');
@@ -3632,6 +3669,22 @@
     return segments.map(s => encodeURIComponent(s)).join('/');
   }
 
+  // fetch() avec un délai limite court : sur un réseau qui rame (4G faible,
+  // salle de répét mal couverte...), un fetch() sans limite peut rester
+  // bloqué très longtemps avant d'échouer — l'utilisateur regarde un écran
+  // de chargement qui ne bouge plus, alors qu'une copie hors-ligne est
+  // pourtant disponible immédiatement. Ce délai fait basculer sur le cache
+  // local rapidement plutôt que d'attendre indéfiniment.
+  async function fetchWithShortTimeout(url, options = {}, timeoutMs = 8000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function loadCatalog(forceRefresh = false) {
     if (isIndexing) return;
     if (fileIndex && !forceRefresh) {
@@ -3646,7 +3699,7 @@
 
     let loadedFromNetwork = false;
     try {
-      const res = await fetch(CONFIG.CATALOG_URL, { cache: 'no-store' });
+      const res = await fetchWithShortTimeout(CONFIG.CATALOG_URL, { cache: 'no-store' });
       if (res.ok) {
         const catalog = await res.json();
         fileIndex = catalog.files || [];
@@ -3654,7 +3707,7 @@
         loadedFromNetwork = true;
         idbPut('catalog', { key: 'catalog', files: fileIndex, basePath, fetchedAt: Date.now() }).catch(() => {});
       }
-    } catch (e) { /* pas de réseau : on retente le cache local ci-dessous */ }
+    } catch (e) { /* pas de réseau, ou trop lent (timeout) : on retente le cache local ci-dessous */ }
 
     if (!loadedFromNetwork) {
       const cached = await idbGet('catalog', 'catalog').catch(() => null);
