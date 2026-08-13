@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Partothèque — BANDA ESPERANZA</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-180.png">
@@ -84,6 +84,9 @@
     color: var(--ink);
     font-family: 'Inter', system-ui, sans-serif;
     min-height: 100vh;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .wrap {
@@ -1335,10 +1338,12 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 14px;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
     background: #1c1a19;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     flex-shrink: 0;
+    padding-left: calc(14px + env(safe-area-inset-left));
+    padding-right: calc(14px + env(safe-area-inset-right));
   }
 
   .pdf-viewer-title {
@@ -1389,7 +1394,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding: 18px 12px 90px;
+    padding: 18px calc(12px + env(safe-area-inset-right)) 90px calc(12px + env(safe-area-inset-left));
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
@@ -4367,6 +4372,7 @@
   let selectDragOrigin = null;             // point de départ du glissement (coordonnées PDF)
   let selectDragOriginalItem = null;       // copie de l'annotation avant déplacement (pour calculer le delta)
   let selectDragMoved = false;             // vrai si le doigt a réellement bougé (déplacement) plutôt qu'un simple tap
+  let activePointerType = null;            // 'pen' | 'touch' | 'mouse' — le pointeur qui dessine actuellement
 
   function annotCurrentColor() {
     return annotTool === 'highlighter' ? HL_COLORS[hlColorIdx] : PEN_COLORS[penColorIdx];
@@ -4473,6 +4479,34 @@
     ctx.restore();
   }
 
+  // Dessine uniquement le nouveau segment (dernier point → point actuel)
+  // par-dessus ce qui est déjà affiché, au lieu de repasser sur tout le
+  // trait depuis le début à chaque mouvement — sinon un trait qui s'allonge
+  // coûte de plus en plus cher à chaque frame (tout le monde le sent sur
+  // iPad avec l'Apple Pencil, qui reporte beaucoup de points par seconde).
+  function drawStrokeSegment(ctx, item, viewport, from, to) {
+    const scale = viewport.scale;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = item.color;
+    // En surligneur, le vrai rendu (multiply) n'est appliqué qu'à la
+    // validation du trait (redrawAnnotations) ; pendant qu'on dessine, un
+    // simple aplat semi-transparent suffit pour un retour fluide, et ça
+    // évite l'assombrissement artificiel qu'un fondu répété donnerait aux
+    // endroits où le trait se recroise lui-même.
+    ctx.globalAlpha = item.tool === 'highlighter' ? 0.4 : 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineWidth = Math.max(1, item.width * scale);
+    const [x1, y1] = viewport.convertToViewportPoint(from[0], from[1]);
+    const [x2, y2] = viewport.convertToViewportPoint(to[0], to[1]);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Soufflet crescendo (‹, pointe à gauche) / decrescendo (›, pointe à
   // droite) : deux segments qui partent d'un point (l'apex) et s'écartent
   // vers l'autre extrémité.
@@ -4511,12 +4545,56 @@
     else if (item.points) drawStroke(ctx, item, viewport);
   }
 
-  function redrawAnnotations() {
+  // ---------------------------------------------------------------------
+  // Calque "figé" hors-écran : contient le rendu de toutes les annotations
+  // déjà validées de la page. Recalculé seulement quand le contenu change
+  // vraiment (ajout, suppression, chargement de page…), jamais à chaque
+  // micro-mouvement du doigt/stylet — sur iPad, redessiner un trait entier
+  // point par point à chaque frame pendant qu'on dessine ralentissait
+  // énormément dès qu'il y avait déjà plusieurs annotations sur la page.
+  // Pendant un geste en direct (glisser un tampon, dessiner un trait…), on
+  // se contente de recopier cette image déjà prête (rapide) et de dessiner
+  // juste l'élément en cours par-dessus.
+  // ---------------------------------------------------------------------
+  let annotBaseCanvas = null;
+
+  function ensureAnnotBaseCanvas() {
+    if (!annotBaseCanvas) annotBaseCanvas = document.createElement('canvas');
+    if (annotBaseCanvas.width !== pdfAnnotCanvas.width || annotBaseCanvas.height !== pdfAnnotCanvas.height) {
+      annotBaseCanvas.width = pdfAnnotCanvas.width;
+      annotBaseCanvas.height = pdfAnnotCanvas.height;
+    }
+  }
+
+  // excludeIndex : permet de préparer un fond "sans" l'annotation qu'on est
+  // en train de déplacer avec l'outil Sélectionner, pour pouvoir la
+  // redessiner séparément à sa position en direct sans dupliquer son ancien
+  // emplacement.
+  function renderAnnotBase(excludeIndex) {
     if (!annotReady || !pdfViewportForAnnot) return;
+    ensureAnnotBaseCanvas();
+    const bctx = annotBaseCanvas.getContext('2d');
+    bctx.clearRect(0, 0, annotBaseCanvas.width, annotBaseCanvas.height);
+    pageAnnotations.forEach((item, i) => {
+      if (i === excludeIndex) return;
+      drawAnnotItem(bctx, item, pdfViewportForAnnot);
+    });
+  }
+
+  function blitAnnotBase() {
+    if (!annotReady) return;
+    ensureAnnotBaseCanvas();
     const ctx = pdfAnnotCanvas.getContext('2d');
     ctx.clearRect(0, 0, pdfAnnotCanvas.width, pdfAnnotCanvas.height);
-    for (const item of pageAnnotations) drawAnnotItem(ctx, item, pdfViewportForAnnot);
+    ctx.drawImage(annotBaseCanvas, 0, 0);
+  }
+
+  function redrawAnnotations() {
+    if (!annotReady || !pdfViewportForAnnot) return;
+    renderAnnotBase();
+    blitAnnotBase();
     if (selectedAnnotationIndex >= 0 && pageAnnotations[selectedAnnotationIndex]) {
+      const ctx = pdfAnnotCanvas.getContext('2d');
       drawSelectionHighlight(ctx, pageAnnotations[selectedAnnotationIndex], pdfViewportForAnnot);
     }
   }
@@ -4807,10 +4885,15 @@
     pdfAnnotCanvas.addEventListener('pointerdown', (e) => {
       if (!annotateMode) return;
       if (!e.isPrimary) {
-        // Un deuxième doigt vient de se poser : c'est un pincement pour
-        // zoomer, pas un geste de dessin. On annule proprement ce qui
-        // était en cours pour ne rien ajouter par erreur, et on laisse le
-        // pincement (géré plus bas, sur pdfViewerBody) prendre le relais.
+        // Un deuxième contact pendant qu'on dessine déjà au stylet : c'est
+        // la paume de la main qui repose sur l'écran (normal en écrivant à
+        // l'Apple Pencil), pas un geste volontaire — on l'ignore
+        // complètement pour ne pas interrompre le trait en cours.
+        if (e.pointerType === 'touch' && activePointerType === 'pen') return;
+        // Sinon, c'est un vrai deuxième doigt : un pincement pour zoomer.
+        // On annule proprement ce qui était en cours pour ne rien ajouter
+        // par erreur, et on laisse le pincement (géré plus bas, sur
+        // pdfViewerBody) prendre le relais.
         hideAnnotLoupe();
         currentStroke = null;
         currentHairpin = null;
@@ -4819,9 +4902,11 @@
         selectDragOrigin = null;
         selectDragOriginalItem = null;
         selectDragMoved = false;
+        activePointerType = null;
         redrawAnnotations();
         return;
       }
+      activePointerType = e.pointerType;
       e.preventDefault();
       pdfAnnotCanvas.setPointerCapture(e.pointerId);
       const [px, py] = annotCanvasPixel(e);
@@ -4847,7 +4932,14 @@
         selectDragOrigin = { x: pdfX, y: pdfY };
         selectDragOriginalItem = JSON.parse(JSON.stringify(pageAnnotations[hit]));
         selectDragMoved = false;
-        redrawAnnotations();
+        // Prépare tout de suite un fond sans cet élément : pendant le
+        // glissement, on n'aura qu'à recopier cette image (rapide) plutôt
+        // que de tout redessiner à chaque frame.
+        renderAnnotBase(hit);
+        blitAnnotBase();
+        const ctx = pdfAnnotCanvas.getContext('2d');
+        drawAnnotItem(ctx, pageAnnotations[hit], pdfViewportForAnnot);
+        drawSelectionHighlight(ctx, pageAnnotations[hit], pdfViewportForAnnot);
         return;
       }
 
@@ -4913,7 +5005,14 @@
           const original = JSON.parse(JSON.stringify(selectDragOriginalItem));
           translateAnnotationItem(original, dx, dy);
           pageAnnotations[selectedAnnotationIndex] = original;
-          redrawAnnotations();
+          // Le fond (calque en cache) a été préparé sans cet élément dès le
+          // pointerdown : on se contente de le recopier (rapide) et de
+          // redessiner juste l'élément déplacé par-dessus, à sa position du
+          // moment — pas besoin de refaire tout le calcul à chaque frame.
+          blitAnnotBase();
+          const ctx = pdfAnnotCanvas.getContext('2d');
+          drawAnnotItem(ctx, original, pdfViewportForAnnot);
+          drawSelectionHighlight(ctx, original, pdfViewportForAnnot);
           updateAnnotLoupe(e);
         }
         return;
@@ -4928,7 +5027,7 @@
       if (currentStamp) {
         currentStamp.x = pdfX;
         currentStamp.y = pdfY;
-        redrawAnnotations();
+        blitAnnotBase();
         drawStamp(ctx, currentStamp, pdfViewportForAnnot);
         updateAnnotLoupe(e);
         return;
@@ -4937,18 +5036,19 @@
       if (currentHairpin) {
         currentHairpin.x2 = pdfX;
         currentHairpin.y2 = pdfY;
-        redrawAnnotations();
+        blitAnnotBase();
         drawHairpin(ctx, currentHairpin, pdfViewportForAnnot);
         return;
       }
 
+      const previousPoint = currentStroke.points[currentStroke.points.length - 1];
       currentStroke.points.push([pdfX, pdfY]);
-      redrawAnnotations();
-      drawStroke(ctx, currentStroke, pdfViewportForAnnot);
+      drawStrokeSegment(ctx, currentStroke, pdfViewportForAnnot, previousPoint, [pdfX, pdfY]);
     });
 
     const endStroke = (e) => {
-      if (e && e.isPrimary === false) return; // relâchement du doigt de pincement, pas du dessin
+      if (e && e.isPrimary === false) return; // relâchement de la paume ou du doigt de pincement, pas du dessin
+      activePointerType = null;
       hideAnnotLoupe();
 
       if (annotTool === 'eraser') {
@@ -5441,11 +5541,17 @@
     }
   });
 
+  // document.fullscreenElement seul ne suffit pas sur Safari iOS/iPadOS,
+  // qui expose parfois la même info uniquement via le préfixe webkit.
+  function currentFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
   function closePdfViewer() {
     pdfViewerOverlay.classList.add('hidden');
     document.body.style.overflow = '';
     releasePdfWakeLock();
-    if (document.fullscreenElement === pdfViewerOverlay) {
+    if (currentFullscreenElement() === pdfViewerOverlay) {
       (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document).catch(() => {});
     }
     if (pdfBroadcasting) stopBroadcasting(); // on ne laisse jamais un direct tourner dans le vide
@@ -5499,14 +5605,18 @@
       pdfResizeTimer = setTimeout(renderPdfPage, 150);
     });
 
-    // Plein écran : indisponible sur Safari iOS (l'API ne le permet pas
-    // pour un élément quelconque), donc on masque le bouton s'il ne sert
-    // à rien plutôt que de laisser un bouton mort.
+    // Plein écran : Safari iPhone ne le permet pas pour un élément
+    // quelconque, mais Safari iPadOS le supporte (webkitRequestFullscreen,
+    // parfois requestFullscreen directement) — on affiche le bouton dès que
+    // l'API existe, elle échoue silencieusement là où elle n'est vraiment
+    // pas supportée. Le vrai "plein écran" fiable sur iPad/iPhone reste
+    // d'ajouter l'appli à l'écran d'accueil (Partager → Sur l'écran
+    // d'accueil), qui masque alors la barre d'adresse de Safari.
     const fullscreenSupported = !!(pdfViewerOverlay.requestFullscreen || pdfViewerOverlay.webkitRequestFullscreen);
     if (pdfFullscreenBtn && fullscreenSupported) {
       pdfFullscreenBtn.classList.remove('hidden');
       pdfFullscreenBtn.addEventListener('click', () => {
-        if (!document.fullscreenElement) {
+        if (!currentFullscreenElement()) {
           const req = pdfViewerOverlay.requestFullscreen || pdfViewerOverlay.webkitRequestFullscreen;
           req.call(pdfViewerOverlay).catch(() => {});
         } else {
