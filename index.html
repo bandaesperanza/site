@@ -1463,23 +1463,24 @@
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 4px;
   }
 
   .annot-dynamic-select {
-    height: 36px;
-    border-radius: 8px;
+    height: 30px;
+    border-radius: 7px;
     border: 1px solid rgba(255,255,255,0.15);
     background: #26221f;
     color: #F0ECE4;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    padding: 0 6px;
+    font-size: 12px;
+    padding: 0 4px;
+    max-width: 108px;
   }
   .annot-dynamic-select.hidden { display: none; }
 
-  .annot-hairpin-btn { font-family: serif; font-size: 20px; font-weight: 700; }
-  .annot-text-btn { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 700; }
+  .annot-hairpin-btn { font-family: serif; font-size: 16px; font-weight: 700; }
+  .annot-text-btn { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 700; }
 
   .annot-action-menu {
     position: fixed;
@@ -1606,14 +1607,15 @@
   .annot-size-label {
     color: #B8B2A8;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.04em;
+    font-size: 9.5px;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
-    margin-right: 2px;
+    margin-right: 1px;
+    white-space: nowrap;
   }
 
   .annot-size-range {
-    width: 110px;
+    width: 62px;
     accent-color: var(--gold, #D9574B);
   }
 
@@ -1621,17 +1623,17 @@
     width: 1px;
     align-self: stretch;
     background: rgba(255,255,255,0.14);
-    margin: 2px 2px;
+    margin: 2px 1px;
   }
 
   .annot-tool-btn, .annot-icon-btn, .annot-color-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
     border: 1px solid rgba(255,255,255,0.15);
     background: rgba(255,255,255,0.06);
     color: #F0ECE4;
-    font-size: 16px;
+    font-size: 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -1646,8 +1648,8 @@
   .annot-color-btn { padding: 0; }
   .annot-color-btn::after {
     content: '';
-    width: 18px;
-    height: 18px;
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
     background: var(--annot-current-color, #D9302B);
     border: 1px solid rgba(255,255,255,0.4);
@@ -1918,9 +1920,12 @@
       <button type="button" class="annot-tool-btn annot-text-btn" data-tool="texte" title="Texte libre (tapote pour écrire)">T</button>
       <button type="button" class="annot-tool-btn active" data-tool="pen" title="Stylo">✏️</button>
       <button type="button" class="annot-tool-btn" data-tool="highlighter" title="Fluo">🖍️</button>
-      <button type="button" class="annot-tool-btn" data-tool="sharp" title="Dièse ♯ (tapote pour poser)">♯</button>
-      <button type="button" class="annot-tool-btn" data-tool="flat" title="Bémol ♭ (tapote pour poser)">♭</button>
-      <button type="button" class="annot-tool-btn" data-tool="natural" title="Bécarre ♮ (tapote pour poser)">♮</button>
+      <button type="button" class="annot-tool-btn" data-tool="accidental" title="Altération (tapote pour poser)">♯/♭</button>
+      <select id="annot-accidental-select" class="annot-dynamic-select hidden" title="Choisir l'altération">
+        <option value="sharp">♯ Dièse</option>
+        <option value="flat" selected>♭ Bémol</option>
+        <option value="natural">♮ Bécarre</option>
+      </select>
       <button type="button" class="annot-tool-btn" data-tool="dynamic" title="Nuance (tapote pour poser)">𝑚𝑓</button>
       <select id="annot-dynamic-select" class="annot-dynamic-select hidden" title="Choisir la nuance">
         <option value="ppp">ppp</option>
@@ -1952,8 +1957,11 @@
         <option value="Fine">Fine</option>
         <option value="Coda">Coda</option>
       </select>
-      <button type="button" class="annot-tool-btn annot-hairpin-btn" data-tool="cresc" title="Crescendo — glisse le doigt de gauche à droite">‹</button>
-      <button type="button" class="annot-tool-btn annot-hairpin-btn" data-tool="decresc" title="Decrescendo — glisse le doigt de gauche à droite">›</button>
+      <button type="button" class="annot-tool-btn annot-hairpin-btn" data-tool="hairpin" title="Crescendo/decrescendo — glisse le doigt">‹›</button>
+      <select id="annot-hairpin-select" class="annot-dynamic-select hidden" title="Choisir le sens">
+        <option value="cresc" selected>‹ Crescendo</option>
+        <option value="decresc">› Decrescendo</option>
+      </select>
     </div>
     <div class="annot-row">
       <span class="annot-size-label" id="annot-size-label">Taille</span>
@@ -4274,6 +4282,8 @@
   const annotClearBtn    = document.getElementById('annot-clear-btn');
   const annotDynamicSelect = document.getElementById('annot-dynamic-select');
   const annotSymbolSelect = document.getElementById('annot-symbol-select');
+  const annotAccidentalSelect = document.getElementById('annot-accidental-select');
+  const annotHairpinSelect = document.getElementById('annot-hairpin-select');
   const annotSizeRange   = document.getElementById('annot-size-range');
   const annotSizeLabel   = document.getElementById('annot-size-label');
   const annotToolButtons = pdfAnnotToolbar ? Array.from(pdfAnnotToolbar.querySelectorAll('.annot-tool-btn')) : [];
@@ -4328,7 +4338,7 @@
   const PEN_COLORS = ['#D9302B', '#1D1B33', '#2554C7', '#1E7A3B'];
   const HL_COLORS  = ['#FFE066', '#8CE0A0', '#FF9FD1'];
   const STAMP_SYMBOLS = { sharp: '♯', flat: '♭', natural: '♮' };
-  const STAMP_TOOLS   = ['sharp', 'flat', 'natural', 'dynamic', 'symbol', 'texte'];
+  const STAMP_TOOLS   = ['sharp', 'flat', 'natural', 'accidental', 'dynamic', 'symbol', 'texte'];
   const HAIRPIN_TOOLS = ['cresc', 'decresc'];
   const ERASER_HIT_RADIUS_PX = 16; // rayon de détection à l'écran, en pixels CSS
 
@@ -4372,6 +4382,11 @@
 
   function annotSelectedSymbol() {
     return annotSymbolSelect ? annotSymbolSelect.value : '‖';
+  }
+
+  function annotSelectedAccidental() {
+    const key = annotAccidentalSelect ? annotAccidentalSelect.value : 'flat';
+    return { key, symbol: STAMP_SYMBOLS[key] || '♭' };
   }
 
   function annotCurrentHairpinHeight() {
@@ -4433,7 +4448,7 @@
     }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const text = (item.tool === 'dynamic' || item.tool === 'symbol' || item.tool === 'texte')
+    const text = (item.tool === 'dynamic' || item.tool === 'symbol' || item.tool === 'texte' || item.tool === 'accidental')
       ? item.text
       : (STAMP_SYMBOLS[item.tool] || '?');
     ctx.fillText(text, 0, 0);
@@ -4726,6 +4741,7 @@
   function annotSizeLabelText() {
     if (annotTool === 'select') return 'Sélection';
     if (annotTool === 'eraser') return 'Gomme';
+    if (annotTool === 'hairpin') return 'Hauteur';
     if (STAMP_TOOLS.includes(annotTool)) return 'Taille';
     if (HAIRPIN_TOOLS.includes(annotTool)) return 'Hauteur';
     return 'Épaisseur';
@@ -4736,6 +4752,8 @@
     annotToolButtons.forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
     if (annotDynamicSelect) annotDynamicSelect.classList.toggle('hidden', tool !== 'dynamic');
     if (annotSymbolSelect) annotSymbolSelect.classList.toggle('hidden', tool !== 'symbol');
+    if (annotAccidentalSelect) annotAccidentalSelect.classList.toggle('hidden', tool !== 'accidental');
+    if (annotHairpinSelect) annotHairpinSelect.classList.toggle('hidden', tool !== 'hairpin');
     if (annotSizeLabel) annotSizeLabel.textContent = annotSizeLabelText();
     document.documentElement.style.setProperty('--annot-current-color', annotCurrentColor());
     // Changer d'outil annule une sélection en cours, pour éviter de
@@ -4788,6 +4806,22 @@
 
     pdfAnnotCanvas.addEventListener('pointerdown', (e) => {
       if (!annotateMode) return;
+      if (!e.isPrimary) {
+        // Un deuxième doigt vient de se poser : c'est un pincement pour
+        // zoomer, pas un geste de dessin. On annule proprement ce qui
+        // était en cours pour ne rien ajouter par erreur, et on laisse le
+        // pincement (géré plus bas, sur pdfViewerBody) prendre le relais.
+        hideAnnotLoupe();
+        currentStroke = null;
+        currentHairpin = null;
+        currentStamp = null;
+        erasingNow = false;
+        selectDragOrigin = null;
+        selectDragOriginalItem = null;
+        selectDragMoved = false;
+        redrawAnnotations();
+        return;
+      }
       e.preventDefault();
       pdfAnnotCanvas.setPointerCapture(e.pointerId);
       const [px, py] = annotCanvasPixel(e);
@@ -4832,15 +4866,16 @@
         currentStamp = { tool: annotTool, x: pdfX, y: pdfY, size: annotCurrentStampSize(), color: annotCurrentColor() };
         if (annotTool === 'dynamic') currentStamp.text = annotDynamicSelect ? annotDynamicSelect.value : 'mf';
         if (annotTool === 'symbol') currentStamp.text = annotSelectedSymbol();
+        if (annotTool === 'accidental') currentStamp.text = annotSelectedAccidental().symbol;
         redrawAnnotations();
         drawStamp(pdfAnnotCanvas.getContext('2d'), currentStamp, pdfViewportForAnnot);
         updateAnnotLoupe(e);
         return;
       }
 
-      if (HAIRPIN_TOOLS.includes(annotTool)) {
+      if (annotTool === 'hairpin') {
         currentHairpin = {
-          tool: annotTool,
+          tool: annotHairpinSelect ? annotHairpinSelect.value : 'cresc',
           color: annotCurrentColor(),
           height: annotCurrentHairpinHeight(),
           x1: pdfX, y1: pdfY, x2: pdfX, y2: pdfY,
@@ -4857,7 +4892,7 @@
     });
 
     pdfAnnotCanvas.addEventListener('pointermove', (e) => {
-      if (!annotateMode) return;
+      if (!annotateMode || !e.isPrimary) return;
 
       if (annotTool === 'eraser' && erasingNow) {
         e.preventDefault();
@@ -4913,6 +4948,7 @@
     });
 
     const endStroke = (e) => {
+      if (e && e.isPrimary === false) return; // relâchement du doigt de pincement, pas du dessin
       hideAnnotLoupe();
 
       if (annotTool === 'eraser') {
@@ -5513,12 +5549,17 @@
     }
 
     pdfViewerBody.addEventListener('touchstart', (e) => {
-      if (annotateMode) { pdfGestureMode = null; return; } // on dessine : pas de swipe/pincement
       if (e.touches.length === 2) {
+        // Le pincement à deux doigts doit marcher même en train d'annoter
+        // (besoin de zoomer pour viser précisément) — seul le geste à un
+        // seul doigt est réservé au dessin.
         pdfGestureMode = 'pinch';
         pdfPinchStartDist = pdfTouchDist(e.touches[0], e.touches[1]);
         pdfPinchStartZoom = pdfZoom;
-      } else if (e.touches.length === 1) {
+        return;
+      }
+      if (annotateMode) { pdfGestureMode = null; return; } // un seul doigt en mode annotation : c'est pour dessiner
+      if (e.touches.length === 1) {
         pdfGestureMode = pdfZoom <= 1.02 ? 'swipe' : null;
         pdfSwipeStartX = e.touches[0].clientX;
         pdfSwipeStartY = e.touches[0].clientY;
@@ -5529,18 +5570,18 @@
     }, { passive: true });
 
     pdfViewerBody.addEventListener('touchmove', (e) => {
-      if (annotateMode) return;
       if (pdfGestureMode === 'pinch' && e.touches.length === 2) {
         e.preventDefault(); // empêche le zoom natif de Safari de rentrer en conflit
         const dist = pdfTouchDist(e.touches[0], e.touches[1]);
         const factor = dist / (pdfPinchStartDist || dist);
         pdfZoom = Math.max(1, Math.min(4, pdfPinchStartZoom * factor));
         applyPdfZoom();
+        return;
       }
+      if (annotateMode) return;
     }, { passive: false });
 
     pdfViewerBody.addEventListener('touchend', (e) => {
-      if (annotateMode) return;
       const now = Date.now();
       if (pdfGestureMode === 'pinch') {
         if (pdfZoom < 1.05) { pdfZoom = 1; applyPdfZoom(); }
@@ -5548,6 +5589,7 @@
         pdfLastTapTime = 0;
         return;
       }
+      if (annotateMode) { pdfGestureMode = null; return; }
       if (e.changedTouches.length === 1) {
         // Double-tap : bascule le zoom entre 1 et 2, prioritaire sur le swipe.
         if (now - pdfLastTapTime < 300) {
