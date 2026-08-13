@@ -5533,10 +5533,13 @@
 
     // Gestes tactiles : swipe horizontal pour changer de page (uniquement
     // hors zoom, pour ne pas gêner le déplacement dans une page agrandie),
-    // pincement à deux doigts pour zoomer, double-tap pour réinitialiser.
+    // pincement à deux doigts pour zoomer (ancré au point de contact, avec
+    // déplacement suivi), double-tap pour réinitialiser.
     let pdfGestureMode = null; // 'swipe' | 'pinch' | null
     let pdfPinchStartDist = 0;
     let pdfPinchStartZoom = 1;
+    let pdfPinchAnchorRatioX = 0.5; // position (0-1) du point de pincement dans le contenu
+    let pdfPinchAnchorRatioY = 0.5;
     let pdfSwipeStartX = 0;
     let pdfSwipeStartY = 0;
     let pdfSwipeStartTime = 0;
@@ -5548,6 +5551,25 @@
       return Math.sqrt(dx * dx + dy * dy);
     }
 
+    function pdfTouchMid(t0, t1) {
+      return { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
+    }
+
+    // Repositionne le défilement pour que le point visé (ratioX/Y du
+    // contenu) reste sous les doigts après un changement de zoom et/ou un
+    // déplacement du point de pincement — c'est ce qui donne l'impression
+    // de zoomer "sous les doigts" plutôt que sur un coin fixe, et permet de
+    // se déplacer simplement en glissant les deux doigts ensemble.
+    function pdfApplyPinchAnchor(midClientX, midClientY) {
+      const rect = pdfViewerBody.getBoundingClientRect();
+      const contentW = pdfBaseCssWidth * pdfZoom;
+      const contentH = pdfBaseCssHeight * pdfZoom;
+      const targetX = pdfPinchAnchorRatioX * contentW;
+      const targetY = pdfPinchAnchorRatioY * contentH;
+      pdfViewerBody.scrollLeft = targetX - (midClientX - rect.left);
+      pdfViewerBody.scrollTop = targetY - (midClientY - rect.top);
+    }
+
     pdfViewerBody.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) {
         // Le pincement à deux doigts doit marcher même en train d'annoter
@@ -5556,6 +5578,14 @@
         pdfGestureMode = 'pinch';
         pdfPinchStartDist = pdfTouchDist(e.touches[0], e.touches[1]);
         pdfPinchStartZoom = pdfZoom;
+        if (pdfBaseCssWidth && pdfBaseCssHeight) {
+          const rect = pdfViewerBody.getBoundingClientRect();
+          const mid = pdfTouchMid(e.touches[0], e.touches[1]);
+          const contentW = pdfBaseCssWidth * pdfZoom;
+          const contentH = pdfBaseCssHeight * pdfZoom;
+          pdfPinchAnchorRatioX = (pdfViewerBody.scrollLeft + (mid.x - rect.left)) / contentW;
+          pdfPinchAnchorRatioY = (pdfViewerBody.scrollTop + (mid.y - rect.top)) / contentH;
+        }
         return;
       }
       if (annotateMode) { pdfGestureMode = null; return; } // un seul doigt en mode annotation : c'est pour dessiner
@@ -5576,6 +5606,8 @@
         const factor = dist / (pdfPinchStartDist || dist);
         pdfZoom = Math.max(1, Math.min(4, pdfPinchStartZoom * factor));
         applyPdfZoom();
+        const mid = pdfTouchMid(e.touches[0], e.touches[1]);
+        pdfApplyPinchAnchor(mid.x, mid.y);
         return;
       }
       if (annotateMode) return;
