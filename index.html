@@ -5504,7 +5504,18 @@
     // en largeur ET en hauteur.
     const scaleForWidth = containerWidth / baseViewport.width;
     const scaleForHeight = (containerHeight > 0 ? containerHeight : Infinity) / baseViewport.height;
-    const cssScale = Math.min(2.4, scaleForWidth, scaleForHeight) || 1;
+    // En écran paysage, la hauteur disponible est déjà limitée (d'autant
+    // plus avec la marge réservée en bas pour la barre de navigation) :
+    // contraindre aussi la hauteur — même pour une partition elle-même en
+    // paysage — donnait une page trop petite. On privilégie donc toujours
+    // la largeur en paysage, quelle que soit la forme de la page, et on
+    // accepte de défiler un peu si besoin. En écran portrait, il y a
+    // assez de marge pour caler la page entière (largeur + hauteur).
+    const deviceIsLandscape = pdfViewerOverlay.clientWidth > pdfViewerOverlay.clientHeight;
+    const fitBothDimensions = !deviceIsLandscape;
+    const cssScale = fitBothDimensions
+      ? (Math.min(2.4, scaleForWidth, scaleForHeight) || 1)
+      : (Math.min(2.4, scaleForWidth) || 1);
     // Sur iPhone/écrans retina, 1 pixel CSS = 2 ou 3 pixels physiques : si on
     // rend le canvas à la résolution CSS, il est ensuite étiré par l'écran
     // et devient flou. On multiplie donc la résolution de rendu par le
@@ -5756,6 +5767,20 @@
         return;
       }
       if (annotateMode) return;
+      if (pdfGestureMode === 'swipe' && e.touches.length === 1) {
+        const dx = e.touches[0].clientX - pdfSwipeStartX;
+        const dy = e.touches[0].clientY - pdfSwipeStartY;
+        // Dès qu'un balayage horizontal se dessine, on bloque le geste
+        // natif de Safari (retour/page précédente en balayant depuis le
+        // bord de l'écran) — sinon, en PWA plein écran sur iPad, ce geste
+        // système peut prendre le dessus sur notre propre changement de
+        // page selon l'endroit exact où le doigt se pose. On laisse passer
+        // les mouvements surtout verticaux, pour ne pas gêner un éventuel
+        // défilement de la page.
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+          e.preventDefault();
+        }
+      }
     }, { passive: false });
 
     pdfViewerBody.addEventListener('touchend', (e) => {
