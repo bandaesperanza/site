@@ -5767,6 +5767,20 @@
         return;
       }
       if (annotateMode) return;
+      if (pdfGestureMode === 'swipe' && e.touches.length === 1) {
+        const dx = e.touches[0].clientX - pdfSwipeStartX;
+        const dy = e.touches[0].clientY - pdfSwipeStartY;
+        // Dès qu'un balayage horizontal se dessine, on bloque le geste
+        // natif de Safari (retour/page précédente en balayant depuis le
+        // bord de l'écran) — sinon, en PWA plein écran sur iPad, ce geste
+        // système peut prendre le dessus sur notre propre changement de
+        // page selon l'endroit exact où le doigt se pose. On laisse passer
+        // les mouvements surtout verticaux, pour ne pas gêner un éventuel
+        // défilement de la page.
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+          e.preventDefault();
+        }
+      }
     }, { passive: false });
 
     pdfViewerBody.addEventListener('touchend', (e) => {
