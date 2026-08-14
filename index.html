@@ -4752,9 +4752,29 @@
   const LOUPE_SOURCE_HALF = 40;  // demi-taille de la zone capturée, en pixels internes du canvas PDF
   const LOUPE_GAP = 28;          // décalage entre le doigt et le bord de la loupe, en pixels CSS
 
+  // L'Apple Pencil (et le doigt, dans une moindre mesure) peut envoyer
+  // beaucoup plus d'événements par seconde que l'écran n'affiche
+  // d'images — redessiner la loupe (deux copies d'image) à chaque
+  // événement, sans limite, faisait ramer tout le geste sur iPad. On ne
+  // redessine donc plus qu'une fois par image affichée au maximum
+  // (requestAnimationFrame), en ne gardant que la position la plus
+  // récente entre-temps.
+  let annotLoupeFrameRequested = false;
+  let annotLoupePendingEvent = null;
+
   function updateAnnotLoupe(e) {
+    annotLoupePendingEvent = e;
+    if (annotLoupeFrameRequested) return;
+    annotLoupeFrameRequested = true;
+    requestAnimationFrame(() => {
+      annotLoupeFrameRequested = false;
+      if (annotLoupePendingEvent) renderAnnotLoupeNow(annotLoupePendingEvent);
+    });
+  }
+
+  function renderAnnotLoupeNow(e) {
     if (!annotLoupe || !pdfViewportForAnnot) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const destSize = Math.round(LOUPE_CSS_SIZE * dpr);
     if (annotLoupe.width !== destSize) { annotLoupe.width = destSize; annotLoupe.height = destSize; }
     annotLoupe.style.width = LOUPE_CSS_SIZE + 'px';
@@ -4762,10 +4782,9 @@
 
     const [px, py] = annotCanvasPixel(e);
     const ctx = annotLoupe.getContext('2d');
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(destSize / 2, destSize / 2, destSize / 2, 0, Math.PI * 2);
-    ctx.clip();
+    // Le découpage circulaire est déjà fait par le CSS (border-radius:50%
+    // sur l'élément canvas) : pas besoin de reposer un clip manuel ici,
+    // ça économise un peu de travail à chaque image.
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, destSize, destSize);
     const sSize = LOUPE_SOURCE_HALF * 2;
@@ -4787,7 +4806,6 @@
     ctx.beginPath();
     ctx.arc(c, c, r, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.restore();
 
     // Centrée horizontalement sur le doigt, décalée au-dessus pour ne pas
     // être cachée par lui ; repasse en dessous s'il n'y a pas la place
@@ -4802,6 +4820,7 @@
   }
 
   function hideAnnotLoupe() {
+    annotLoupePendingEvent = null;
     if (annotLoupe) annotLoupe.classList.add('hidden');
   }
 
