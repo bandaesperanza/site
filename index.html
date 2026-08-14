@@ -5490,8 +5490,21 @@
     const page = await pdfDoc.getPage(pdfPageNum);
     const baseViewport = page.getViewport({ scale: 1, rotation: pdfRotation });
     const containerWidth = pdfViewerOverlay.clientWidth - 24;
-    // Échelle "visuelle" : celle qui fait tenir la page dans le conteneur.
-    const cssScale = Math.min(2.4, (containerWidth / baseViewport.width) || 1);
+    // La hauteur réellement disponible pour la page = la hauteur de la
+    // zone de défilement, moins ses propres marges (haut/bas) qui
+    // réservent la place du bandeau du bas — sans ça, une page mise à
+    // l'échelle de la seule largeur peut dépasser verticalement (ça ne se
+    // voyait presque jamais sur iPhone, où l'écran est très allongé, mais
+    // ça déborde facilement sur iPad, dont l'écran est plus carré).
+    const bodyStyle = window.getComputedStyle(pdfViewerBody);
+    const bodyPadTop = parseFloat(bodyStyle.paddingTop) || 0;
+    const bodyPadBottom = parseFloat(bodyStyle.paddingBottom) || 0;
+    const containerHeight = pdfViewerBody.clientHeight - bodyPadTop - bodyPadBottom;
+    // Échelle "visuelle" : celle qui fait tenir la page dans le conteneur,
+    // en largeur ET en hauteur.
+    const scaleForWidth = containerWidth / baseViewport.width;
+    const scaleForHeight = (containerHeight > 0 ? containerHeight : Infinity) / baseViewport.height;
+    const cssScale = Math.min(2.4, scaleForWidth, scaleForHeight) || 1;
     // Sur iPhone/écrans retina, 1 pixel CSS = 2 ou 3 pixels physiques : si on
     // rend le canvas à la résolution CSS, il est ensuite étiré par l'écran
     // et devient flou. On multiplie donc la résolution de rendu par le
