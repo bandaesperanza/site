@@ -84,15 +84,12 @@
     color: var(--ink);
     font-family: 'Inter', system-ui, sans-serif;
     min-height: 100vh;
-    padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
     padding-bottom: env(safe-area-inset-bottom);
   }
 
   .wrap {
-    max-width: 720px;
-    margin: 0 auto;
     padding: 48px 24px 80px;
   }
 
@@ -2553,7 +2550,7 @@
           repertoireSongs = Array.isArray(data.songs) ? data.songs : [];
           repertoireThemesOrder = Array.isArray(data.themesOrder) ? data.themesOrder : [];
           loadedFromNetwork = true;
-          idbPut('catalog', {
+          await idbPut('catalog', {
             key: 'repertoire',
             songs: repertoireSongs,
             themesOrder: repertoireThemesOrder,
@@ -4062,7 +4059,12 @@
         basePath = catalog.basePath || basePath;
         loadedFromNetwork = true;
         const fetchedAt = Date.now();
-        idbPut('catalog', { key: 'catalog', files: fileIndex, basePath, fetchedAt }).catch(() => {});
+        // Attendu (pas juste lancé en arrière-plan) : le bouton ↻ recharge
+        // la page juste après avoir appelé loadCatalog(true) — sans ce
+        // await, la page pouvait se recharger avant que l'écriture dans
+        // IndexedDB soit vraiment terminée, et retomber sur une copie
+        // locale pas à jour juste après.
+        await idbPut('catalog', { key: 'catalog', files: fileIndex, basePath, fetchedAt }).catch(() => {});
         updateCatalogCacheInfo(fetchedAt);
       }
     } catch (e) { /* pas de réseau, ou trop lent (timeout) : on retente le cache local ci-dessous */ }
