@@ -1787,10 +1787,6 @@
           <span class="tools-zone-icon">🔎</span>
           <span class="tools-zone-text">Qualité</span>
         </button>
-        <button type="button" id="live-broadcast-toggle-btn" class="tools-zone-btn hidden" title="Activer le suivi chef pour tous les musiciens">
-          <span class="tools-zone-icon">📡</span>
-          <span class="tools-zone-text">Diffuser</span>
-        </button>
         <button type="button" id="repertoire-toggle-btn" class="tools-zone-btn" title="Répertoire par thème">
           <span class="tools-zone-icon">🎺</span>
           <span class="tools-zone-text">Répertoire</span>
@@ -2136,7 +2132,6 @@
   const playlistAdminSaveBtn          = document.getElementById('playlist-admin-save-btn');
   const playlistAdminCancelBtn        = document.getElementById('playlist-admin-cancel-btn');
   const liveFollowToggleBtn           = document.getElementById('live-follow-toggle-btn');
-  const liveBroadcastToggleBtn        = document.getElementById('live-broadcast-toggle-btn');
   const liveBanner                    = document.getElementById('live-banner');
   const liveBannerLabel               = document.getElementById('live-banner-label');
   const liveBannerOpenBtn             = document.getElementById('live-banner-open-btn');
@@ -3263,8 +3258,7 @@
   // pour l'ouvrir au même endroit — et si c'est déjà le même PDF ouvert
   // chez eux, la page se tourne toute seule tant qu'ils restent dessus.
   // -------------------------------------------------------------------
-  let liveFollowing = false;          // ancien bouton de suivi local, conservé pour compatibilité mais masqué
-  let liveBroadcastMode = false;      // mode chef : diffuse automatiquement le morceau/page ouvert depuis le bouton Outils
+  let liveFollowing = false;          // "Suivre le chef" activé sur cet appareil
   let liveCurrentBroadcast = null;    // dernier état connu du direct (doc Firestore)
   let liveBannerDismissedKey = null;  // état ignoré volontairement (croix), pour ne pas le reproposer tant qu'il ne change pas
 
@@ -3313,7 +3307,7 @@
   // prochain changement de page du chef).
   function handleLiveUpdate(data) {
     liveCurrentBroadcast = data;
-    if (!liveReady) return;
+    if (!liveReady || !liveFollowing) return;
 
     if (!data || !data.active) {
       hideLiveBanner();
@@ -3321,49 +3315,33 @@
       return;
     }
 
-    // Le suivi est maintenant global : aucun musicien n'a besoin d'activer
-    // un mode local. Dès que le chef diffuse, la bannière reste visible.
-    if (liveBroadcastMode && chefMode) return; // le chef ne s'auto-affiche pas la bannière
-
-    // Si un musicien a déjà ouvert exactement le PDF diffusé, on garde le
-    // confort du changement de page automatique. Sinon, la bannière sert
-    // uniquement à filtrer le morceau, pour laisser choisir la bonne partie.
+    // Ce téléphone est déjà ouvert sur exactement le morceau diffusé, et
+    // le musicien a tapé "Ouvrir" depuis la bannière pour le suivre : on
+    // tourne la page toute seule, sans réafficher la bannière.
     if (pdfFollowingLive && pdfCurrentFileKey === data.fileKey &&
         !pdfViewerOverlay.classList.contains('hidden')) {
       if (pdfPageNum !== data.page && pdfDoc && data.page >= 1 && data.page <= pdfDoc.numPages) {
         pdfPageNum = data.page;
         renderPdfPage();
       }
-      showLiveBanner(data);
+      hideLiveBanner();
       return;
     }
 
+    const key = liveStateKey(data);
+    if (key === liveBannerDismissedKey) return; // ignoré volontairement, on ne le représente pas tant que ça ne change pas
     showLiveBanner(data);
   }
 
   function showLiveBanner(data) {
     if (!liveReady) return;
-    const label = data.songName || data.fileName || 'Morceau diffusé';
-    liveBannerLabel.textContent = `📡 Chef : ${label} — appuie pour filtrer`;
-    if (liveBannerCloseBtn) liveBannerCloseBtn.classList.add('hidden');
+    liveBannerLabel.textContent = `${data.songName || data.fileName} — chef page ${data.page}`;
     liveBanner.classList.remove('hidden');
   }
 
   function hideLiveBanner() {
     if (!liveReady) return;
     liveBanner.classList.add('hidden');
-  }
-
-  function filterResultsFromLiveBroadcast(data) {
-    if (!data) return;
-    const folder = (data.folderPath && data.folderPath.length) ? data.folderPath[data.folderPath.length - 1] : '';
-    const term = folder || data.songName || data.fileName || '';
-    if (!term) return;
-    searchInput.value = term;
-    updateSearchClearBtn();
-    applyFilters(term);
-    statusLine.textContent = `Suivi chef : « ${term} » — choisis la partition à ouvrir.`;
-    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
   }
 
   // Les musiciens n'ont pas tous la même partition qu'un morceau donné
@@ -3600,42 +3578,52 @@
   }
 
   if (liveReady) {
-    // L'ancien bouton "Suivre le chef" reste volontairement masqué :
-    // le suivi est maintenant imposé dès que le chef active Diffuser.
-    if (liveFollowToggleBtn) liveFollowToggleBtn.classList.add('hidden');
-
-    if (liveBroadcastToggleBtn) {
-      liveBroadcastToggleBtn.addEventListener('click', async () => {
-        if (!chefMode) return;
-        liveBroadcastMode = !liveBroadcastMode;
-        liveBroadcastToggleBtn.classList.toggle('active', liveBroadcastMode);
-        liveBroadcastToggleBtn.querySelector('.tools-zone-text').textContent = liveBroadcastMode ? 'Diffusion active' : 'Diffuser';
-
-        if (liveBroadcastMode) {
-          // Si une partition est déjà ouverte côté chef, elle devient tout
-          // de suite le morceau diffusé. Sinon, la prochaine partition
-          // ouverte sera diffusée automatiquement.
-          if (pdfCurrentFileKey && pdfDoc) {
-            pdfBroadcasting = true;
-            await broadcastLiveState(pdfCurrentFileKey, pdfDownloadName, pdfCurrentFolderPath, pdfPageNum);
-          } else {
-            alert('Diffusion activée. Ouvre maintenant une partition : elle sera proposée aux musiciens.');
-          }
-        } else {
-          pdfBroadcasting = false;
-          await stopBroadcasting();
-        }
-      });
-    }
-
-    liveBannerCloseBtn.addEventListener('click', () => {
-      // La bannière reste permanente tant que le chef diffuse. On ne fait
-      // que relancer l'affichage du direct en cours si besoin.
-      handleLiveUpdate(liveCurrentBroadcast);
+    liveFollowToggleBtn.addEventListener('click', () => {
+      liveFollowing = !liveFollowing;
+      liveFollowToggleBtn.classList.toggle('active', liveFollowing);
+      liveFollowToggleBtn.textContent = liveFollowing ? '📡 Suivi du chef actif' : '📡 Suivre le chef';
+      if (liveFollowing) {
+        // Un direct est peut-être déjà en cours : on l'affiche tout de
+        // suite plutôt que d'attendre le prochain changement de page.
+        handleLiveUpdate(liveCurrentBroadcast);
+      } else {
+        hideLiveBanner();
+        liveBannerDismissedKey = null;
+      }
     });
 
-    liveBannerOpenBtn.addEventListener('click', () => {
-      filterResultsFromLiveBroadcast(liveCurrentBroadcast);
+    liveBannerCloseBtn.addEventListener('click', () => {
+      liveBannerDismissedKey = liveStateKey(liveCurrentBroadcast);
+      hideLiveBanner();
+    });
+
+    liveBannerOpenBtn.addEventListener('click', async () => {
+      if (!liveCurrentBroadcast) return;
+      const data = liveCurrentBroadcast;
+      hideLiveBanner();
+
+      // On ouvre en priorité MA propre partie pour ce morceau (mon
+      // pupitre choisi), pas forcément le fichier exact que le chef
+      // regarde — un tromboniste qui suit un chef à la trompette doit
+      // voir sa partition de trombone, pas celle de trompette.
+      const myPart = findMyPartInFolder(data.folderPath);
+      const target = myPart
+        ? { id: fileKey(myPart), name: myPart.name }
+        : { id: data.fileKey, name: data.fileName };
+
+      await openFileByKey(target.id, target.name);
+
+      // Le suivi automatique des tours de page ne fonctionne que si le
+      // fichier ouvert est exactement celui diffusé par le chef — les
+      // numéros de page d'une partie différente ne correspondent pas
+      // aux siens, donc on ne tente pas de deviner.
+      if (pdfDoc && pdfCurrentFileKey === data.fileKey) {
+        pdfFollowingLive = true;
+        if (data.page && data.page !== pdfPageNum && data.page >= 1 && data.page <= pdfDoc.numPages) {
+          pdfPageNum = data.page;
+          await renderPdfPage();
+        }
+      }
     });
   }
 
@@ -3954,9 +3942,7 @@
     if (chefModeToggleBtn) chefModeToggleBtn.classList.toggle('active', chefMode);
     if (playlistAdminToggleBtn) playlistAdminToggleBtn.classList.toggle('hidden', !chefMode);
     if (qualityToggleBtn) qualityToggleBtn.classList.toggle('hidden', !chefMode);
-    if (liveBroadcastToggleBtn) liveBroadcastToggleBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
     if (!chefMode && qualityPanel) qualityPanel.classList.add('hidden');
-    if (!chefMode && liveBroadcastToggleBtn) liveBroadcastToggleBtn.classList.remove('active');
     if (repertoireImportBtn) repertoireImportBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
     renderStatusFilterButtons();
     if (repertoireReady && !repertoireOverlay.classList.contains('hidden')) renderRepertoireActiveTab();
@@ -4006,7 +3992,7 @@
     subscribeToSorties();
     subscribeToRepertoire();
     if (liveReady && firebaseReady && fbDb) {
-      if (liveFollowToggleBtn) liveFollowToggleBtn.classList.add('hidden');
+      liveFollowToggleBtn.classList.remove('hidden');
       subscribeToLive();
     }
   }
@@ -5603,7 +5589,7 @@
     pdfDownloadName = name || 'partition.pdf';
     pdfCurrentFileKey = id || null;
     pdfCurrentFolderPath = folderPath || [];
-    pdfBroadcasting = !!(liveBroadcastMode && chefMode);
+    pdfBroadcasting = false;
     pdfFollowingLive = false;
     pdfRotation = 0;
     pdfPageNum = 1;
@@ -5629,10 +5615,8 @@
     document.body.style.overflow = 'hidden';
     requestPdfWakeLock();
     if (pdfLiveBroadcastBtn) {
-      // Le pilotage de la diffusion se fait maintenant depuis le bouton
-      // Outils > Diffuser, plus depuis la barre du lecteur PDF.
-      pdfLiveBroadcastBtn.classList.add('hidden');
-      pdfLiveBroadcastBtn.classList.toggle('active', pdfBroadcasting);
+      pdfLiveBroadcastBtn.classList.toggle('hidden', !(firebaseReady && fbDb && pdfCurrentFileKey));
+      pdfLiveBroadcastBtn.classList.remove('active');
     }
 
     if (typeof pdfjsLib === 'undefined') {
