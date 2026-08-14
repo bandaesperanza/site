@@ -500,23 +500,6 @@
   }
   .sync-row-btn:hover { background: var(--focus); color: #fff; }
   .sync-row-btn:disabled { opacity: 0.6; cursor: default; }
-
-  .sync-all-btn {
-    width: 100%;
-    box-sizing: border-box;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 12px 16px;
-    border: 1px solid var(--focus);
-    border-radius: 8px;
-    background: var(--focus);
-    color: #fff;
-    cursor: pointer;
-    margin-bottom: 14px;
-  }
-  .sync-all-btn:hover { opacity: 0.9; }
-  .sync-all-btn:disabled { opacity: 0.6; cursor: default; }
   .sync-row-clear {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 13px;
@@ -1528,28 +1511,6 @@
   }
   .annot-action-menu-item:hover { background: var(--paper, #F5F2EF); }
 
-
-  /* --- Tableau de bord qualité --------------------------------------------- */
-  .quality-panel { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 20px 18px; margin-bottom: 20px; }
-  .quality-hint { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); line-height: 1.6; margin: 0 0 14px; }
-  .quality-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-  .quality-score-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); margin-bottom: 14px; }
-  .quality-score-main { font-family: 'Fraunces', serif; font-size: 34px; font-weight: 700; color: var(--ink); line-height: 1; }
-  .quality-score-label, .quality-score-status { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); margin-top: 5px; }
-  .quality-score-status { font-size: 12px; font-weight: 600; color: var(--stamp); text-align: right; }
-  .quality-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
-  .quality-kpi { border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); padding: 12px; }
-  .quality-kpi-value { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 700; color: var(--ink); line-height: 1; }
-  .quality-kpi-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--ink-soft); margin-top: 6px; line-height: 1.35; }
-  .quality-section { border-top: 1px dashed var(--rule); padding-top: 13px; margin-top: 13px; }
-  .quality-section-title { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); margin-bottom: 8px; }
-  .quality-list { margin: 0; padding-left: 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.55; }
-  .quality-list li + li { margin-top: 4px; }
-  .quality-ok { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #2E7D4E; background: #E4F1E7; border: 1px solid #BFDDC5; border-radius: 8px; padding: 10px 12px; }
-  .quality-coverage-row { display: grid; grid-template-columns: minmax(90px, 140px) 1fr 48px; gap: 8px; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-soft); margin-bottom: 7px; }
-  .quality-bar { height: 8px; border-radius: 999px; background: var(--rule); overflow: hidden; }
-  .quality-bar-fill { height: 100%; border-radius: 999px; background: var(--gold); }
-
   /* --- Sauvegarde des annotations (page d'accueil) --------------------------- */
   .backup-panel {
     background: var(--card);
@@ -1760,7 +1721,7 @@
 
   <!-- Écran principal -->
   <div id="app-screen" class="hidden">
-    <div class="playlist-admin-bar">
+    <div class="playlist-admin-bar hidden">
       <button type="button" id="live-follow-toggle-btn" class="playlist-admin-bar-btn hidden" title="Suivre en direct la partition affichée par le chef">📡 Suivre le chef</button>
     </div>
 
@@ -1782,10 +1743,6 @@
         <button type="button" id="backup-toggle-btn" class="tools-zone-btn" title="Sauvegarde des annotations">
           <span class="tools-zone-icon">💾</span>
           <span class="tools-zone-text">Sauvegarde</span>
-        </button>
-        <button type="button" id="quality-toggle-btn" class="tools-zone-btn hidden" title="Tableau de bord qualité de la partothèque">
-          <span class="tools-zone-icon">🔎</span>
-          <span class="tools-zone-text">Qualité</span>
         </button>
         <button type="button" id="repertoire-toggle-btn" class="tools-zone-btn" title="Répertoire par thème">
           <span class="tools-zone-icon">🎺</span>
@@ -1839,12 +1796,6 @@
       <input type="file" id="backup-import-input" accept="application/json,.json" class="hidden">
       <p class="tuner-hint" id="backup-status"></p>
     </div>
-    <div class="quality-panel hidden" id="quality-panel">
-      <div class="sync-panel-label">Tableau de bord qualité</div>
-      <p class="quality-hint">Contrôle automatique du catalogue : conducteurs manquants, couverture des pupitres, doublons, fichiers lourds, fichiers non classés et anciennes partitions. Analyse locale, aucune donnée supplémentaire n'est envoyée.</p>
-      <div class="quality-actions"><button type="button" id="quality-refresh-btn" class="sync-row-btn">↻ Recalculer</button></div>
-      <div id="quality-dashboard"></div>
-    </div>
 
     <div class="sync-panel hidden" id="playlist-admin-panel">
       <div class="sync-panel-label">Gérer les playlists</div>
@@ -1894,7 +1845,6 @@
     </div>
 
     <div class="sync-panel hidden" id="sync-panel">
-      <button type="button" id="sync-all-btn" class="sync-all-btn" title="">⇩ Synchroniser toute la partothèque</button>
       <div class="sync-panel-label">Synchroniser par instrument</div>
       <div id="sync-list"></div>
       <div class="sync-summary" id="sync-summary"></div>
@@ -2110,7 +2060,6 @@
   const syncPanel          = document.getElementById('sync-panel');
   const syncList             = document.getElementById('sync-list');
   const syncSummary            = document.getElementById('sync-summary');
-  const syncAllBtn              = document.getElementById('sync-all-btn');
   const debugToggleBtn         = document.getElementById('debug-toggle-btn');
   const debugLogEl             = document.getElementById('debug-log');
   const offlineToggleBtn             = document.getElementById('offline-toggle-btn');
@@ -2161,10 +2110,6 @@
   const backupImportBtn               = document.getElementById('backup-import-btn');
   const backupImportInput             = document.getElementById('backup-import-input');
   const backupStatusEl                = document.getElementById('backup-status');
-  const qualityToggleBtn              = document.getElementById('quality-toggle-btn');
-  const qualityPanel                  = document.getElementById('quality-panel');
-  const qualityRefreshBtn             = document.getElementById('quality-refresh-btn');
-  const qualityDashboardEl            = document.getElementById('quality-dashboard');
   const repertoireToggleBtn           = document.getElementById('repertoire-toggle-btn');
   const repertoireOverlay             = document.getElementById('repertoire-overlay');
   const repertoireCloseBtn            = document.getElementById('repertoire-close-btn');
@@ -3941,8 +3886,6 @@
   function applyChefModeVisibility() {
     if (chefModeToggleBtn) chefModeToggleBtn.classList.toggle('active', chefMode);
     if (playlistAdminToggleBtn) playlistAdminToggleBtn.classList.toggle('hidden', !chefMode);
-    if (qualityToggleBtn) qualityToggleBtn.classList.toggle('hidden', !chefMode);
-    if (!chefMode && qualityPanel) qualityPanel.classList.add('hidden');
     if (repertoireImportBtn) repertoireImportBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
     renderStatusFilterButtons();
     if (repertoireReady && !repertoireOverlay.classList.contains('hidden')) renderRepertoireActiveTab();
@@ -3991,10 +3934,9 @@
     subscribeToSongStatuses();
     subscribeToSorties();
     subscribeToRepertoire();
-    if (liveReady && firebaseReady && fbDb) {
-      liveFollowToggleBtn.classList.remove('hidden');
-      subscribeToLive();
-    }
+    // "Suivre le chef" est mis de côté pour le moment (fonction cachée en
+    // permanence) — on ne l'affiche pas et on ne s'y abonne pas, en
+    // attendant de la reprendre plus tard.
   }
 
   function updateSearchClearBtn() {
@@ -4019,7 +3961,6 @@
   offlineToggleBtn.addEventListener('click', () => {
     syncPanel.classList.toggle('hidden');
     if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
-    updateSyncAllStatus();
   });
 
   function formatSize(bytes) {
@@ -4101,7 +4042,6 @@
         setupScreen.classList.add('hidden');
         applyFilters(searchInput.value.trim());
         if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
-        updateSyncAllStatus();
         isIndexing = false;
         if (pageReloadBtn) pageReloadBtn.disabled = false;
         return;
@@ -4151,7 +4091,6 @@
 
     applyFilters(searchInput.value.trim());
     if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
-    updateSyncAllStatus();
     isIndexing = false;
     if (pageReloadBtn) pageReloadBtn.disabled = false;
   }
@@ -4214,7 +4153,6 @@
     }
 
     renderResults(files, term);
-    if (qualityReady && qualityPanel && !qualityPanel.classList.contains('hidden')) renderQualityDashboard();
   }
 
   function renderResults(files, term, awaitingInput = false) {
@@ -5377,120 +5315,6 @@
   // téléphone, un mail à soi-même, un espace de stockage perso), puis de
   // les réimporter sur un nouvel appareil pour ne pas repartir de zéro.
   // ---------------------------------------------------------------------
-
-  // ---------------------------------------------------------------------
-  // Tableau de bord qualité de la partothèque — analyse locale du catalogue.
-  // ---------------------------------------------------------------------
-  const qualityReady = !!(qualityToggleBtn && qualityPanel && qualityRefreshBtn && qualityDashboardEl);
-  const QUALITY_LARGE_FILE_BYTES = 10 * 1024 * 1024;
-  const QUALITY_OLD_FILE_DAYS = 730;
-  function qualityMusicalFolders() {
-    const map = new Map();
-    (fileIndex || []).forEach(f => {
-      const key = (f.folderPath && f.folderPath.length) ? f.folderPath.join(' / ') : f.name.replace(/\.pdf$/i, '');
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(f);
-    });
-    return map;
-  }
-  function qualityFileSize(f) { const n = Number(f.size); return Number.isFinite(n) ? n : 0; }
-  function qualityDaysSince(iso) {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return Math.floor((Date.now() - d.getTime()) / 86400000);
-  }
-  function qualityStatusText(score) {
-    if (score >= 90) return 'Très propre';
-    if (score >= 75) return 'Correct, quelques points à traiter';
-    if (score >= 55) return 'À surveiller';
-    return 'Nettoyage recommandé';
-  }
-  function analyzeLibraryQuality() {
-    const files = fileIndex || [];
-    const folders = qualityMusicalFolders();
-    const conductorFilter = FILTERS.find(f => f.id === 'conducteur');
-    const instrumentFilters = FILTERS.filter(f => !['tous', 'conducteur', 'picolo'].includes(f.id));
-    const allDetectFilters = FILTERS.filter(f => f.id !== 'tous');
-    const missingConductors = [];
-    const lowCoverage = [];
-    const coverage = instrumentFilters.map(filter => ({ filter, count: 0 }));
-    folders.forEach((items, folderKey) => {
-      const hasConductor = conductorFilter ? items.some(f => matchesInstrument(f, conductorFilter)) : false;
-      if (!hasConductor) missingConductors.push({ folderKey, count: items.length });
-      let detectedCount = 0;
-      coverage.forEach(c => { if (items.some(f => matchesInstrument(f, c.filter))) { c.count++; detectedCount++; } });
-      if (detectedCount > 0 && detectedCount < 4) lowCoverage.push({ folderKey, detectedCount, count: items.length });
-    });
-    const unclassified = files.filter(f => !allDetectFilters.some(filter => matchesInstrument(f, filter)));
-    const largeFiles = files.filter(f => qualityFileSize(f) >= QUALITY_LARGE_FILE_BYTES).sort((a, b) => qualityFileSize(b) - qualityFileSize(a));
-    const oldFiles = files.filter(f => { const days = qualityDaysSince(f.modifiedTime); return days !== null && days >= QUALITY_OLD_FILE_DAYS; }).sort((a, b) => (qualityDaysSince(b.modifiedTime) || 0) - (qualityDaysSince(a.modifiedTime) || 0));
-    const exactDuplicates = [];
-    folders.forEach((items, folderKey) => {
-      const byName = new Map();
-      items.forEach(f => {
-        const key = normalize(f.name.replace(/\.pdf$/i, '').replace(/\s+/g, ' ').trim());
-        if (!byName.has(key)) byName.set(key, []);
-        byName.get(key).push(f);
-      });
-      byName.forEach(group => { if (group.length > 1) exactDuplicates.push({ folderKey, files: group }); });
-    });
-    const statusCounts = {};
-    if (firebaseReady && fbDb) folders.forEach((items, folderKey) => { const status = songStatusFor(folderKey); statusCounts[status] = (statusCounts[status] || 0) + 1; });
-    const localCount = files.filter(f => cachedIds.has(fileKey(f))).length;
-    const totalSongs = folders.size;
-    let score = 100;
-    score -= Math.min(24, missingConductors.length * 2);
-    score -= Math.min(18, lowCoverage.length * 1.5);
-    score -= Math.min(16, exactDuplicates.length * 4);
-    score -= Math.min(14, unclassified.length * 1.5);
-    score -= Math.min(10, largeFiles.length * 1);
-    score -= Math.min(8, oldFiles.length * 0.35);
-    score = Math.max(0, Math.round(score));
-    return { files, totalSongs, missingConductors, lowCoverage, coverage, unclassified, largeFiles, oldFiles, exactDuplicates, statusCounts, localCount, score };
-  }
-  function qualityLimitedList(items, render, limit = 12) {
-    if (!items.length) return '<div class="quality-ok">✓ Aucun point détecté.</div>';
-    const shown = items.slice(0, limit).map(render).join('');
-    const more = items.length > limit ? `<li>… ${items.length - limit} autre${items.length - limit > 1 ? 's' : ''}</li>` : '';
-    return `<ul class="quality-list">${shown}${more}</ul>`;
-  }
-  function renderQualityDashboard() {
-    if (!qualityReady) return;
-    if (!fileIndex) { qualityDashboardEl.innerHTML = '<div class="empty-state">Charge d’abord le catalogue pour lancer le contrôle qualité.</div>'; return; }
-    const q = analyzeLibraryQuality();
-    const offlinePct = q.files.length ? Math.round((q.localCount / q.files.length) * 100) : 0;
-    const coverageHtml = q.coverage.map(c => { const pct = q.totalSongs ? Math.round((c.count / q.totalSongs) * 100) : 0; return `<div class="quality-coverage-row"><span>${escapeHtml(c.filter.label)}</span><div class="quality-bar"><div class="quality-bar-fill" style="width:${pct}%"></div></div><span>${pct}%</span></div>`; }).join('');
-    const statusHtml = (firebaseReady && fbDb) ? SONG_STATUS_ORDER.map(id => { const n = q.statusCounts[id] || 0; return `<div class="quality-coverage-row"><span>${SONG_STATUS_INFO[id].emoji} ${escapeHtml(SONG_STATUS_INFO[id].label)}</span><div class="quality-bar"><div class="quality-bar-fill" style="width:${q.totalSongs ? Math.round(n / q.totalSongs * 100) : 0}%"></div></div><span>${n}</span></div>`; }).join('') : '<div class="quality-ok">Statuts indisponibles sans Firebase.</div>';
-    qualityDashboardEl.innerHTML = `
-      <div class="quality-score-card"><div><div class="quality-score-main">${q.score}/100</div><div class="quality-score-label">Score qualité estimé</div></div><div class="quality-score-status">${qualityStatusText(q.score)}</div></div>
-      <div class="quality-grid">
-        <div class="quality-kpi"><div class="quality-kpi-value">${q.totalSongs}</div><div class="quality-kpi-label">morceaux / dossiers</div></div>
-        <div class="quality-kpi"><div class="quality-kpi-value">${q.files.length}</div><div class="quality-kpi-label">PDF dans le catalogue</div></div>
-        <div class="quality-kpi"><div class="quality-kpi-value">${q.missingConductors.length}</div><div class="quality-kpi-label">sans conducteur</div></div>
-        <div class="quality-kpi"><div class="quality-kpi-value">${q.exactDuplicates.length}</div><div class="quality-kpi-label">doublons exacts détectés</div></div>
-        <div class="quality-kpi"><div class="quality-kpi-value">${q.unclassified.length}</div><div class="quality-kpi-label">PDF non classés par pupitre</div></div>
-        <div class="quality-kpi"><div class="quality-kpi-value">${offlinePct}%</div><div class="quality-kpi-label">synchronisés hors-ligne</div></div>
-      </div>
-      <div class="quality-section"><div class="quality-section-title">Couverture par pupitre</div>${coverageHtml || '<div class="quality-ok">Aucun pupitre détecté.</div>'}</div>
-      <div class="quality-section"><div class="quality-section-title">Répartition des statuts</div>${statusHtml}</div>
-      <div class="quality-section"><div class="quality-section-title">Morceaux sans conducteur</div>${qualityLimitedList(q.missingConductors, x => `<li>${escapeHtml(x.folderKey)} <span class="detail">(${x.count} PDF)</span></li>`)}</div>
-      <div class="quality-section"><div class="quality-section-title">Morceaux à faible couverture instrumentale</div>${qualityLimitedList(q.lowCoverage, x => `<li>${escapeHtml(x.folderKey)} <span class="detail">(${x.detectedCount} pupitre${x.detectedCount > 1 ? 's' : ''} détecté${x.detectedCount > 1 ? 's' : ''})</span></li>`)}</div>
-      <div class="quality-section"><div class="quality-section-title">PDF non classés par pupitre</div>${qualityLimitedList(q.unclassified, f => `<li>${escapeHtml(f.name)} <span class="detail">${f.folderPath && f.folderPath.length ? ' — ' + escapeHtml(f.folderPath.join(' › ')) : ''}</span></li>`)}</div>
-      <div class="quality-section"><div class="quality-section-title">Doublons exacts dans un même dossier</div>${qualityLimitedList(q.exactDuplicates, x => `<li>${escapeHtml(x.folderKey)} : ${x.files.map(f => escapeHtml(f.name)).join(', ')}</li>`)}</div>
-      <div class="quality-section"><div class="quality-section-title">PDF lourds (&gt; 10 Mo)</div>${qualityLimitedList(q.largeFiles, f => `<li>${escapeHtml(f.name)} — ${formatSize(f.size)} <span class="detail">${f.folderPath && f.folderPath.length ? ' — ' + escapeHtml(f.folderPath.join(' › ')) : ''}</span></li>`)}</div>
-      <div class="quality-section"><div class="quality-section-title">Anciennes partitions (&gt; 2 ans sans modification)</div>${qualityLimitedList(q.oldFiles, f => `<li>${escapeHtml(f.name)} — modifié le ${formatDate(f.modifiedTime)} <span class="detail">${f.folderPath && f.folderPath.length ? ' — ' + escapeHtml(f.folderPath.join(' › ')) : ''}</span></li>`)}</div>`;
-  }
-  if (qualityReady) {
-    qualityToggleBtn.addEventListener('click', () => {
-      const showing = !qualityPanel.classList.contains('hidden');
-      qualityPanel.classList.toggle('hidden', showing);
-      qualityToggleBtn.classList.toggle('active', !showing);
-      if (!showing) renderQualityDashboard();
-    });
-    qualityRefreshBtn.addEventListener('click', renderQualityDashboard);
-  }
-
   const backupReady = !!(backupToggleBtn && backupPanel && backupExportBtn &&
     backupImportBtn && backupImportInput && backupStatusEl);
 
@@ -6128,17 +5952,22 @@
     throw lastErr || new Error('échec après plusieurs tentatives');
   }
 
-  // Cœur commun du téléchargement, réutilisé par "Synchroniser" (un
-  // instrument) et "Tout synchroniser" (toute la partothèque) : télécharge
-  // la liste donnée avec un peu de parallélisme, journalise les échecs,
-  // et met à jour le texte du bouton au fur et à mesure.
-  async function downloadFiles(toDownload, progressBtn) {
+  async function syncInstrument(filterId) {
+    const filter = FILTERS.find(f => f.id === filterId);
+    if (!filter || !fileIndex) return;
+
+    const matches = fileIndex.filter(f => matchesInstrument(f, filter));
+    const toDownload = matches.filter(f => !cachedIds.has(fileKey(f)));
+    if (toDownload.length === 0) return;
+
+    const btn = syncList.querySelector(`[data-sync="${filterId}"]`);
+    if (btn) btn.disabled = true;
     let done = 0;
     let failed = 0;
     let quotaExceeded = false;
     let lastErrorMessage = '';
     const updateProgress = () => {
-      if (progressBtn) progressBtn.textContent = `⏳ ${done}/${toDownload.length}${failed ? ' (' + failed + ' échec' + (failed > 1 ? 's' : '') + ')' : ''}…`;
+      if (btn) btn.textContent = `⏳ ${done}/${toDownload.length}${failed ? ' (' + failed + ' échec' + (failed > 1 ? 's' : '') + ')' : ''}…`;
     };
     updateProgress();
 
@@ -6182,67 +6011,17 @@
       }
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENT, toDownload.length) }, worker));
-    return { done, failed, quotaExceeded, lastErrorMessage };
-  }
 
-  function reportSyncOutcome({ done, failed, quotaExceeded, lastErrorMessage }, totalCount) {
+    renderSyncPanel();
+    applyFilters(searchInput.value.trim());
+
     if (quotaExceeded) {
-      netStatusEl.textContent = `⚠ Stockage plein sur l'appareil : ${done - failed}/${totalCount} téléchargés avant blocage. Libère de l'espace puis relance "Synchroniser".`;
+      netStatusEl.textContent = `⚠ Stockage plein sur l'appareil : ${done - failed}/${toDownload.length} téléchargés avant blocage. Libère de l'espace puis relance "Synchroniser".`;
       debugLogEl.classList.remove('hidden');
     } else if (failed > 0) {
       netStatusEl.textContent = `⚠ ${failed}/${done} téléchargement${failed > 1 ? 's ont' : ' a'} échoué${failed > 1 ? '' : ''}. Dernière erreur : ${lastErrorMessage}. Relance "Synchroniser" pour réessayer juste ce qui manque.`;
       debugLogEl.classList.remove('hidden');
     }
-  }
-
-  async function syncInstrument(filterId) {
-    const filter = FILTERS.find(f => f.id === filterId);
-    if (!filter || !fileIndex) return;
-
-    const matches = fileIndex.filter(f => matchesInstrument(f, filter));
-    const toDownload = matches.filter(f => !cachedIds.has(fileKey(f)));
-    if (toDownload.length === 0) return;
-
-    const btn = syncList.querySelector(`[data-sync="${filterId}"]`);
-    if (btn) btn.disabled = true;
-    const outcome = await downloadFiles(toDownload, btn);
-
-    renderSyncPanel();
-    applyFilters(searchInput.value.trim());
-    reportSyncOutcome(outcome, toDownload.length);
-  }
-
-  // "Tout synchroniser" : comme syncInstrument, mais sur l'ensemble du
-  // catalogue plutôt qu'un seul pupitre — pratique avant un concert pour
-  // ne pas avoir à synchroniser chaque instrument un par un.
-  function updateSyncAllStatus() {
-    if (!syncAllBtn || !fileIndex) return;
-    const total = fileIndex.length;
-    const cachedCount = fileIndex.filter(f => cachedIds.has(fileKey(f))).length;
-    const allSynced = cachedCount === total && total > 0;
-    syncAllBtn.title = `${cachedCount}/${total} en local`;
-    if (!syncAllBtn.disabled) {
-      syncAllBtn.textContent = allSynced
-        ? '✓ Toute la partothèque est synchronisée'
-        : `⇩ Synchroniser toute la partothèque (${cachedCount}/${total} en local)`;
-    }
-  }
-
-  if (syncAllBtn) {
-    syncAllBtn.addEventListener('click', async () => {
-      if (!fileIndex) return;
-      const toDownload = fileIndex.filter(f => !cachedIds.has(fileKey(f)));
-      if (toDownload.length === 0) return;
-
-      syncAllBtn.disabled = true;
-      const outcome = await downloadFiles(toDownload, syncAllBtn);
-
-      if (!syncPanel.classList.contains('hidden')) renderSyncPanel();
-      applyFilters(searchInput.value.trim());
-      syncAllBtn.disabled = false;
-      updateSyncAllStatus();
-      reportSyncOutcome(outcome, toDownload.length);
-    });
   }
 
   async function clearInstrument(filterId) {
