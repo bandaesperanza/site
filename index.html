@@ -5504,19 +5504,15 @@
     // en largeur ET en hauteur.
     const scaleForWidth = containerWidth / baseViewport.width;
     const scaleForHeight = (containerHeight > 0 ? containerHeight : Infinity) / baseViewport.height;
-    // La décision de contraindre ou non la hauteur dépend de la FORME de
-    // la page elle-même (après rotation éventuelle, déjà pris en compte
-    // dans baseViewport), pas seulement de l'orientation de l'écran :
-    // - Page portrait + écran portrait → toute la page doit tenir (largeur+hauteur).
-    // - Page portrait + écran paysage → contraindre aussi la hauteur la
-    //   rendrait minuscule (l'écran est bas) ; on privilégie la largeur et
-    //   on accepte de défiler un peu si besoin.
-    // - Page paysage, quel que soit l'écran → une page paysage est déjà
-    //   compacte en hauteur, la contraindre aussi ne la rapetisse presque
-    //   jamais ; autant toujours l'avoir entière sans avoir à défiler.
-    const pageIsLandscape = baseViewport.width > baseViewport.height;
+    // En écran paysage, la hauteur disponible est déjà limitée (d'autant
+    // plus avec la marge réservée en bas pour la barre de navigation) :
+    // contraindre aussi la hauteur — même pour une partition elle-même en
+    // paysage — donnait une page trop petite. On privilégie donc toujours
+    // la largeur en paysage, quelle que soit la forme de la page, et on
+    // accepte de défiler un peu si besoin. En écran portrait, il y a
+    // assez de marge pour caler la page entière (largeur + hauteur).
     const deviceIsLandscape = pdfViewerOverlay.clientWidth > pdfViewerOverlay.clientHeight;
-    const fitBothDimensions = pageIsLandscape || !deviceIsLandscape;
+    const fitBothDimensions = !deviceIsLandscape;
     const cssScale = fitBothDimensions
       ? (Math.min(2.4, scaleForWidth, scaleForHeight) || 1)
       : (Math.min(2.4, scaleForWidth) || 1);
