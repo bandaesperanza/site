@@ -5504,7 +5504,22 @@
     // en largeur ET en hauteur.
     const scaleForWidth = containerWidth / baseViewport.width;
     const scaleForHeight = (containerHeight > 0 ? containerHeight : Infinity) / baseViewport.height;
-    const cssScale = Math.min(2.4, scaleForWidth, scaleForHeight) || 1;
+    // La décision de contraindre ou non la hauteur dépend de la FORME de
+    // la page elle-même (après rotation éventuelle, déjà pris en compte
+    // dans baseViewport), pas seulement de l'orientation de l'écran :
+    // - Page portrait + écran portrait → toute la page doit tenir (largeur+hauteur).
+    // - Page portrait + écran paysage → contraindre aussi la hauteur la
+    //   rendrait minuscule (l'écran est bas) ; on privilégie la largeur et
+    //   on accepte de défiler un peu si besoin.
+    // - Page paysage, quel que soit l'écran → une page paysage est déjà
+    //   compacte en hauteur, la contraindre aussi ne la rapetisse presque
+    //   jamais ; autant toujours l'avoir entière sans avoir à défiler.
+    const pageIsLandscape = baseViewport.width > baseViewport.height;
+    const deviceIsLandscape = pdfViewerOverlay.clientWidth > pdfViewerOverlay.clientHeight;
+    const fitBothDimensions = pageIsLandscape || !deviceIsLandscape;
+    const cssScale = fitBothDimensions
+      ? (Math.min(2.4, scaleForWidth, scaleForHeight) || 1)
+      : (Math.min(2.4, scaleForWidth) || 1);
     // Sur iPhone/écrans retina, 1 pixel CSS = 2 ou 3 pixels physiques : si on
     // rend le canvas à la résolution CSS, il est ensuite étiré par l'écran
     // et devient flou. On multiplie donc la résolution de rendu par le
