@@ -90,7 +90,7 @@
   }
 
   .wrap {
-    padding: 48px 24px 80px;
+    padding: max(48px, calc(env(safe-area-inset-top) + 20px)) 24px 80px;
   }
 
   header {
@@ -98,7 +98,7 @@
     color: var(--paper);
     padding: 16px 18px;
     border-radius: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 14px;
     position: relative;
     overflow: hidden;
   }
@@ -196,19 +196,18 @@
   .header-meta {
     position: relative;
     display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 3px 10px;
+    flex-direction: column;
+    gap: 2px;
     margin-top: 10px;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 9.5px;
+    font-size: 8px;
     letter-spacing: 0.02em;
   }
 
   .net-status {
     color: var(--gold);
-    min-height: 12px;
   }
+  .net-status:empty { display: none; }
 
   .file-modified {
     color: rgba(246, 243, 236, 0.45);
@@ -608,8 +607,8 @@
     border: 1px solid var(--rule);
     border-radius: 8px;
     background: var(--card);
-    padding: 14px 16px;
-    margin-bottom: 14px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
   }
   .filter-zone-label {
     font-family: 'IBM Plex Mono', monospace;
@@ -617,12 +616,12 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-soft);
-    margin-bottom: 10px;
+    margin-bottom: 6px;
   }
   .filter-zone-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
   .filter-zone-empty {
     font-family: 'Inter', sans-serif;
@@ -634,8 +633,8 @@
     border: 1px solid var(--rule);
     border-radius: 8px;
     background: var(--card);
-    padding: 14px 16px;
-    margin-bottom: 18px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
   }
   .tools-zone-label {
     font-family: 'IBM Plex Mono', monospace;
@@ -643,12 +642,12 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-soft);
-    margin-bottom: 10px;
+    margin-bottom: 6px;
   }
   .tools-zone-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
   }
   .tools-zone-btn {
     display: flex;
@@ -663,7 +662,7 @@
     background: var(--paper);
     border: 1px solid var(--rule);
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 9px 14px;
     cursor: pointer;
   }
   .tools-zone-icon { font-size: 18px; line-height: 1; }
@@ -6276,7 +6275,35 @@
     applyFilters(searchInput.value.trim());
   }
 
+  // Mémorise la position de défilement pour la restaurer si on revient sur
+  // l'appli (changement d'appli puis retour, ou réouverture) — sinon on
+  // retombait à chaque fois tout en haut sur les pavés Outils/Playlist, au
+  // lieu de rester sur la recherche/les résultats où on s'était arrêté.
+  const SCROLL_STORAGE_KEY = 'partotheque-scroll-y';
+  let scrollSaveTimer = null;
+
+  function restoreScrollPosition() {
+    try {
+      const y = Number(sessionStorage.getItem(SCROLL_STORAGE_KEY));
+      if (Number.isFinite(y) && y > 0) {
+        requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'auto' }));
+      }
+    } catch (e) { /* non bloquant */ }
+  }
+
+  window.addEventListener('scroll', () => {
+    clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = setTimeout(() => {
+      try { sessionStorage.setItem(SCROLL_STORAGE_KEY, String(window.scrollY)); } catch (e) { /* non bloquant */ }
+    }, 150);
+  }, { passive: true });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') restoreScrollPosition();
+  });
+
   window.addEventListener('load', init);
+  window.addEventListener('load', () => setTimeout(restoreScrollPosition, 300));
 })();
 </script>
 
