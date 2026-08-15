@@ -200,6 +200,26 @@
   .page-reload-btn:disabled { opacity: 0.5; cursor: default; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .dark-mode-header-btn {
+    position: absolute;
+    top: 14px;
+    right: 94px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(246, 243, 236, 0.35);
+    background: rgba(246, 243, 236, 0.08);
+    color: #F5F2EF;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .dark-mode-header-btn:hover { background: rgba(246, 243, 236, 0.18); }
+
   .chef-mode-btn {
     position: absolute;
     top: 14px;
@@ -1789,6 +1809,7 @@
 
 <div class="wrap">
   <header>
+    <button type="button" id="dark-mode-toggle-btn" class="dark-mode-header-btn" title="Mode sombre" aria-label="Mode sombre">🌙</button>
     <button type="button" id="chef-mode-toggle" class="chef-mode-btn" title="Mode chef d'orchestre" aria-label="Mode chef d'orchestre">🔑</button>
     <button type="button" id="page-reload-btn" class="page-reload-btn" title="Actualiser le catalogue et la page" aria-label="Actualiser">↻</button>
     <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
@@ -1848,10 +1869,6 @@
         <button type="button" id="repertoire-toggle-btn" class="tools-zone-btn" title="Répertoire par thème">
           <span class="tools-zone-icon">🎺</span>
           <span class="tools-zone-text">Répertoire</span>
-        </button>
-        <button type="button" id="dark-mode-toggle-btn" class="tools-zone-btn" title="Mode sombre">
-          <span class="tools-zone-icon">🌙</span>
-          <span class="tools-zone-text">Mode sombre</span>
         </button>
       </div>
     </div>
@@ -2123,37 +2140,6 @@
   // Purement local à l'appareil (pas de mot de passe) : c'est un
   // confort d'affichage, pas une vraie protection.
   // -------------------------------------------------------------------
-  // -------------------------------------------------------------------
-  // Mode sombre : purement une préférence d'affichage locale à l'appareil
-  // (localStorage), appliquée via l'attribut data-theme sur <html>. Le
-  // choix initial est déjà posé tout en haut du <head> (avant ce script)
-  // pour éviter un flash clair→sombre au chargement — ici on ne fait que
-  // brancher le bouton et garder l'état synchronisé.
-  // -------------------------------------------------------------------
-  const DARK_MODE_STORAGE_KEY = 'partotheque-dark-mode';
-  let darkMode = document.documentElement.getAttribute('data-theme') === 'dark';
-
-  function applyDarkModeUI() {
-    if (!darkModeToggleBtn) return;
-    darkModeToggleBtn.classList.toggle('active', darkMode);
-    const icon = darkModeToggleBtn.querySelector('.tools-zone-icon');
-    const text = darkModeToggleBtn.querySelector('.tools-zone-text');
-    if (icon) icon.textContent = darkMode ? '☀️' : '🌙';
-    if (text) text.textContent = darkMode ? 'Mode clair' : 'Mode sombre';
-  }
-
-  if (darkModeToggleBtn) {
-    applyDarkModeUI();
-    darkModeToggleBtn.addEventListener('click', () => {
-      darkMode = !darkMode;
-      document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-      try { localStorage.setItem(DARK_MODE_STORAGE_KEY, darkMode ? '1' : '0'); }
-      catch (e) { /* non bloquant */ }
-      applyDarkModeUI();
-    });
-  }
-
-  // -------------------------------------------------------------------
   const CHEF_MODE_STORAGE_KEY = 'partotheque-chef-mode';
   let chefMode = false;
 
@@ -2276,6 +2262,34 @@
   const repertoireImportBtn           = document.getElementById('repertoire-import-btn');
   const repertoireImportInput         = document.getElementById('repertoire-import-input');
   const repertoireImportStatusEl      = document.getElementById('repertoire-import-status');
+
+  // -------------------------------------------------------------------
+  // Mode sombre : purement une préférence d'affichage locale à l'appareil
+  // (localStorage), appliquée via l'attribut data-theme sur <html>. Le
+  // choix initial est déjà posé tout en haut du <head> (avant ce script)
+  // pour éviter un flash clair→sombre au chargement — ici on ne fait que
+  // brancher le bouton et garder l'état synchronisé.
+  // -------------------------------------------------------------------
+  const DARK_MODE_STORAGE_KEY = 'partotheque-dark-mode';
+  let darkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  function applyDarkModeUI() {
+    if (!darkModeToggleBtn) return;
+    darkModeToggleBtn.classList.toggle('active', darkMode);
+    darkModeToggleBtn.textContent = darkMode ? '☀️' : '🌙';
+    darkModeToggleBtn.title = darkMode ? 'Mode clair' : 'Mode sombre';
+  }
+
+  if (darkModeToggleBtn) {
+    applyDarkModeUI();
+    darkModeToggleBtn.addEventListener('click', () => {
+      darkMode = !darkMode;
+      document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+      try { localStorage.setItem(DARK_MODE_STORAGE_KEY, darkMode ? '1' : '0'); }
+      catch (e) { /* non bloquant */ }
+      applyDarkModeUI();
+    });
+  }
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
   // l'appli : si un élément venait à manquer, on désactive juste la
