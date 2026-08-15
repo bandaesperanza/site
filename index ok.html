@@ -2,17 +2,6 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<script>
-  // Applique le thème mémorisé AVANT que la page ne s'affiche, pour éviter
-  // un flash clair→sombre au chargement. Doit rester le tout premier
-  // script du document.
-  try {
-    var storedTheme = localStorage.getItem('partotheque-dark-mode');
-    var wantsDark = storedTheme === '1' || (storedTheme === null &&
-      window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (wantsDark) document.documentElement.setAttribute('data-theme', 'dark');
-  } catch (e) { /* localStorage indisponible : on reste en thème clair par défaut */ }
-</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Partothèque — BANDA ESPERANZA</title>
 <link rel="manifest" href="./manifest.json">
@@ -87,48 +76,6 @@
     --gold: #D9574B;
   }
 
-  /* Mode sombre : on ne touche pas --focus ni --gold (déjà pensés pour
-     rester lisibles sur fond sombre, utilisés tels quels dans le header
-     qui est de toute façon toujours sombre) — seules les couleurs de
-     page/carte/texte changent. Les quelques endroits qui utilisaient
-     --focus comme couleur de TEXTE (pas comme fond) sont corrigés à part
-     un peu plus bas, sinon le violet foncé deviendrait illisible sur fond
-     sombre. */
-  [data-theme="dark"] {
-    --paper: #17141F;
-    --card: #211D30;
-    --ink: #F0ECE4;
-    --ink-soft: #A39DB8;
-    --rule: #362F4A;
-    --stamp: #E2685C;
-    --stamp-soft: #3A2530;
-  }
-
-  /* Quelques endroits utilisaient --focus (violet foncé) comme couleur de
-     TEXTE sur fond clair — illisible une fois le fond assombri. On les
-     bascule sur --gold (déjà pensé pour rester lisible sur fond sombre,
-     puisqu'utilisé tel quel dans le header qui est toujours sombre). */
-  [data-theme="dark"] .sync-row-btn { border-color: var(--gold); color: var(--gold); }
-  [data-theme="dark"] .sync-row-btn:hover { background: var(--gold); color: #17141F; }
-  [data-theme="dark"] .card-result .links a { color: var(--gold); }
-  [data-theme="dark"] .card-result .links a:hover { border-bottom-color: var(--gold); }
-  [data-theme="dark"] .metro-bpm-input:focus { border-bottom-color: var(--gold); }
-
-  /* Badges et bandeaux d'état : leurs couleurs pastel claires (vert,
-     bleu, ambre, rouge) tranchaient mal sur fond sombre — on les
-     remplace par des variantes plus sombres/saturées, même code couleur
-     (vert=prêt, bleu=nouveau, ambre=en cours, rouge=à revoir/erreur). */
-  [data-theme="dark"] .offline-badge { color: #6FDB9C; background: #1C3327; border-color: #2E4E3B; }
-  [data-theme="dark"] .status-badge.status-pret { color: #6FDB9C; background: #1C3327; border-color: #2E4E3B; }
-  [data-theme="dark"] .status-badge.status-nouveau { color: #8FB4F5; background: #1C2A42; border-color: #2E4568; }
-  [data-theme="dark"] .status-badge.status-repet { color: #F0C868; background: #3A2E12; border-color: #5C4A1E; }
-  [data-theme="dark"] .status-badge.status-a-revoir { color: #F09A8F; background: #3A211C; border-color: #5C332B; }
-  [data-theme="dark"] .error-state { color: #F09A8F; background: #3A211C; border-color: #5C332B; }
-  [data-theme="dark"] .quality-ok { color: #6FDB9C; background: #1C3327; border-color: #2E4E3B; }
-  [data-theme="dark"] .repertoire-import-status.success,
-  [data-theme="dark"] #backup-status.success { color: #6FDB9C; }
-  [data-theme="dark"] #backup-status.error { color: #F09A8F; }
-
   * { box-sizing: border-box; }
 
   body {
@@ -148,7 +95,7 @@
 
   header {
     background: linear-gradient(135deg, #2A2560 0%, #15122E 100%);
-    color: #F5F2EF;
+    color: var(--paper);
     padding: 16px 18px;
     border-radius: 10px;
     margin-bottom: 14px;
@@ -186,7 +133,7 @@
     border-radius: 50%;
     border: 1px solid rgba(246, 243, 236, 0.35);
     background: rgba(246, 243, 236, 0.08);
-    color: #F5F2EF;
+    color: var(--paper);
     font-size: 17px;
     line-height: 1;
     cursor: pointer;
@@ -200,26 +147,6 @@
   .page-reload-btn:disabled { opacity: 0.5; cursor: default; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .dark-mode-header-btn {
-    position: absolute;
-    top: 14px;
-    right: 94px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1px solid rgba(246, 243, 236, 0.35);
-    background: rgba(246, 243, 236, 0.08);
-    color: #F5F2EF;
-    font-size: 14px;
-    line-height: 1;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  .dark-mode-header-btn:hover { background: rgba(246, 243, 236, 0.18); }
-
   .chef-mode-btn {
     position: absolute;
     top: 14px;
@@ -229,7 +156,7 @@
     border-radius: 50%;
     border: 1px solid rgba(246, 243, 236, 0.35);
     background: rgba(246, 243, 236, 0.08);
-    color: #F5F2EF;
+    color: var(--paper);
     font-size: 15px;
     line-height: 1;
     cursor: pointer;
@@ -1057,7 +984,7 @@
     gap: 10px;
     padding: calc(14px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 14px calc(16px + env(safe-area-inset-left));
     background: var(--focus);
-    color: #F5F2EF;
+    color: var(--paper);
     flex-shrink: 0;
   }
   .repertoire-close-btn {
@@ -1066,7 +993,7 @@
     border-radius: 50%;
     border: 1px solid rgba(246, 243, 236, 0.35);
     background: rgba(246, 243, 236, 0.08);
-    color: #F5F2EF;
+    color: var(--paper);
     font-size: 15px;
     cursor: pointer;
     display: flex;
@@ -1243,7 +1170,7 @@
     font-size: 11px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #F5F2EF;
+    color: var(--paper);
     font-weight: 700;
     padding: 7px 10px;
     background: var(--focus);
@@ -1809,7 +1736,6 @@
 
 <div class="wrap">
   <header>
-    <button type="button" id="dark-mode-toggle-btn" class="dark-mode-header-btn" title="Mode sombre" aria-label="Mode sombre">🌙</button>
     <button type="button" id="chef-mode-toggle" class="chef-mode-btn" title="Mode chef d'orchestre" aria-label="Mode chef d'orchestre">🔑</button>
     <button type="button" id="page-reload-btn" class="page-reload-btn" title="Actualiser le catalogue et la page" aria-label="Actualiser">↻</button>
     <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
@@ -2246,7 +2172,6 @@
   const qualityRefreshBtn             = document.getElementById('quality-refresh-btn');
   const qualityDashboardEl            = document.getElementById('quality-dashboard');
   const repertoireToggleBtn           = document.getElementById('repertoire-toggle-btn');
-  const darkModeToggleBtn             = document.getElementById('dark-mode-toggle-btn');
   const repertoireOverlay             = document.getElementById('repertoire-overlay');
   const repertoireCloseBtn            = document.getElementById('repertoire-close-btn');
   const repertoireTabButtons          = Array.from(document.querySelectorAll('.repertoire-tab-btn'));
@@ -2262,34 +2187,6 @@
   const repertoireImportBtn           = document.getElementById('repertoire-import-btn');
   const repertoireImportInput         = document.getElementById('repertoire-import-input');
   const repertoireImportStatusEl      = document.getElementById('repertoire-import-status');
-
-  // -------------------------------------------------------------------
-  // Mode sombre : purement une préférence d'affichage locale à l'appareil
-  // (localStorage), appliquée via l'attribut data-theme sur <html>. Le
-  // choix initial est déjà posé tout en haut du <head> (avant ce script)
-  // pour éviter un flash clair→sombre au chargement — ici on ne fait que
-  // brancher le bouton et garder l'état synchronisé.
-  // -------------------------------------------------------------------
-  const DARK_MODE_STORAGE_KEY = 'partotheque-dark-mode';
-  let darkMode = document.documentElement.getAttribute('data-theme') === 'dark';
-
-  function applyDarkModeUI() {
-    if (!darkModeToggleBtn) return;
-    darkModeToggleBtn.classList.toggle('active', darkMode);
-    darkModeToggleBtn.textContent = darkMode ? '☀️' : '🌙';
-    darkModeToggleBtn.title = darkMode ? 'Mode clair' : 'Mode sombre';
-  }
-
-  if (darkModeToggleBtn) {
-    applyDarkModeUI();
-    darkModeToggleBtn.addEventListener('click', () => {
-      darkMode = !darkMode;
-      document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-      try { localStorage.setItem(DARK_MODE_STORAGE_KEY, darkMode ? '1' : '0'); }
-      catch (e) { /* non bloquant */ }
-      applyDarkModeUI();
-    });
-  }
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
   // l'appli : si un élément venait à manquer, on désactive juste la

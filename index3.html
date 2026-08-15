@@ -2,17 +2,6 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<script>
-  // Applique le thème mémorisé AVANT que la page ne s'affiche, pour éviter
-  // un flash clair→sombre au chargement. Doit rester le tout premier
-  // script du document.
-  try {
-    var storedTheme = localStorage.getItem('partotheque-dark-mode');
-    var wantsDark = storedTheme === '1' || (storedTheme === null &&
-      window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (wantsDark) document.documentElement.setAttribute('data-theme', 'dark');
-  } catch (e) { /* localStorage indisponible : on reste en thème clair par défaut */ }
-</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Partothèque — BANDA ESPERANZA</title>
 <link rel="manifest" href="./manifest.json">
@@ -87,48 +76,6 @@
     --gold: #D9574B;
   }
 
-  /* Mode sombre : on ne touche pas --focus ni --gold (déjà pensés pour
-     rester lisibles sur fond sombre, utilisés tels quels dans le header
-     qui est de toute façon toujours sombre) — seules les couleurs de
-     page/carte/texte changent. Les quelques endroits qui utilisaient
-     --focus comme couleur de TEXTE (pas comme fond) sont corrigés à part
-     un peu plus bas, sinon le violet foncé deviendrait illisible sur fond
-     sombre. */
-  [data-theme="dark"] {
-    --paper: #17141F;
-    --card: #211D30;
-    --ink: #F0ECE4;
-    --ink-soft: #A39DB8;
-    --rule: #362F4A;
-    --stamp: #E2685C;
-    --stamp-soft: #3A2530;
-  }
-
-  /* Quelques endroits utilisaient --focus (violet foncé) comme couleur de
-     TEXTE sur fond clair — illisible une fois le fond assombri. On les
-     bascule sur --gold (déjà pensé pour rester lisible sur fond sombre,
-     puisqu'utilisé tel quel dans le header qui est toujours sombre). */
-  [data-theme="dark"] .sync-row-btn { border-color: var(--gold); color: var(--gold); }
-  [data-theme="dark"] .sync-row-btn:hover { background: var(--gold); color: #17141F; }
-  [data-theme="dark"] .card-result .links a { color: var(--gold); }
-  [data-theme="dark"] .card-result .links a:hover { border-bottom-color: var(--gold); }
-  [data-theme="dark"] .metro-bpm-input:focus { border-bottom-color: var(--gold); }
-
-  /* Badges et bandeaux d'état : leurs couleurs pastel claires (vert,
-     bleu, ambre, rouge) tranchaient mal sur fond sombre — on les
-     remplace par des variantes plus sombres/saturées, même code couleur
-     (vert=prêt, bleu=nouveau, ambre=en cours, rouge=à revoir/erreur). */
-  [data-theme="dark"] .offline-badge { color: #6FDB9C; background: #1C3327; border-color: #2E4E3B; }
-  [data-theme="dark"] .status-badge.status-pret { color: #6FDB9C; background: #1C3327; border-color: #2E4E3B; }
-  [data-theme="dark"] .status-badge.status-nouveau { color: #8FB4F5; background: #1C2A42; border-color: #2E4568; }
-  [data-theme="dark"] .status-badge.status-repet { color: #F0C868; background: #3A2E12; border-color: #5C4A1E; }
-  [data-theme="dark"] .status-badge.status-a-revoir { color: #F09A8F; background: #3A211C; border-color: #5C332B; }
-  [data-theme="dark"] .error-state { color: #F09A8F; background: #3A211C; border-color: #5C332B; }
-  [data-theme="dark"] .quality-ok { color: #6FDB9C; background: #1C3327; border-color: #2E4E3B; }
-  [data-theme="dark"] .repertoire-import-status.success,
-  [data-theme="dark"] #backup-status.success { color: #6FDB9C; }
-  [data-theme="dark"] #backup-status.error { color: #F09A8F; }
-
   * { box-sizing: border-box; }
 
   body {
@@ -143,15 +90,15 @@
   }
 
   .wrap {
-    padding: 58px 24px 80px;
+    padding: 48px 24px 80px;
   }
 
   header {
     background: linear-gradient(135deg, #2A2560 0%, #15122E 100%);
-    color: #F5F2EF;
-    padding: 16px 18px;
+    color: var(--paper);
+    padding: 36px 32px 30px;
     border-radius: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 28px;
     position: relative;
     overflow: hidden;
   }
@@ -160,33 +107,34 @@
     content: '𝄞';
     position: absolute;
     right: -10px;
-    top: -22px;
-    font-size: 110px;
+    top: -30px;
+    font-size: 180px;
     line-height: 1;
-    color: rgba(246, 243, 236, 0.05);
+    color: rgba(246, 243, 236, 0.06);
     font-family: serif;
     pointer-events: none;
   }
 
   .brand-mark {
     display: block;
-    width: 36px;
-    height: 36px;
+    width: 54px;
+    height: 54px;
     border-radius: 50%;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    margin-bottom: 14px;
+    position: relative;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   }
 
   .page-reload-btn {
     position: absolute;
-    top: 14px;
-    right: 14px;
-    width: 32px;
-    height: 32px;
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     border: 1px solid rgba(246, 243, 236, 0.35);
     background: rgba(246, 243, 236, 0.08);
-    color: #F5F2EF;
+    color: var(--paper);
     font-size: 17px;
     line-height: 1;
     cursor: pointer;
@@ -200,36 +148,16 @@
   .page-reload-btn:disabled { opacity: 0.5; cursor: default; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .dark-mode-header-btn {
-    position: absolute;
-    top: 14px;
-    right: 94px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1px solid rgba(246, 243, 236, 0.35);
-    background: rgba(246, 243, 236, 0.08);
-    color: #F5F2EF;
-    font-size: 14px;
-    line-height: 1;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  .dark-mode-header-btn:hover { background: rgba(246, 243, 236, 0.18); }
-
   .chef-mode-btn {
     position: absolute;
-    top: 14px;
-    right: 54px;
-    width: 32px;
-    height: 32px;
+    top: 16px;
+    right: 58px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     border: 1px solid rgba(246, 243, 236, 0.35);
     background: rgba(246, 243, 236, 0.08);
-    color: #F5F2EF;
+    color: var(--paper);
     font-size: 15px;
     line-height: 1;
     cursor: pointer;
@@ -247,43 +175,49 @@
 
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.15em;
+    font-size: 11px;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--gold);
-    line-height: 1;
-    margin-bottom: 6px;
+    margin-bottom: 10px;
     position: relative;
   }
 
   h1 {
     font-family: 'Fraunces', serif;
     font-weight: 700;
-    font-size: 25px;
-    margin: 0 0 12px;
+    font-size: 34px;
+    margin: 0 0 8px;
     letter-spacing: 0.01em;
     text-transform: uppercase;
-    line-height: 1.15;
     position: relative;
   }
-  .header-meta {
+
+  .sub {
+    color: rgba(246, 243, 236, 0.72);
+    font-size: 14px;
+    line-height: 1.5;
     position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin-top: 10px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 8px;
-    letter-spacing: 0.02em;
+    max-width: 46ch;
   }
 
   .net-status {
+    position: relative;
+    margin-top: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
     color: var(--gold);
+    min-height: 14px;
   }
-  .net-status:empty { display: none; }
 
   .file-modified {
-    color: rgba(246, 243, 236, 0.45);
+    position: relative;
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    color: rgba(246, 243, 236, 0.5);
   }
 
   /* --- Setup card ------------------------------------------------------ */
@@ -680,8 +614,8 @@
     border: 1px solid var(--rule);
     border-radius: 8px;
     background: var(--card);
-    padding: 10px 14px;
-    margin-bottom: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
   }
   .filter-zone-label {
     font-family: 'IBM Plex Mono', monospace;
@@ -689,12 +623,12 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-soft);
-    margin-bottom: 6px;
+    margin-bottom: 10px;
   }
   .filter-zone-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
   }
   .filter-zone-empty {
     font-family: 'Inter', sans-serif;
@@ -702,19 +636,12 @@
     color: var(--ink);
   }
 
-  .filter-zone-hint {
-    text-transform: none;
-    letter-spacing: normal;
-    font-weight: 400;
-    opacity: 0.75;
-  }
-
   .tools-zone {
     border: 1px solid var(--rule);
     border-radius: 8px;
     background: var(--card);
-    padding: 10px 14px;
-    margin-bottom: 10px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
   }
   .tools-zone-label {
     font-family: 'IBM Plex Mono', monospace;
@@ -722,12 +649,12 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-soft);
-    margin-bottom: 6px;
+    margin-bottom: 10px;
   }
   .tools-zone-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
   }
   .tools-zone-btn {
     display: flex;
@@ -742,7 +669,7 @@
     background: var(--paper);
     border: 1px solid var(--rule);
     border-radius: 8px;
-    padding: 9px 14px;
+    padding: 12px 14px;
     cursor: pointer;
   }
   .tools-zone-icon { font-size: 18px; line-height: 1; }
@@ -1057,7 +984,7 @@
     gap: 10px;
     padding: calc(14px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 14px calc(16px + env(safe-area-inset-left));
     background: var(--focus);
-    color: #F5F2EF;
+    color: var(--paper);
     flex-shrink: 0;
   }
   .repertoire-close-btn {
@@ -1066,7 +993,7 @@
     border-radius: 50%;
     border: 1px solid rgba(246, 243, 236, 0.35);
     background: rgba(246, 243, 236, 0.08);
-    color: #F5F2EF;
+    color: var(--paper);
     font-size: 15px;
     cursor: pointer;
     display: flex;
@@ -1243,7 +1170,7 @@
     font-size: 11px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #F5F2EF;
+    color: var(--paper);
     font-weight: 700;
     padding: 7px 10px;
     background: var(--focus);
@@ -1809,17 +1736,15 @@
 
 <div class="wrap">
   <header>
-    <button type="button" id="dark-mode-toggle-btn" class="dark-mode-header-btn" title="Mode sombre" aria-label="Mode sombre">🌙</button>
     <button type="button" id="chef-mode-toggle" class="chef-mode-btn" title="Mode chef d'orchestre" aria-label="Mode chef d'orchestre">🔑</button>
     <button type="button" id="page-reload-btn" class="page-reload-btn" title="Actualiser le catalogue et la page" aria-label="Actualiser">↻</button>
     <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
     <div class="eyebrow">Partothèque</div>
     <h1>Banda Esperanza</h1>
-    <div class="header-meta">
-      <span class="net-status" id="net-status"></span>
-      <span class="file-modified" id="file-modified"></span>
-      <span class="file-modified" id="catalog-cache-info"></span>
-    </div>
+    <div class="sub">Choisir son instrument et taper le nom de la partition.</div>
+    <div class="net-status" id="net-status"></div>
+    <div class="file-modified" id="file-modified"></div>
+    <div class="file-modified" id="catalog-cache-info"></div>
   </header>
 
   <!-- Écran d'erreur (visible seulement si catalogue.json est introuvable) -->
@@ -1861,10 +1786,6 @@
         <button type="button" id="quality-toggle-btn" class="tools-zone-btn hidden" title="Tableau de bord qualité de la partothèque">
           <span class="tools-zone-icon">🔎</span>
           <span class="tools-zone-text">Qualité</span>
-        </button>
-        <button type="button" id="live-broadcast-toggle-btn" class="tools-zone-btn hidden" title="Activer le suivi chef pour tous les musiciens">
-          <span class="tools-zone-icon">📡</span>
-          <span class="tools-zone-text">Diffuser</span>
         </button>
         <button type="button" id="repertoire-toggle-btn" class="tools-zone-btn" title="Répertoire par thème">
           <span class="tools-zone-icon">🎺</span>
@@ -1955,7 +1876,7 @@
     </div>
 
     <div class="filter-zone" id="instrument-zone">
-      <div class="filter-zone-label">Instrument <span class="filter-zone-hint">(plusieurs possibles)</span></div>
+      <div class="filter-zone-label">Instrument</div>
       <div class="filter-zone-row" id="filter-row"></div>
     </div>
 
@@ -2128,7 +2049,7 @@
   // appareil) pour rouvrir l'app directement dessus la fois suivante,
   // au lieu de repartir sur "Tous" à chaque lancement.
   const INSTRUMENT_STORAGE_KEY = 'partotheque-instrument';
-  let activeFilterIds = new Set(['tous']); // plusieurs pupitres possibles ; 'tous' seul = tout afficher
+  let activeFilterId = 'tous';
   let fileIndex = null;
   let basePath = 'partitions';
 
@@ -2211,7 +2132,6 @@
   const playlistAdminSaveBtn          = document.getElementById('playlist-admin-save-btn');
   const playlistAdminCancelBtn        = document.getElementById('playlist-admin-cancel-btn');
   const liveFollowToggleBtn           = document.getElementById('live-follow-toggle-btn');
-  const liveBroadcastToggleBtn        = document.getElementById('live-broadcast-toggle-btn');
   const liveBanner                    = document.getElementById('live-banner');
   const liveBannerLabel               = document.getElementById('live-banner-label');
   const liveBannerOpenBtn             = document.getElementById('live-banner-open-btn');
@@ -2246,7 +2166,6 @@
   const qualityRefreshBtn             = document.getElementById('quality-refresh-btn');
   const qualityDashboardEl            = document.getElementById('quality-dashboard');
   const repertoireToggleBtn           = document.getElementById('repertoire-toggle-btn');
-  const darkModeToggleBtn             = document.getElementById('dark-mode-toggle-btn');
   const repertoireOverlay             = document.getElementById('repertoire-overlay');
   const repertoireCloseBtn            = document.getElementById('repertoire-close-btn');
   const repertoireTabButtons          = Array.from(document.querySelectorAll('.repertoire-tab-btn'));
@@ -2262,34 +2181,6 @@
   const repertoireImportBtn           = document.getElementById('repertoire-import-btn');
   const repertoireImportInput         = document.getElementById('repertoire-import-input');
   const repertoireImportStatusEl      = document.getElementById('repertoire-import-status');
-
-  // -------------------------------------------------------------------
-  // Mode sombre : purement une préférence d'affichage locale à l'appareil
-  // (localStorage), appliquée via l'attribut data-theme sur <html>. Le
-  // choix initial est déjà posé tout en haut du <head> (avant ce script)
-  // pour éviter un flash clair→sombre au chargement — ici on ne fait que
-  // brancher le bouton et garder l'état synchronisé.
-  // -------------------------------------------------------------------
-  const DARK_MODE_STORAGE_KEY = 'partotheque-dark-mode';
-  let darkMode = document.documentElement.getAttribute('data-theme') === 'dark';
-
-  function applyDarkModeUI() {
-    if (!darkModeToggleBtn) return;
-    darkModeToggleBtn.classList.toggle('active', darkMode);
-    darkModeToggleBtn.textContent = darkMode ? '☀️' : '🌙';
-    darkModeToggleBtn.title = darkMode ? 'Mode clair' : 'Mode sombre';
-  }
-
-  if (darkModeToggleBtn) {
-    applyDarkModeUI();
-    darkModeToggleBtn.addEventListener('click', () => {
-      darkMode = !darkMode;
-      document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-      try { localStorage.setItem(DARK_MODE_STORAGE_KEY, darkMode ? '1' : '0'); }
-      catch (e) { /* non bloquant */ }
-      applyDarkModeUI();
-    });
-  }
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
   // l'appli : si un élément venait à manquer, on désactive juste la
@@ -3367,8 +3258,7 @@
   // pour l'ouvrir au même endroit — et si c'est déjà le même PDF ouvert
   // chez eux, la page se tourne toute seule tant qu'ils restent dessus.
   // -------------------------------------------------------------------
-  let liveFollowing = false;          // ancien bouton de suivi local, conservé pour compatibilité mais masqué
-  let liveBroadcastMode = false;      // mode chef : diffuse automatiquement le morceau/page ouvert depuis le bouton Outils
+  let liveFollowing = false;          // "Suivre le chef" activé sur cet appareil
   let liveCurrentBroadcast = null;    // dernier état connu du direct (doc Firestore)
   let liveBannerDismissedKey = null;  // état ignoré volontairement (croix), pour ne pas le reproposer tant qu'il ne change pas
 
@@ -3417,7 +3307,7 @@
   // prochain changement de page du chef).
   function handleLiveUpdate(data) {
     liveCurrentBroadcast = data;
-    if (!liveReady) return;
+    if (!liveReady || !liveFollowing) return;
 
     if (!data || !data.active) {
       hideLiveBanner();
@@ -3425,31 +3315,27 @@
       return;
     }
 
-    // Le suivi est maintenant global : aucun musicien n'a besoin d'activer
-    // un mode local. Dès que le chef diffuse, la bannière reste visible.
-    if (liveBroadcastMode && chefMode) return; // le chef ne s'auto-affiche pas la bannière
-
-    // Si un musicien a déjà ouvert exactement le PDF diffusé, on garde le
-    // confort du changement de page automatique. Sinon, la bannière sert
-    // uniquement à filtrer le morceau, pour laisser choisir la bonne partie.
+    // Ce téléphone est déjà ouvert sur exactement le morceau diffusé, et
+    // le musicien a tapé "Ouvrir" depuis la bannière pour le suivre : on
+    // tourne la page toute seule, sans réafficher la bannière.
     if (pdfFollowingLive && pdfCurrentFileKey === data.fileKey &&
         !pdfViewerOverlay.classList.contains('hidden')) {
       if (pdfPageNum !== data.page && pdfDoc && data.page >= 1 && data.page <= pdfDoc.numPages) {
         pdfPageNum = data.page;
         renderPdfPage();
       }
-      showLiveBanner(data);
+      hideLiveBanner();
       return;
     }
 
+    const key = liveStateKey(data);
+    if (key === liveBannerDismissedKey) return; // ignoré volontairement, on ne le représente pas tant que ça ne change pas
     showLiveBanner(data);
   }
 
   function showLiveBanner(data) {
     if (!liveReady) return;
-    const label = data.songName || data.fileName || 'Morceau diffusé';
-    liveBannerLabel.textContent = `📡 Chef : ${label} — appuie pour filtrer`;
-    if (liveBannerCloseBtn) liveBannerCloseBtn.classList.add('hidden');
+    liveBannerLabel.textContent = `${data.songName || data.fileName} — chef page ${data.page}`;
     liveBanner.classList.remove('hidden');
   }
 
@@ -3458,31 +3344,17 @@
     liveBanner.classList.add('hidden');
   }
 
-  function filterResultsFromLiveBroadcast(data) {
-    if (!data) return;
-    const folder = (data.folderPath && data.folderPath.length) ? data.folderPath[data.folderPath.length - 1] : '';
-    const term = folder || data.songName || data.fileName || '';
-    if (!term) return;
-    searchInput.value = term;
-    updateSearchClearBtn();
-    applyFilters(term);
-    statusLine.textContent = `Suivi chef : « ${term} » — choisis la partition à ouvrir.`;
-    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
-  }
-
   // Les musiciens n'ont pas tous la même partition qu'un morceau donné
   // (chacun sa partie). Cette fonction retrouve, dans le dossier diffusé
   // par le chef, la partition qui correspond au pupitre actuellement
   // sélectionné par CE musicien (même logique que le filtre de
   // recherche) — pas celle que le chef regarde lui-même. Retourne null
-  // si le choix est ambigu (aucun pupitre précis, "Tous", ou plusieurs à
-  // la fois), ou si rien ne correspond dans ce dossier.
+  // si aucun pupitre n'est choisi ("Tous" ou "Conducteurs"), ou si rien
+  // ne correspond dans ce dossier.
   function findMyPartInFolder(folderPath) {
     if (!fileIndex || !folderPath || !folderPath.length) return null;
-    const specificIds = Array.from(activeFilterIds).filter(id => id !== 'tous');
-    if (specificIds.length !== 1) return null;
-    const filter = FILTERS.find(f => f.id === specificIds[0]);
-    if (!filter || filter.startsWith) return null;
+    const filter = FILTERS.find(f => f.id === activeFilterId);
+    if (!filter || filter.id === 'tous' || filter.startsWith) return null;
     const folderStr = folderPath.join(' / ');
     const candidates = fileIndex.filter(f => (f.folderPath || []).join(' / ') === folderStr);
     return candidates.find(f => matchesInstrument(f, filter)) || null;
@@ -3495,7 +3367,7 @@
       return;
     }
     playlistRow.innerHTML = [
-      `<button type="button" class="filter-btn playlist-btn${activePlaylistId === 'toutes' ? ' active' : ''}" data-playlist-id="toutes">Toutes</button>`,
+      `<button type="button" class="filter-btn playlist-btn${activePlaylistId === 'toutes' ? ' active' : ''}" data-playlist-id="toutes">Toutes les partitions</button>`,
       ...playlists.map(p => `<button type="button" class="filter-btn playlist-btn${p.id === activePlaylistId ? ' active' : ''}" data-playlist-id="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`)
     ].join('');
     playlistRow.querySelectorAll('.playlist-btn').forEach(btn => {
@@ -3706,42 +3578,52 @@
   }
 
   if (liveReady) {
-    // L'ancien bouton "Suivre le chef" reste volontairement masqué :
-    // le suivi est maintenant imposé dès que le chef active Diffuser.
-    if (liveFollowToggleBtn) liveFollowToggleBtn.classList.add('hidden');
-
-    if (liveBroadcastToggleBtn) {
-      liveBroadcastToggleBtn.addEventListener('click', async () => {
-        if (!chefMode) return;
-        liveBroadcastMode = !liveBroadcastMode;
-        liveBroadcastToggleBtn.classList.toggle('active', liveBroadcastMode);
-        liveBroadcastToggleBtn.querySelector('.tools-zone-text').textContent = liveBroadcastMode ? 'Diffusion active' : 'Diffuser';
-
-        if (liveBroadcastMode) {
-          // Si une partition est déjà ouverte côté chef, elle devient tout
-          // de suite le morceau diffusé. Sinon, la prochaine partition
-          // ouverte sera diffusée automatiquement.
-          if (pdfCurrentFileKey && pdfDoc) {
-            pdfBroadcasting = true;
-            await broadcastLiveState(pdfCurrentFileKey, pdfDownloadName, pdfCurrentFolderPath, pdfPageNum);
-          } else {
-            alert('Diffusion activée. Ouvre maintenant une partition : elle sera proposée aux musiciens.');
-          }
-        } else {
-          pdfBroadcasting = false;
-          await stopBroadcasting();
-        }
-      });
-    }
-
-    liveBannerCloseBtn.addEventListener('click', () => {
-      // La bannière reste permanente tant que le chef diffuse. On ne fait
-      // que relancer l'affichage du direct en cours si besoin.
-      handleLiveUpdate(liveCurrentBroadcast);
+    liveFollowToggleBtn.addEventListener('click', () => {
+      liveFollowing = !liveFollowing;
+      liveFollowToggleBtn.classList.toggle('active', liveFollowing);
+      liveFollowToggleBtn.textContent = liveFollowing ? '📡 Suivi du chef actif' : '📡 Suivre le chef';
+      if (liveFollowing) {
+        // Un direct est peut-être déjà en cours : on l'affiche tout de
+        // suite plutôt que d'attendre le prochain changement de page.
+        handleLiveUpdate(liveCurrentBroadcast);
+      } else {
+        hideLiveBanner();
+        liveBannerDismissedKey = null;
+      }
     });
 
-    liveBannerOpenBtn.addEventListener('click', () => {
-      filterResultsFromLiveBroadcast(liveCurrentBroadcast);
+    liveBannerCloseBtn.addEventListener('click', () => {
+      liveBannerDismissedKey = liveStateKey(liveCurrentBroadcast);
+      hideLiveBanner();
+    });
+
+    liveBannerOpenBtn.addEventListener('click', async () => {
+      if (!liveCurrentBroadcast) return;
+      const data = liveCurrentBroadcast;
+      hideLiveBanner();
+
+      // On ouvre en priorité MA propre partie pour ce morceau (mon
+      // pupitre choisi), pas forcément le fichier exact que le chef
+      // regarde — un tromboniste qui suit un chef à la trompette doit
+      // voir sa partition de trombone, pas celle de trompette.
+      const myPart = findMyPartInFolder(data.folderPath);
+      const target = myPart
+        ? { id: fileKey(myPart), name: myPart.name }
+        : { id: data.fileKey, name: data.fileName };
+
+      await openFileByKey(target.id, target.name);
+
+      // Le suivi automatique des tours de page ne fonctionne que si le
+      // fichier ouvert est exactement celui diffusé par le chef — les
+      // numéros de page d'une partie différente ne correspondent pas
+      // aux siens, donc on ne tente pas de deviner.
+      if (pdfDoc && pdfCurrentFileKey === data.fileKey) {
+        pdfFollowingLive = true;
+        if (data.page && data.page !== pdfPageNum && data.page >= 1 && data.page <= pdfDoc.numPages) {
+          pdfPageNum = data.page;
+          await renderPdfPage();
+        }
+      }
     });
   }
 
@@ -3997,53 +3879,31 @@
   function loadStoredInstrument() {
     try {
       const stored = localStorage.getItem(INSTRUMENT_STORAGE_KEY);
-      if (!stored) return null;
-      // Ancien format : une seule valeur texte (ex. "trompette"). Nouveau
-      // format : un tableau JSON (plusieurs pupitres possibles). On garde
-      // les deux pour ne pas perdre le choix déjà mémorisé sur l'appareil.
-      let ids;
-      try { ids = JSON.parse(stored); } catch (e) { ids = [stored]; }
-      if (!Array.isArray(ids)) ids = [ids];
-      // On ignore les valeurs qui ne correspondent plus à aucun filtre
-      // actuel (ex. si la liste des pupitres a changé depuis), pour ne
-      // jamais se retrouver bloqué sur un filtre fantôme sans résultat.
-      const valid = ids.filter(id => id === 'tous' || FILTERS.some(f => f.id === id));
-      return valid.length ? valid : null;
+      // On ignore une valeur qui ne correspond plus à aucun filtre actuel
+      // (ex. si la liste des pupitres a changé depuis), pour ne jamais
+      // se retrouver bloqué sur un filtre fantôme sans résultat.
+      return stored && FILTERS.some(f => f.id === stored) ? stored : null;
     } catch (e) {
       return null; // localStorage indisponible (navigation privée...) : tant pis, pas bloquant
     }
   }
 
-  function storeInstrument(ids) {
+  function storeInstrument(id) {
     try {
-      localStorage.setItem(INSTRUMENT_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+      localStorage.setItem(INSTRUMENT_STORAGE_KEY, id);
     } catch (e) { /* non bloquant */ }
   }
 
   function renderFilterButtons() {
     filterRow.innerHTML = FILTERS.map(f => `
-      <button type="button" class="filter-btn${activeFilterIds.has(f.id) ? ' active' : ''}" data-filter-id="${f.id}">${f.label}</button>
+      <button type="button" class="filter-btn${f.id === activeFilterId ? ' active' : ''}" data-filter-id="${f.id}">${f.label}</button>
     `).join('');
 
     filterRow.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const id = btn.dataset.filterId;
-        if (id === 'tous') {
-          // "Tous" est exclusif : le choisir désélectionne tout le reste.
-          activeFilterIds = new Set(['tous']);
-        } else {
-          activeFilterIds.delete('tous');
-          if (activeFilterIds.has(id)) {
-            activeFilterIds.delete(id);
-            // Plus aucun pupitre choisi : on retombe sur "Tous" plutôt que
-            // de laisser une sélection vide (qui n'afficherait plus rien).
-            if (activeFilterIds.size === 0) activeFilterIds.add('tous');
-          } else {
-            activeFilterIds.add(id);
-          }
-        }
-        storeInstrument(activeFilterIds);
-        filterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', activeFilterIds.has(b.dataset.filterId)));
+        activeFilterId = btn.dataset.filterId;
+        storeInstrument(activeFilterId);
+        filterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
         applyFilters(searchInput.value.trim());
       });
     });
@@ -4082,9 +3942,7 @@
     if (chefModeToggleBtn) chefModeToggleBtn.classList.toggle('active', chefMode);
     if (playlistAdminToggleBtn) playlistAdminToggleBtn.classList.toggle('hidden', !chefMode);
     if (qualityToggleBtn) qualityToggleBtn.classList.toggle('hidden', !chefMode);
-    if (liveBroadcastToggleBtn) liveBroadcastToggleBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
     if (!chefMode && qualityPanel) qualityPanel.classList.add('hidden');
-    if (!chefMode && liveBroadcastToggleBtn) liveBroadcastToggleBtn.classList.remove('active');
     if (repertoireImportBtn) repertoireImportBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
     renderStatusFilterButtons();
     if (repertoireReady && !repertoireOverlay.classList.contains('hidden')) renderRepertoireActiveTab();
@@ -4120,7 +3978,7 @@
     appScreen.classList.remove('hidden');
     updateNetStatus();
     const storedInstrument = loadStoredInstrument();
-    if (storedInstrument) activeFilterIds = new Set(storedInstrument);
+    if (storedInstrument) activeFilterId = storedInstrument;
     renderFilterButtons();
     chefMode = loadStoredChefMode();
     applyChefModeVisibility();
@@ -4134,7 +3992,7 @@
     subscribeToSorties();
     subscribeToRepertoire();
     if (liveReady && firebaseReady && fbDb) {
-      if (liveFollowToggleBtn) liveFollowToggleBtn.classList.add('hidden');
+      liveFollowToggleBtn.classList.remove('hidden');
       subscribeToLive();
     }
   }
@@ -4315,26 +4173,18 @@
     return filter.keywords.some(k => hay.includes(normalize(k)));
   }
 
-  // Vrai si le fichier correspond à AU MOINS UN des pupitres cochés
-  // (plusieurs instruments peuvent être sélectionnés en même temps).
-  function matchesAnyInstrument(f, filterIds) {
-    if (!filterIds || filterIds.has('tous')) return true;
-    const activeFiltersList = FILTERS.filter(flt => filterIds.has(flt.id));
-    if (!activeFiltersList.length) return true;
-    return activeFiltersList.some(flt => matchesInstrument(f, flt));
-  }
-
   function applyFilters(term) {
     if (!fileIndex) return;
 
     const activePlaylist = playlists.find(p => p.id === activePlaylistId) || null;
     const statusFilterActive = activeStatusFilterId && activeStatusFilterId !== 'tous';
 
-    if (activeFilterIds.has('tous') && !term && !activePlaylist && !statusFilterActive) {
+    if (activeFilterId === 'tous' && !term && !activePlaylist && !statusFilterActive) {
       renderResults([], term, true);
       return;
     }
 
+    const activeFilter = FILTERS.find(f => f.id === activeFilterId);
     const normTerm = term ? normalize(term) : '';
 
     const files = fileIndex.filter(f => {
@@ -4343,7 +4193,7 @@
       const normPath = normalize((f.folderPath || []).join(' '));
       const haystack = normName + ' ' + normPath;
       if (normTerm && !haystack.includes(normTerm)) return false;
-      if (!matchesAnyInstrument(f, activeFilterIds)) return false;
+      if (!matchesInstrument(f, activeFilter)) return false;
       if (statusFilterActive && songStatusFor(songStatusFolderKey(f)) !== activeStatusFilterId) return false;
       return true;
     });
@@ -5739,7 +5589,7 @@
     pdfDownloadName = name || 'partition.pdf';
     pdfCurrentFileKey = id || null;
     pdfCurrentFolderPath = folderPath || [];
-    pdfBroadcasting = !!(liveBroadcastMode && chefMode);
+    pdfBroadcasting = false;
     pdfFollowingLive = false;
     pdfRotation = 0;
     pdfPageNum = 1;
@@ -5765,10 +5615,8 @@
     document.body.style.overflow = 'hidden';
     requestPdfWakeLock();
     if (pdfLiveBroadcastBtn) {
-      // Le pilotage de la diffusion se fait maintenant depuis le bouton
-      // Outils > Diffuser, plus depuis la barre du lecteur PDF.
-      pdfLiveBroadcastBtn.classList.add('hidden');
-      pdfLiveBroadcastBtn.classList.toggle('active', pdfBroadcasting);
+      pdfLiveBroadcastBtn.classList.toggle('hidden', !(firebaseReady && fbDb && pdfCurrentFileKey));
+      pdfLiveBroadcastBtn.classList.remove('active');
     }
 
     if (typeof pdfjsLib === 'undefined') {
@@ -6417,35 +6265,7 @@
     applyFilters(searchInput.value.trim());
   }
 
-  // Mémorise la position de défilement pour la restaurer si on revient sur
-  // l'appli (changement d'appli puis retour, ou réouverture) — sinon on
-  // retombait à chaque fois tout en haut sur les pavés Outils/Playlist, au
-  // lieu de rester sur la recherche/les résultats où on s'était arrêté.
-  const SCROLL_STORAGE_KEY = 'partotheque-scroll-y';
-  let scrollSaveTimer = null;
-
-  function restoreScrollPosition() {
-    try {
-      const y = Number(sessionStorage.getItem(SCROLL_STORAGE_KEY));
-      if (Number.isFinite(y) && y > 0) {
-        requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'auto' }));
-      }
-    } catch (e) { /* non bloquant */ }
-  }
-
-  window.addEventListener('scroll', () => {
-    clearTimeout(scrollSaveTimer);
-    scrollSaveTimer = setTimeout(() => {
-      try { sessionStorage.setItem(SCROLL_STORAGE_KEY, String(window.scrollY)); } catch (e) { /* non bloquant */ }
-    }, 150);
-  }, { passive: true });
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') restoreScrollPosition();
-  });
-
   window.addEventListener('load', init);
-  window.addEventListener('load', () => setTimeout(restoreScrollPosition, 300));
 })();
 </script>
 
