@@ -90,7 +90,7 @@
   }
 
   .wrap {
-    padding: max(48px, calc(env(safe-area-inset-top) + 20px)) 24px 80px;
+    padding: 52px 24px 80px;
   }
 
   header {
@@ -627,6 +627,13 @@
     font-family: 'Inter', sans-serif;
     font-size: 14px;
     color: var(--ink);
+  }
+
+  .filter-zone-hint {
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 400;
+    opacity: 0.75;
   }
 
   .tools-zone {
@@ -1874,7 +1881,7 @@
     </div>
 
     <div class="filter-zone" id="instrument-zone">
-      <div class="filter-zone-label">Instrument</div>
+      <div class="filter-zone-label">Instrument <span class="filter-zone-hint">(plusieurs possibles)</span></div>
       <div class="filter-zone-row" id="filter-row"></div>
     </div>
 
@@ -2047,7 +2054,7 @@
   // appareil) pour rouvrir l'app directement dessus la fois suivante,
   // au lieu de repartir sur "Tous" à chaque lancement.
   const INSTRUMENT_STORAGE_KEY = 'partotheque-instrument';
-  let activeFilterId = 'tous';
+  let activeFilterIds = new Set(['tous']); // plusieurs pupitres possibles ; 'tous' seul = tout afficher
   let fileIndex = null;
   let basePath = 'partitions';
 
@@ -3365,12 +3372,14 @@
   // par le chef, la partition qui correspond au pupitre actuellement
   // sélectionné par CE musicien (même logique que le filtre de
   // recherche) — pas celle que le chef regarde lui-même. Retourne null
-  // si aucun pupitre n'est choisi ("Tous" ou "Conducteurs"), ou si rien
-  // ne correspond dans ce dossier.
+  // si le choix est ambigu (aucun pupitre précis, "Tous", ou plusieurs à
+  // la fois), ou si rien ne correspond dans ce dossier.
   function findMyPartInFolder(folderPath) {
     if (!fileIndex || !folderPath || !folderPath.length) return null;
-    const filter = FILTERS.find(f => f.id === activeFilterId);
-    if (!filter || filter.id === 'tous' || filter.startsWith) return null;
+    const specificIds = Array.from(activeFilterIds).filter(id => id !== 'tous');
+    if (specificIds.length !== 1) return null;
+    const filter = FILTERS.find(f => f.id === specificIds[0]);
+    if (!filter || filter.startsWith) return null;
     const folderStr = folderPath.join(' / ');
     const candidates = fileIndex.filter(f => (f.folderPath || []).join(' / ') === folderStr);
     return candidates.find(f => matchesInstrument(f, filter)) || null;
@@ -3383,7 +3392,7 @@
       return;
     }
     playlistRow.innerHTML = [
-      `<button type="button" class="filter-btn playlist-btn${activePlaylistId === 'toutes' ? ' active' : ''}" data-playlist-id="toutes">Toutes les partitions</button>`,
+      `<button type="button" class="filter-btn playlist-btn${activePlaylistId === 'toutes' ? ' active' : ''}" data-playlist-id="toutes">Toutes</button>`,
       ...playlists.map(p => `<button type="button" class="filter-btn playlist-btn${p.id === activePlaylistId ? ' active' : ''}" data-playlist-id="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`)
     ].join('');
     playlistRow.querySelectorAll('.playlist-btn').forEach(btn => {
@@ -3885,31 +3894,53 @@
   function loadStoredInstrument() {
     try {
       const stored = localStorage.getItem(INSTRUMENT_STORAGE_KEY);
-      // On ignore une valeur qui ne correspond plus à aucun filtre actuel
-      // (ex. si la liste des pupitres a changé depuis), pour ne jamais
-      // se retrouver bloqué sur un filtre fantôme sans résultat.
-      return stored && FILTERS.some(f => f.id === stored) ? stored : null;
+      if (!stored) return null;
+      // Ancien format : une seule valeur texte (ex. "trompette"). Nouveau
+      // format : un tableau JSON (plusieurs pupitres possibles). On garde
+      // les deux pour ne pas perdre le choix déjà mémorisé sur l'appareil.
+      let ids;
+      try { ids = JSON.parse(stored); } catch (e) { ids = [stored]; }
+      if (!Array.isArray(ids)) ids = [ids];
+      // On ignore les valeurs qui ne correspondent plus à aucun filtre
+      // actuel (ex. si la liste des pupitres a changé depuis), pour ne
+      // jamais se retrouver bloqué sur un filtre fantôme sans résultat.
+      const valid = ids.filter(id => id === 'tous' || FILTERS.some(f => f.id === id));
+      return valid.length ? valid : null;
     } catch (e) {
       return null; // localStorage indisponible (navigation privée...) : tant pis, pas bloquant
     }
   }
 
-  function storeInstrument(id) {
+  function storeInstrument(ids) {
     try {
-      localStorage.setItem(INSTRUMENT_STORAGE_KEY, id);
+      localStorage.setItem(INSTRUMENT_STORAGE_KEY, JSON.stringify(Array.from(ids)));
     } catch (e) { /* non bloquant */ }
   }
 
   function renderFilterButtons() {
     filterRow.innerHTML = FILTERS.map(f => `
-      <button type="button" class="filter-btn${f.id === activeFilterId ? ' active' : ''}" data-filter-id="${f.id}">${f.label}</button>
+      <button type="button" class="filter-btn${activeFilterIds.has(f.id) ? ' active' : ''}" data-filter-id="${f.id}">${f.label}</button>
     `).join('');
 
     filterRow.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        activeFilterId = btn.dataset.filterId;
-        storeInstrument(activeFilterId);
-        filterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+        const id = btn.dataset.filterId;
+        if (id === 'tous') {
+          // "Tous" est exclusif : le choisir désélectionne tout le reste.
+          activeFilterIds = new Set(['tous']);
+        } else {
+          activeFilterIds.delete('tous');
+          if (activeFilterIds.has(id)) {
+            activeFilterIds.delete(id);
+            // Plus aucun pupitre choisi : on retombe sur "Tous" plutôt que
+            // de laisser une sélection vide (qui n'afficherait plus rien).
+            if (activeFilterIds.size === 0) activeFilterIds.add('tous');
+          } else {
+            activeFilterIds.add(id);
+          }
+        }
+        storeInstrument(activeFilterIds);
+        filterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', activeFilterIds.has(b.dataset.filterId)));
         applyFilters(searchInput.value.trim());
       });
     });
@@ -3986,7 +4017,7 @@
     appScreen.classList.remove('hidden');
     updateNetStatus();
     const storedInstrument = loadStoredInstrument();
-    if (storedInstrument) activeFilterId = storedInstrument;
+    if (storedInstrument) activeFilterIds = new Set(storedInstrument);
     renderFilterButtons();
     chefMode = loadStoredChefMode();
     applyChefModeVisibility();
@@ -4181,18 +4212,26 @@
     return filter.keywords.some(k => hay.includes(normalize(k)));
   }
 
+  // Vrai si le fichier correspond à AU MOINS UN des pupitres cochés
+  // (plusieurs instruments peuvent être sélectionnés en même temps).
+  function matchesAnyInstrument(f, filterIds) {
+    if (!filterIds || filterIds.has('tous')) return true;
+    const activeFiltersList = FILTERS.filter(flt => filterIds.has(flt.id));
+    if (!activeFiltersList.length) return true;
+    return activeFiltersList.some(flt => matchesInstrument(f, flt));
+  }
+
   function applyFilters(term) {
     if (!fileIndex) return;
 
     const activePlaylist = playlists.find(p => p.id === activePlaylistId) || null;
     const statusFilterActive = activeStatusFilterId && activeStatusFilterId !== 'tous';
 
-    if (activeFilterId === 'tous' && !term && !activePlaylist && !statusFilterActive) {
+    if (activeFilterIds.has('tous') && !term && !activePlaylist && !statusFilterActive) {
       renderResults([], term, true);
       return;
     }
 
-    const activeFilter = FILTERS.find(f => f.id === activeFilterId);
     const normTerm = term ? normalize(term) : '';
 
     const files = fileIndex.filter(f => {
@@ -4201,7 +4240,7 @@
       const normPath = normalize((f.folderPath || []).join(' '));
       const haystack = normName + ' ' + normPath;
       if (normTerm && !haystack.includes(normTerm)) return false;
-      if (!matchesInstrument(f, activeFilter)) return false;
+      if (!matchesAnyInstrument(f, activeFilterIds)) return false;
       if (statusFilterActive && songStatusFor(songStatusFolderKey(f)) !== activeStatusFilterId) return false;
       return true;
     });
