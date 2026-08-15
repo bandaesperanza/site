@@ -115,24 +115,14 @@
     pointer-events: none;
   }
 
-  .header-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    position: relative;
-    padding-right: 84px;
-  }
-
   .brand-mark {
     display: block;
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    flex-shrink: 0;
+    margin-bottom: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   }
-
-  .header-titles { min-width: 0; }
 
   .page-reload-btn {
     position: absolute;
@@ -184,24 +174,25 @@
 
   .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.14em;
+    font-size: 10px;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
     color: var(--gold);
     line-height: 1;
-    margin-bottom: 3px;
+    margin-bottom: 6px;
+    position: relative;
   }
 
   h1 {
     font-family: 'Fraunces', serif;
     font-weight: 700;
-    font-size: 22px;
-    margin: 0;
+    font-size: 25px;
+    margin: 0 0 12px;
     letter-spacing: 0.01em;
     text-transform: uppercase;
-    line-height: 1.2;
+    line-height: 1.15;
+    position: relative;
   }
-
   .header-meta {
     position: relative;
     display: flex;
@@ -1741,13 +1732,9 @@
   <header>
     <button type="button" id="chef-mode-toggle" class="chef-mode-btn" title="Mode chef d'orchestre" aria-label="Mode chef d'orchestre">🔑</button>
     <button type="button" id="page-reload-btn" class="page-reload-btn" title="Actualiser le catalogue et la page" aria-label="Actualiser">↻</button>
-    <div class="header-row">
-      <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
-      <div class="header-titles">
-        <div class="eyebrow">Partothèque</div>
-        <h1>Banda Esperanza</h1>
-      </div>
-    </div>
+    <img class="brand-mark" src="./logo-header.png" alt="Logo Banda Esperanza Tyrosse">
+    <div class="eyebrow">Partothèque</div>
+    <h1>Banda Esperanza</h1>
     <div class="header-meta">
       <span class="net-status" id="net-status"></span>
       <span class="file-modified" id="file-modified"></span>
