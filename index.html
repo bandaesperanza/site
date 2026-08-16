@@ -2168,12 +2168,25 @@
     { id: 'conducteur', label: 'Conducteurs', startsWith: '00' },
     { id: 'picolo',     label: 'Piccolo',    keywords: ['picolo', 'piccolo', 'flute', 'flûte'] },
     { id: 'clarinette', label: 'Clarinette', keywords: ['clarinette'] },
-    { id: 'saxoalto',   label: 'Saxo alto',  keywords: ['saxo alto'] },
+    // Cor Eb volontairement regroupé dans le filtre Saxo alto : le bouton affiché reste uniquement "Saxo alto".
+    { id: 'saxoalto',   label: 'Saxo alto',  keywords: ['saxo alto', 'cor eb', 'cor mib', 'cor mi b', 'cor mi-b', 'cor en mib', 'cor en mi b', 'horn eb', 'eb horn'] },
     { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
     { id: 'trompette',  label: 'Trompette',  keywords: ['trompette'] },
     { id: 'trombone',   label: 'Trombone',   keywords: ['trombone'] },
     { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'], exclude: ['saxo baryton'] },
-    { id: 'souba',      label: 'Souba',      keywords: ['souba'] },
+    { id: 'souba',      label: 'Souba / Basses', keywords: ['souba', 'tuba', 'basse', 'contrebasse', 'contre basse', 'double bass', 'bass'] },
+    { id: 'percussion', label: 'Percussions', keywords: [
+      'percu', 'percussion', 'percussions', 'batterie', 'drum', 'drums', 'drumset', 'drum set', 'set batterie',
+      'caisse claire', 'snare', 'snare drum', 'grosse caisse', 'bass drum', 'kick', 'tom', 'toms', 'floor tom',
+      'timbale', 'timbales', 'timpani', 'timbani', 'timbales concert',
+      'cymbale', 'cymbales', 'cymbal', 'crash', 'ride', 'charleston', 'hi hat', 'hi-hat',
+      'triangle', 'tambourin', 'tambourine', 'tambour', 'tambour basque', 'gong', 'tam tam', 'tam-tam',
+      'claves', 'wood block', 'woodblock', 'bloc chinois', 'temple block', 'castagnettes', 'castanets',
+      'maracas', 'shaker', 'cabasa', 'guiro', 'guïro', 'agogô', 'agogo', 'cowbell', 'cloche', 'cloches',
+      'xylophone', 'xylo', 'marimba', 'vibraphone', 'vibra', 'glockenspiel', 'glock', 'jeu de timbres',
+      'bells', 'campanes', 'carillon', 'chimes', 'tubular bells', 'cloches tubulaires',
+      'conga', 'congas', 'bongo', 'bongos', 'djembé', 'djembe', 'cajon', 'cajón', 'surdo', 'repinique', 'pandeiro'
+    ] },
   ];
 
   const setupScreen  = document.getElementById('setup-screen');
