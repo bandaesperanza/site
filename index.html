@@ -3,14 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <script>
-  // Applique le thème mémorisé AVANT que la page ne s'affiche, pour éviter
+  // Applique le thème AVANT que la page ne s'affiche, pour éviter
   // un flash clair→sombre au chargement. Doit rester le tout premier
   // script du document.
   try {
-    var storedTheme = localStorage.getItem('partotheque-dark-mode');
-    var wantsDark = storedTheme === '1' || (storedTheme === null &&
-      window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (wantsDark) document.documentElement.setAttribute('data-theme', 'dark');
+    var storedTheme = localStorage.getItem('partotheque-dark-mode') || 'auto';
+    // Compatibilité anciens réglages : 1 = sombre, 0 = clair.
+    if (storedTheme === '1') storedTheme = 'dark';
+    if (storedTheme === '0') storedTheme = 'light';
+    var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var effectiveTheme = storedTheme === 'auto' ? (systemDark ? 'dark' : 'light') : storedTheme;
+    document.documentElement.setAttribute('data-theme', effectiveTheme === 'dark' ? 'dark' : 'light');
   } catch (e) { /* localStorage indisponible : on reste en thème clair par défaut */ }
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -2168,25 +2171,12 @@
     { id: 'conducteur', label: 'Conducteurs', startsWith: '00' },
     { id: 'picolo',     label: 'Piccolo',    keywords: ['picolo', 'piccolo', 'flute', 'flûte'] },
     { id: 'clarinette', label: 'Clarinette', keywords: ['clarinette'] },
-    // Cor Eb volontairement regroupé dans le filtre Saxo alto : le bouton affiché reste uniquement "Saxo alto".
-    { id: 'saxoalto',   label: 'Saxo alto',  keywords: ['saxo alto', 'cor eb', 'cor mib', 'cor mi b', 'cor mi-b', 'cor en mib', 'cor en mi b', 'horn eb', 'eb horn'] },
+    { id: 'saxoalto',   label: 'Saxo alto',  keywords: ['saxo alto'] },
     { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
     { id: 'trompette',  label: 'Trompette',  keywords: ['trompette'] },
     { id: 'trombone',   label: 'Trombone',   keywords: ['trombone'] },
     { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'], exclude: ['saxo baryton'] },
-    { id: 'souba',      label: 'Souba / Basses', keywords: ['souba', 'tuba', 'basse', 'contrebasse', 'contre basse', 'double bass', 'bass'] },
-    { id: 'percussion', label: 'Percussions', keywords: [
-      'percu', 'percussion', 'percussions', 'batterie', 'drum', 'drums', 'drumset', 'drum set', 'set batterie',
-      'caisse claire', 'snare', 'snare drum', 'grosse caisse', 'bass drum', 'kick', 'tom', 'toms', 'floor tom',
-      'timbale', 'timbales', 'timpani', 'timbani', 'timbales concert',
-      'cymbale', 'cymbales', 'cymbal', 'crash', 'ride', 'charleston', 'hi hat', 'hi-hat',
-      'triangle', 'tambourin', 'tambourine', 'tambour', 'tambour basque', 'gong', 'tam tam', 'tam-tam',
-      'claves', 'wood block', 'woodblock', 'bloc chinois', 'temple block', 'castagnettes', 'castanets',
-      'maracas', 'shaker', 'cabasa', 'guiro', 'guïro', 'agogô', 'agogo', 'cowbell', 'cloche', 'cloches',
-      'xylophone', 'xylo', 'marimba', 'vibraphone', 'vibra', 'glockenspiel', 'glock', 'jeu de timbres',
-      'bells', 'campanes', 'carillon', 'chimes', 'tubular bells', 'cloches tubulaires',
-      'conga', 'congas', 'bongo', 'bongos', 'djembé', 'djembe', 'cajon', 'cajón', 'surdo', 'repinique', 'pandeiro'
-    ] },
+    { id: 'souba',      label: 'Souba',      keywords: ['souba'] },
   ];
 
   const setupScreen  = document.getElementById('setup-screen');
@@ -2284,24 +2274,68 @@
   // brancher le bouton et garder l'état synchronisé.
   // -------------------------------------------------------------------
   const DARK_MODE_STORAGE_KEY = 'partotheque-dark-mode';
+  const THEME_MODES = ['auto', 'light', 'dark'];
+  let themeMode = 'auto';
   let darkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+  const systemThemeQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
-  function applyDarkModeUI() {
+  function loadThemeMode() {
+    try {
+      const stored = localStorage.getItem(DARK_MODE_STORAGE_KEY);
+      if (stored === '1') return 'dark';
+      if (stored === '0') return 'light';
+      if (THEME_MODES.includes(stored)) return stored;
+    } catch (e) { /* non bloquant */ }
+    return 'auto';
+  }
+
+  function effectiveDarkMode() {
+    if (themeMode === 'dark') return true;
+    if (themeMode === 'light') return false;
+    return !!(systemThemeQuery && systemThemeQuery.matches);
+  }
+
+  function applyThemeMode() {
+    darkMode = effectiveDarkMode();
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
     if (!darkModeToggleBtn) return;
     darkModeToggleBtn.classList.toggle('active', darkMode);
-    darkModeToggleBtn.textContent = darkMode ? '☀️' : '🌙';
-    darkModeToggleBtn.title = darkMode ? 'Mode clair' : 'Mode sombre';
+    if (themeMode === 'auto') {
+      darkModeToggleBtn.textContent = '📱';
+      darkModeToggleBtn.title = darkMode ? 'Mode auto : sombre téléphone' : 'Mode auto : clair téléphone';
+      darkModeToggleBtn.setAttribute('aria-label', darkModeToggleBtn.title);
+    } else if (themeMode === 'dark') {
+      darkModeToggleBtn.textContent = '🌙';
+      darkModeToggleBtn.title = 'Mode sombre';
+      darkModeToggleBtn.setAttribute('aria-label', 'Mode sombre');
+    } else {
+      darkModeToggleBtn.textContent = '☀️';
+      darkModeToggleBtn.title = 'Mode clair';
+      darkModeToggleBtn.setAttribute('aria-label', 'Mode clair');
+    }
+  }
+
+  function storeThemeMode(mode) {
+    try { localStorage.setItem(DARK_MODE_STORAGE_KEY, mode); }
+    catch (e) { /* non bloquant */ }
   }
 
   if (darkModeToggleBtn) {
-    applyDarkModeUI();
+    themeMode = loadThemeMode();
+    applyThemeMode();
     darkModeToggleBtn.addEventListener('click', () => {
-      darkMode = !darkMode;
-      document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-      try { localStorage.setItem(DARK_MODE_STORAGE_KEY, darkMode ? '1' : '0'); }
-      catch (e) { /* non bloquant */ }
-      applyDarkModeUI();
+      const nextIndex = (THEME_MODES.indexOf(themeMode) + 1) % THEME_MODES.length;
+      themeMode = THEME_MODES[nextIndex];
+      storeThemeMode(themeMode);
+      applyThemeMode();
     });
+    if (systemThemeQuery) {
+      const onSystemThemeChange = () => {
+        if (themeMode === 'auto') applyThemeMode();
+      };
+      if (systemThemeQuery.addEventListener) systemThemeQuery.addEventListener('change', onSystemThemeChange);
+      else if (systemThemeQuery.addListener) systemThemeQuery.addListener(onSystemThemeChange);
+    }
   }
 
   // Le lecteur PDF et les playlists ne bloquent jamais le reste de
