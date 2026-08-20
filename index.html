@@ -1387,29 +1387,29 @@
   .audio-sync-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    gap: 8px;
     justify-content: center;
-    gap: 6px;
     margin-bottom: 16px;
   }
   .audio-sync-btn {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10.5px;
-    color: var(--ink-soft);
-    background: transparent;
-    border: 1px solid var(--rule);
+    font-size: 11px;
+    color: var(--focus);
+    background: var(--card);
+    border: 1px solid var(--focus);
     border-radius: 999px;
-    padding: 5px 11px;
+    padding: 7px 15px;
     cursor: pointer;
+    white-space: nowrap;
   }
-  .audio-sync-btn:hover { border-color: var(--focus); color: var(--focus); }
+  .audio-sync-btn:hover { background: var(--focus); color: #fff; }
   .audio-sync-btn:disabled { opacity: 0.6; cursor: default; }
   .audio-clear-cache-btn {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10.5px;
-    color: var(--ink-soft);
-    background: transparent;
-    border: 1px solid var(--rule);
+    font-size: 11px;
+    color: var(--stamp);
+    background: var(--card);
+    border: 1px solid var(--stamp);
     border-radius: 999px;
     padding: 5px 11px;
     cursor: pointer;
@@ -2291,7 +2291,7 @@
     </div>
 
     <div class="audio-sync-row">
-      <button type="button" id="audio-sync-btn" class="audio-sync-btn" title="">⇩ Synchroniser pour l'écoute hors-ligne</button>
+      <button type="button" id="audio-sync-btn" class="audio-sync-btn" title="">⇩ Écoute hors-ligne</button>
       <button type="button" id="audio-clear-cache-btn" class="audio-clear-cache-btn hidden" title="Libérer l'espace utilisé par les morceaux téléchargés">🗑 Libérer l'espace</button>
     </div>
 
@@ -3152,11 +3152,13 @@
     const total = audioFiles.length;
     const cachedCount = audioFiles.filter(f => cachedAudioIds.has(fileKey(f))).length;
     const allSynced = cachedCount === total && total > 0;
-    audioSyncBtn.title = `${cachedCount}/${total} en local`;
+    audioSyncBtn.title = allSynced
+      ? 'Tous les morceaux sont disponibles hors-ligne'
+      : `Synchroniser pour l'écoute hors-ligne — ${cachedCount}/${total} en local`;
     if (!audioSyncBtn.disabled) {
       audioSyncBtn.textContent = allSynced
-        ? '✓ Tous les morceaux sont disponibles hors-ligne'
-        : `⇩ Synchroniser pour l'écoute hors-ligne (${cachedCount}/${total} en local)`;
+        ? `✓ Hors-ligne (${total}/${total})`
+        : `⇩ Écoute hors-ligne (${cachedCount}/${total})`;
     }
     if (audioClearCacheBtn) audioClearCacheBtn.classList.toggle('hidden', cachedCount === 0);
   }
