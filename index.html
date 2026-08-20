@@ -38,6 +38,9 @@
     // Chemin du catalogue, relatif à cette page (généré par
     // generer-catalogue-local.html, à placer à côté de cette page sur le site).
     CATALOG_URL: './catalogue.json',
+    // Chemin du manifeste audio (généré par generer-audio-local.html),
+    // pour la page "Écoute des nouveaux morceaux" (mode chef).
+    AUDIO_MANIFEST_URL: './audio.json',
   };
   // ==========================================================================
 </script>
@@ -1240,6 +1243,163 @@
   .repertoire-import-status.success { color: #2E7D4E; }
   .repertoire-import-status.error { color: var(--stamp); }
 
+  /* --- Lecteur audio "Écoute" (façon écran d'appel) -------------------- */
+  .audio-player-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px calc(20px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
+  }
+  .audio-status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-align: center;
+    padding: 20px 0;
+  }
+  .audio-status.hidden { display: none; }
+
+  .audio-now-playing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(135deg, #2A2560 0%, #15122E 100%);
+    border-radius: 16px;
+    padding: 28px 20px 24px;
+    margin-bottom: 22px;
+    color: #F5F2EF;
+  }
+  .audio-art {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: rgba(246, 243, 236, 0.1);
+    border: 1px solid rgba(246, 243, 236, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin-bottom: 16px;
+  }
+  .audio-art.playing { animation: audio-art-pulse 2.4s ease-in-out infinite; }
+  @keyframes audio-art-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(217, 87, 75, 0.35); }
+    50% { box-shadow: 0 0 0 10px rgba(217, 87, 75, 0); }
+  }
+  .audio-track-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.3;
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+  .audio-track-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: rgba(246, 243, 236, 0.55);
+    margin-top: 4px;
+  }
+
+  .audio-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 20px;
+  }
+  .audio-time {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: rgba(246, 243, 236, 0.6);
+    flex-shrink: 0;
+    min-width: 30px;
+  }
+  .audio-time:last-child { text-align: right; }
+  .audio-seek {
+    flex: 1;
+    accent-color: var(--gold);
+  }
+
+  .audio-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 22px;
+  }
+  .audio-ctrl-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1px solid rgba(246, 243, 236, 0.3);
+    background: rgba(246, 243, 236, 0.08);
+    color: #F5F2EF;
+    font-size: 17px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .audio-ctrl-btn:hover { background: rgba(246, 243, 236, 0.18); }
+  .audio-ctrl-btn:disabled { opacity: 0.35; cursor: default; }
+  .audio-ctrl-btn-small { width: 38px; height: 38px; font-size: 14px; }
+  .audio-play-btn {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: none;
+    background: var(--gold);
+    color: #17141F;
+    font-size: 26px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
+  .audio-play-btn:hover { opacity: 0.92; }
+
+  .audio-list-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .audio-track-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 11px 14px;
+    margin-bottom: 6px;
+    cursor: pointer;
+  }
+  .audio-track-row:hover { border-color: var(--gold); }
+  .audio-track-row.active {
+    border-color: var(--gold);
+    background: var(--stamp-soft);
+  }
+  .audio-track-row-icon { flex-shrink: 0; font-size: 15px; width: 18px; text-align: center; }
+  .audio-track-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .audio-track-row-sub {
+    flex-shrink: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+  }
+
   .repertoire-theme-group { margin-bottom: 18px; }
   .repertoire-theme-heading {
     font-family: 'IBM Plex Mono', monospace;
@@ -1873,6 +2033,10 @@
           <span class="tools-zone-icon">🎺</span>
           <span class="tools-zone-text">Répertoire</span>
         </button>
+        <button type="button" id="audio-toggle-btn" class="tools-zone-btn hidden" title="Écoute des nouveaux morceaux">
+          <span class="tools-zone-icon">🎧</span>
+          <span class="tools-zone-text">Écoute</span>
+        </button>
       </div>
     </div>
 
@@ -2035,6 +2199,43 @@
     <div class="repertoire-section-label">Morceaux les plus joués — saison</div>
     <div id="repertoire-stats-list"></div>
   </div>
+</div>
+
+<div id="audio-overlay" class="repertoire-overlay hidden">
+  <div class="repertoire-toolbar">
+    <button type="button" id="audio-close-btn" class="repertoire-close-btn" title="Fermer" aria-label="Fermer">✕</button>
+    <div class="repertoire-title">🎧 Écoute</div>
+    <span class="repertoire-toolbar-spacer"></span>
+  </div>
+
+  <div class="audio-player-body" id="audio-player-body">
+    <div class="audio-status" id="audio-status">Chargement…</div>
+
+    <div class="audio-now-playing hidden" id="audio-now-playing">
+      <div class="audio-art" id="audio-art">🎵</div>
+      <div class="audio-track-title" id="audio-track-title"></div>
+      <div class="audio-track-sub" id="audio-track-sub"></div>
+
+      <div class="audio-progress-row">
+        <span class="audio-time" id="audio-time-current">0:00</span>
+        <input type="range" id="audio-seek" class="audio-seek" min="0" max="100" value="0" step="0.1">
+        <span class="audio-time" id="audio-time-total">0:00</span>
+      </div>
+
+      <div class="audio-controls-row">
+        <button type="button" id="audio-prev-btn" class="audio-ctrl-btn" title="Morceau précédent" aria-label="Morceau précédent">⏮</button>
+        <button type="button" id="audio-back10-btn" class="audio-ctrl-btn audio-ctrl-btn-small" title="Reculer de 10 s" aria-label="Reculer de 10 secondes">⏪</button>
+        <button type="button" id="audio-play-btn" class="audio-play-btn" title="Lecture / pause" aria-label="Lecture ou pause">▶️</button>
+        <button type="button" id="audio-fwd10-btn" class="audio-ctrl-btn audio-ctrl-btn-small" title="Avancer de 10 s" aria-label="Avancer de 10 secondes">⏩</button>
+        <button type="button" id="audio-next-btn" class="audio-ctrl-btn" title="Morceau suivant" aria-label="Morceau suivant">⏭</button>
+      </div>
+    </div>
+
+    <div class="audio-list-label" id="audio-list-label"></div>
+    <div id="audio-list"></div>
+  </div>
+
+  <audio id="audio-player" preload="metadata"></audio>
 </div>
 
 <div id="pdf-viewer-overlay" class="pdf-viewer-overlay hidden">
@@ -2249,6 +2450,25 @@
   const qualityRefreshBtn             = document.getElementById('quality-refresh-btn');
   const qualityDashboardEl            = document.getElementById('quality-dashboard');
   const repertoireToggleBtn           = document.getElementById('repertoire-toggle-btn');
+  const audioToggleBtn                = document.getElementById('audio-toggle-btn');
+  const audioOverlay                  = document.getElementById('audio-overlay');
+  const audioCloseBtn                 = document.getElementById('audio-close-btn');
+  const audioStatusEl                 = document.getElementById('audio-status');
+  const audioNowPlaying               = document.getElementById('audio-now-playing');
+  const audioArtEl                    = document.getElementById('audio-art');
+  const audioTrackTitleEl             = document.getElementById('audio-track-title');
+  const audioTrackSubEl               = document.getElementById('audio-track-sub');
+  const audioSeekEl                   = document.getElementById('audio-seek');
+  const audioTimeCurrentEl            = document.getElementById('audio-time-current');
+  const audioTimeTotalEl              = document.getElementById('audio-time-total');
+  const audioPrevBtn                  = document.getElementById('audio-prev-btn');
+  const audioBack10Btn                = document.getElementById('audio-back10-btn');
+  const audioPlayBtn                  = document.getElementById('audio-play-btn');
+  const audioFwd10Btn                 = document.getElementById('audio-fwd10-btn');
+  const audioNextBtn                  = document.getElementById('audio-next-btn');
+  const audioListLabelEl              = document.getElementById('audio-list-label');
+  const audioListEl                   = document.getElementById('audio-list');
+  const audioPlayerEl                 = document.getElementById('audio-player');
   const darkModeToggleBtn             = document.getElementById('dark-mode-toggle-btn');
   const repertoireOverlay             = document.getElementById('repertoire-overlay');
   const repertoireCloseBtn            = document.getElementById('repertoire-close-btn');
@@ -2718,6 +2938,157 @@
     repertoireTabButtons.length && repertoireTabListaEl && repertoireTabHistoriqueEl &&
     repertoireSortieBar && repertoireListEl &&
     repertoireHistoryListEl && repertoireStatsListEl);
+
+  // ---------------------------------------------------------------------
+  // Écoute des nouveaux morceaux (mode chef uniquement pour le moment) :
+  // charge la liste des fichiers audio depuis audio.json (généré par
+  // generer-audio-local.html, même principe que catalogue.json pour les
+  // PDF) et propose un lecteur façon écran d'appel — un gros bouton
+  // lecture/pause central, avance/recul de 10s, morceau précédent/suivant,
+  // plus la liste complète en dessous pour sauter directement à un titre.
+  // ---------------------------------------------------------------------
+  const audioReady = !!(audioToggleBtn && audioOverlay && audioCloseBtn && audioPlayerEl &&
+    audioNowPlaying && audioSeekEl && audioPlayBtn && audioListEl);
+
+  let audioFiles = [];
+  let audioBasePath = 'audio';
+  let audioLoadPromise = null;
+  let audioCurrentIndex = -1;
+  let audioSeekDragging = false;
+
+  function buildAudioUrl(f) {
+    const segments = [audioBasePath, ...(f.folderPath || []), f.name];
+    return segments.map(s => encodeURIComponent(s)).join('/');
+  }
+
+  function formatAudioTime(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  async function loadAudioManifest() {
+    if (audioLoadPromise) return audioLoadPromise;
+    audioLoadPromise = (async () => {
+      audioStatusEl.textContent = 'Chargement…';
+      audioStatusEl.classList.remove('hidden');
+      try {
+        const res = await fetchWithShortTimeout(CONFIG.AUDIO_MANIFEST_URL, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        audioFiles = Array.isArray(data.files) ? data.files : [];
+        audioBasePath = data.basePath || 'audio';
+        audioFiles.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+        if (!audioFiles.length) {
+          audioStatusEl.textContent = 'Aucun fichier audio pour le moment. Dépose des morceaux dans le dossier audio avec generer-audio-local.html.';
+          return;
+        }
+        audioStatusEl.classList.add('hidden');
+        renderAudioList();
+      } catch (e) {
+        audioStatusEl.textContent = "Impossible de charger la liste audio (audio.json introuvable ou réseau indisponible).";
+      }
+    })();
+    return audioLoadPromise;
+  }
+
+  function renderAudioList() {
+    audioListLabelEl.textContent = `Liste de lecture — ${audioFiles.length} morceau${audioFiles.length > 1 ? 'x' : ''}`;
+    audioListEl.innerHTML = audioFiles.map((f, i) => `
+      <button type="button" class="audio-track-row${i === audioCurrentIndex ? ' active' : ''}" data-audio-index="${i}">
+        <span class="audio-track-row-icon">${i === audioCurrentIndex && !audioPlayerEl.paused ? '🔊' : '🎵'}</span>
+        <span class="audio-track-row-name">${escapeHtml(f.name.replace(/\.[^.]+$/, ''))}</span>
+        ${f.folderPath && f.folderPath.length ? `<span class="audio-track-row-sub">${escapeHtml(f.folderPath[f.folderPath.length - 1])}</span>` : ''}
+      </button>
+    `).join('');
+    audioListEl.querySelectorAll('.audio-track-row').forEach(btn => {
+      btn.addEventListener('click', () => playAudioTrack(Number(btn.dataset.audioIndex)));
+    });
+  }
+
+  function updateAudioPlayButtonIcon() {
+    const playing = !audioPlayerEl.paused && !audioPlayerEl.ended;
+    audioPlayBtn.textContent = playing ? '⏸️' : '▶️';
+    audioPlayBtn.title = playing ? 'Pause' : 'Lecture';
+    if (audioArtEl) audioArtEl.classList.toggle('playing', playing);
+  }
+
+  function playAudioTrack(index) {
+    if (index < 0 || index >= audioFiles.length) return;
+    audioCurrentIndex = index;
+    const f = audioFiles[index];
+    audioPlayerEl.src = buildAudioUrl(f);
+    audioTrackTitleEl.textContent = f.name.replace(/\.[^.]+$/, '');
+    audioTrackSubEl.textContent = (f.folderPath && f.folderPath.length) ? f.folderPath.join(' / ') : '';
+    audioNowPlaying.classList.remove('hidden');
+    audioPrevBtn.disabled = index <= 0;
+    audioNextBtn.disabled = index >= audioFiles.length - 1;
+    audioPlayerEl.play().catch(() => { /* lecture bloquée tant qu'aucun geste n'a eu lieu : on laisse le bouton ▶️ visible */ });
+    renderAudioList();
+  }
+
+  if (audioReady) {
+    audioToggleBtn.addEventListener('click', async () => {
+      audioOverlay.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      await loadAudioManifest();
+    });
+
+    audioCloseBtn.addEventListener('click', () => {
+      audioOverlay.classList.add('hidden');
+      document.body.style.overflow = '';
+      audioPlayerEl.pause(); // on ne laisse pas un morceau jouer en tâche de fond une fois le panneau fermé
+    });
+
+    audioPlayBtn.addEventListener('click', () => {
+      if (audioCurrentIndex === -1 && audioFiles.length) { playAudioTrack(0); return; }
+      if (audioPlayerEl.paused) audioPlayerEl.play().catch(() => {});
+      else audioPlayerEl.pause();
+    });
+
+    audioPrevBtn.addEventListener('click', () => playAudioTrack(audioCurrentIndex - 1));
+    audioNextBtn.addEventListener('click', () => playAudioTrack(audioCurrentIndex + 1));
+
+    audioBack10Btn.addEventListener('click', () => {
+      audioPlayerEl.currentTime = Math.max(0, audioPlayerEl.currentTime - 10);
+    });
+    audioFwd10Btn.addEventListener('click', () => {
+      audioPlayerEl.currentTime = Math.min(audioPlayerEl.duration || Infinity, audioPlayerEl.currentTime + 10);
+    });
+
+    audioSeekEl.addEventListener('pointerdown', () => { audioSeekDragging = true; });
+    audioSeekEl.addEventListener('input', () => {
+      if (audioPlayerEl.duration) {
+        audioTimeCurrentEl.textContent = formatAudioTime((audioSeekEl.value / 100) * audioPlayerEl.duration);
+      }
+    });
+    audioSeekEl.addEventListener('change', () => {
+      if (audioPlayerEl.duration) {
+        audioPlayerEl.currentTime = (audioSeekEl.value / 100) * audioPlayerEl.duration;
+      }
+      audioSeekDragging = false;
+    });
+
+    audioPlayerEl.addEventListener('loadedmetadata', () => {
+      audioTimeTotalEl.textContent = formatAudioTime(audioPlayerEl.duration);
+    });
+    audioPlayerEl.addEventListener('timeupdate', () => {
+      if (audioSeekDragging) return;
+      audioTimeCurrentEl.textContent = formatAudioTime(audioPlayerEl.currentTime);
+      if (audioPlayerEl.duration) {
+        audioSeekEl.value = (audioPlayerEl.currentTime / audioPlayerEl.duration) * 100;
+      }
+    });
+    audioPlayerEl.addEventListener('play', updateAudioPlayButtonIcon);
+    audioPlayerEl.addEventListener('pause', updateAudioPlayButtonIcon);
+    audioPlayerEl.addEventListener('ended', () => {
+      // Passe tout seul au morceau suivant, comme une vraie liste de lecture ;
+      // s'arrête proprement sur le dernier.
+      if (audioCurrentIndex < audioFiles.length - 1) playAudioTrack(audioCurrentIndex + 1);
+      else updateAudioPlayButtonIcon();
+    });
+  }
 
   let repertoireSongs = [];
   let repertoireThemesOrder = [];
@@ -4130,6 +4501,12 @@
     if (playlistAdminToggleBtn) playlistAdminToggleBtn.classList.toggle('hidden', !chefMode);
     if (qualityToggleBtn) qualityToggleBtn.classList.toggle('hidden', !chefMode);
     if (liveBroadcastToggleBtn) liveBroadcastToggleBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
+    if (audioToggleBtn) audioToggleBtn.classList.toggle('hidden', !chefMode);
+    if (!chefMode && audioOverlay && !audioOverlay.classList.contains('hidden')) {
+      audioOverlay.classList.add('hidden');
+      document.body.style.overflow = '';
+      if (audioPlayerEl) audioPlayerEl.pause();
+    }
     if (!chefMode && qualityPanel) qualityPanel.classList.add('hidden');
     if (!chefMode && liveBroadcastToggleBtn) liveBroadcastToggleBtn.classList.remove('active');
     if (repertoireImportBtn) repertoireImportBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
