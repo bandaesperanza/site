@@ -205,6 +205,31 @@
     let count = 0;
     let skipped = 0;
 
+    // Lit la durée du fichier via un lecteur audio temporaire — comme le
+    // fichier est déjà en local (File System Access API), ça ne
+    // télécharge rien, ça lit juste l'en-tête du fichier.
+    function getAudioDuration(file) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const audio = new Audio();
+        let done = false;
+        const finish = (value) => {
+          if (done) return;
+          done = true;
+          URL.revokeObjectURL(url);
+          resolve(value);
+        };
+        const timeout = setTimeout(() => finish(null), 8000);
+        audio.addEventListener('loadedmetadata', () => {
+          clearTimeout(timeout);
+          finish(Number.isFinite(audio.duration) ? Math.round(audio.duration) : null);
+        });
+        audio.addEventListener('error', () => { clearTimeout(timeout); finish(null); });
+        audio.preload = 'metadata';
+        audio.src = url;
+      });
+    }
+
     async function walk(dirHandle, path) {
       for await (const [name, handle] of dirHandle.entries()) {
         if (handle.kind === 'directory') {
@@ -214,16 +239,16 @@
           if (!AUDIO_EXTENSIONS.some(ext => lower.endsWith(ext))) { skipped++; continue; }
           try {
             const file = await handle.getFile();
+            const duration = await getAudioDuration(file);
             files.push({
               name,
               folderPath: path,
               size: file.size,
               modifiedTime: file.lastModified ? new Date(file.lastModified).toISOString() : null,
+              duration,
             });
             count++;
-            if (count % 10 === 0) {
-              statusLine.textContent = `${count} fichier(s) audio trouvés jusqu'ici… (dossier en cours : ${path.join(' › ') || '(racine)'})`;
-            }
+            statusLine.textContent = `${count} fichier(s) audio trouvés jusqu'ici… (dossier en cours : ${path.join(' › ') || '(racine)'})`;
           } catch (e) {
             skipped++;
           }

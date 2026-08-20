@@ -1363,14 +1363,14 @@
   .audio-play-btn:hover { opacity: 0.92; }
 
   .audio-download-btn {
-    margin-top: 18px;
+    margin-top: 16px;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    color: rgba(246, 243, 236, 0.7);
+    font-size: 10.5px;
+    color: rgba(246, 243, 236, 0.65);
     background: transparent;
-    border: 1px solid rgba(246, 243, 236, 0.25);
+    border: 1px solid rgba(246, 243, 236, 0.22);
     border-radius: 999px;
-    padding: 6px 14px;
+    padding: 5px 12px;
     cursor: pointer;
   }
   .audio-download-btn:hover { background: rgba(246, 243, 236, 0.1); color: #F5F2EF; }
@@ -1387,33 +1387,34 @@
   .audio-sync-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 18px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 16px;
   }
   .audio-sync-btn {
-    flex: 1;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--focus);
-    background: var(--card);
-    border: 1px solid var(--focus);
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--rule);
     border-radius: 999px;
-    padding: 9px 14px;
+    padding: 5px 11px;
     cursor: pointer;
   }
-  .audio-sync-btn:hover { background: var(--focus); color: #fff; }
+  .audio-sync-btn:hover { border-color: var(--focus); color: var(--focus); }
   .audio-sync-btn:disabled { opacity: 0.6; cursor: default; }
   .audio-clear-cache-btn {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--stamp);
-    background: var(--card);
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    background: transparent;
     border: 1px solid var(--rule);
     border-radius: 999px;
-    padding: 9px 14px;
+    padding: 5px 11px;
     cursor: pointer;
   }
-  .audio-clear-cache-btn:hover { background: var(--stamp-soft); }
+  .audio-clear-cache-btn:hover { border-color: var(--stamp); color: var(--stamp); }
   .audio-track-row {
     width: 100%;
     display: flex;
@@ -1442,6 +1443,14 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10.5px;
     color: var(--ink-soft);
+  }
+  .audio-track-row-duration {
+    flex-shrink: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    min-width: 32px;
+    text-align: right;
   }
   .audio-track-row-cached {
     flex-shrink: 0;
@@ -3108,13 +3117,28 @@
     updateAudioSyncStatus();
   }
 
+  // Format long pour le total (avec les heures si besoin) — la durée par
+  // morceau, elle, reste en mm:ss via formatAudioTime.
+  function formatAudioDurationLong(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return `${h} h ${String(m).padStart(2, '0')} min`;
+    return `${m} min`;
+  }
+
   function renderAudioList() {
-    audioListLabelEl.textContent = `Liste de lecture — ${audioFiles.length} morceau${audioFiles.length > 1 ? 'x' : ''}`;
+    const known = audioFiles.filter(f => Number.isFinite(f.duration));
+    const totalSeconds = known.reduce((sum, f) => sum + f.duration, 0);
+    const totalLabel = known.length
+      ? ` · ${formatAudioDurationLong(totalSeconds)}${known.length < audioFiles.length ? ' (partiel)' : ''}`
+      : '';
+    audioListLabelEl.textContent = `Liste de lecture — ${audioFiles.length} morceau${audioFiles.length > 1 ? 'x' : ''}${totalLabel}`;
     audioListEl.innerHTML = audioFiles.map((f, i) => `
       <button type="button" class="audio-track-row${i === audioCurrentIndex ? ' active' : ''}" data-audio-index="${i}">
         <span class="audio-track-row-icon">${i === audioCurrentIndex && !audioPlayerEl.paused ? '🔊' : '🎵'}</span>
         <span class="audio-track-row-name">${escapeHtml(f.name.replace(/\.[^.]+$/, ''))}</span>
         ${f.folderPath && f.folderPath.length ? `<span class="audio-track-row-sub">${escapeHtml(f.folderPath[f.folderPath.length - 1])}</span>` : ''}
+        ${Number.isFinite(f.duration) ? `<span class="audio-track-row-duration">${formatAudioTime(f.duration)}</span>` : ''}
         ${cachedAudioIds.has(fileKey(f)) ? '<span class="audio-track-row-cached" title="Téléchargé pour l\'écoute hors-ligne">✓</span>' : ''}
       </button>
     `).join('');
@@ -3272,15 +3296,42 @@
     audioNextBtn.addEventListener('click', () => playAudioTrack(audioCurrentIndex + 1));
 
     if (audioDownloadBtn) {
-      audioDownloadBtn.addEventListener('click', () => {
+      audioDownloadBtn.addEventListener('click', async () => {
         if (audioCurrentIndex === -1) return;
         const f = audioFiles[audioCurrentIndex];
-        const a = document.createElement('a');
-        a.href = buildAudioUrl(f);
-        a.download = f.name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        const key = fileKey(f);
+        const originalLabel = audioDownloadBtn.textContent;
+        audioDownloadBtn.disabled = true;
+        audioDownloadBtn.textContent = '⏳ Préparation…';
+        try {
+          // Un lien vers l'URL réseau directe fait souvent ouvrir Safari
+          // iOS en aperçu (Quick Look) plutôt que proposer d'enregistrer —
+          // en passant par un blob local d'abord, Safari propose plus
+          // fiablement le vrai enregistrement. On réutilise la copie déjà
+          // téléchargée si elle existe, pour ne rien retélécharger inutilement.
+          let blob;
+          if (cachedAudioIds.has(key)) {
+            const cached = await idbGet('audio', key).catch(() => null);
+            if (cached && cached.blob) blob = cached.blob;
+          }
+          if (!blob) {
+            const res = await fetchWithRetry(buildAudioUrl(f), { label: f.name });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            blob = await res.blob();
+          }
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = f.name;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        } catch (e) {
+          alert("Impossible de télécharger ce morceau (réseau indisponible ?).");
+        }
+        audioDownloadBtn.disabled = false;
+        audioDownloadBtn.textContent = originalLabel;
       });
     }
 
