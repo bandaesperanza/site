@@ -1362,6 +1362,20 @@
   }
   .audio-play-btn:hover { opacity: 0.92; }
 
+  .audio-download-btn {
+    margin-top: 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: rgba(246, 243, 236, 0.7);
+    background: transparent;
+    border: 1px solid rgba(246, 243, 236, 0.25);
+    border-radius: 999px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  .audio-download-btn:hover { background: rgba(246, 243, 236, 0.1); color: #F5F2EF; }
+  .audio-download-btn:disabled { opacity: 0.4; cursor: default; }
+
   .audio-list-label {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
@@ -1370,6 +1384,36 @@
     color: var(--ink-soft);
     margin-bottom: 8px;
   }
+  .audio-sync-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .audio-sync-btn {
+    flex: 1;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--focus);
+    background: var(--card);
+    border: 1px solid var(--focus);
+    border-radius: 999px;
+    padding: 9px 14px;
+    cursor: pointer;
+  }
+  .audio-sync-btn:hover { background: var(--focus); color: #fff; }
+  .audio-sync-btn:disabled { opacity: 0.6; cursor: default; }
+  .audio-clear-cache-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--stamp);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 9px 14px;
+    cursor: pointer;
+  }
+  .audio-clear-cache-btn:hover { background: var(--stamp-soft); }
   .audio-track-row {
     width: 100%;
     display: flex;
@@ -1398,6 +1442,10 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10.5px;
     color: var(--ink-soft);
+  }
+  .audio-track-row-cached {
+    flex-shrink: 0;
+    font-size: 12px;
   }
 
   .repertoire-theme-group { margin-bottom: 18px; }
@@ -2033,7 +2081,7 @@
           <span class="tools-zone-icon">🎺</span>
           <span class="tools-zone-text">Répertoire</span>
         </button>
-        <button type="button" id="audio-toggle-btn" class="tools-zone-btn hidden" title="Écoute des nouveaux morceaux">
+        <button type="button" id="audio-toggle-btn" class="tools-zone-btn" title="Écoute des nouveaux morceaux">
           <span class="tools-zone-icon">🎧</span>
           <span class="tools-zone-text">Écoute</span>
         </button>
@@ -2229,6 +2277,13 @@
         <button type="button" id="audio-fwd10-btn" class="audio-ctrl-btn audio-ctrl-btn-small" title="Avancer de 10 s" aria-label="Avancer de 10 secondes">⏩</button>
         <button type="button" id="audio-next-btn" class="audio-ctrl-btn" title="Morceau suivant" aria-label="Morceau suivant">⏭</button>
       </div>
+
+      <button type="button" id="audio-download-btn" class="audio-download-btn">⬇ Télécharger ce morceau</button>
+    </div>
+
+    <div class="audio-sync-row">
+      <button type="button" id="audio-sync-btn" class="audio-sync-btn" title="">⇩ Synchroniser pour l'écoute hors-ligne</button>
+      <button type="button" id="audio-clear-cache-btn" class="audio-clear-cache-btn hidden" title="Libérer l'espace utilisé par les morceaux téléchargés">🗑 Libérer l'espace</button>
     </div>
 
     <div class="audio-list-label" id="audio-list-label"></div>
@@ -2359,6 +2414,7 @@
 
   let isIndexing = false;
   let cachedIds = new Set(); // ids des PDF déjà téléchargés en local (IndexedDB)
+  let cachedAudioIds = new Set(); // ids des fichiers audio déjà téléchargés en local (IndexedDB)
   let playlists = [];
   let activePlaylistId = 'toutes';
   let editingPlaylistId = null; // null = création d'une nouvelle playlist
@@ -2466,8 +2522,11 @@
   const audioPlayBtn                  = document.getElementById('audio-play-btn');
   const audioFwd10Btn                 = document.getElementById('audio-fwd10-btn');
   const audioNextBtn                  = document.getElementById('audio-next-btn');
+  const audioDownloadBtn              = document.getElementById('audio-download-btn');
   const audioListLabelEl              = document.getElementById('audio-list-label');
   const audioListEl                   = document.getElementById('audio-list');
+  const audioSyncBtn                  = document.getElementById('audio-sync-btn');
+  const audioClearCacheBtn            = document.getElementById('audio-clear-cache-btn');
   const audioPlayerEl                 = document.getElementById('audio-player');
   const darkModeToggleBtn             = document.getElementById('dark-mode-toggle-btn');
   const repertoireOverlay             = document.getElementById('repertoire-overlay');
@@ -2577,7 +2636,7 @@
         // sans recharger) et la coquille de l'app (page + libs, pour que
         // le rechargement juste après affiche bien la dernière version
         // plutôt que l'ancienne encore en cache).
-        await Promise.all([loadCatalog(true), refreshShellCache()]);
+        await Promise.all([loadCatalog(true), refreshShellCache(), refreshAudioManifest()]);
       } catch (e) { /* on recharge quand même, au pire rien de neuf */ }
       window.location.reload();
     });
@@ -2604,7 +2663,7 @@
   // IndexedDB : stockage local des PDF (blobs) et du dernier catalogue connu
   // ---------------------------------------------------------------------
   const DB_NAME = 'partotheque-db';
-  const DB_VERSION = 4;
+  const DB_VERSION = 5;
   let dbPromise = null;
 
   function openDB() {
@@ -2623,6 +2682,9 @@
         // Tempo du métronome mémorisé par morceau (fileKey), local à
         // l'appareil comme les annotations.
         if (!db.objectStoreNames.contains('metronome')) db.createObjectStore('metronome', { keyPath: 'id' });
+        // Fichiers audio téléchargés pour l'écoute hors-ligne (module
+        // "Écoute des nouveaux morceaux") — même principe que 'pdfs'.
+        if (!db.objectStoreNames.contains('audio')) db.createObjectStore('audio', { keyPath: 'id' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -2693,6 +2755,11 @@
   async function refreshCachedIds() {
     const keys = await idbGetAllKeys('pdfs');
     cachedIds = new Set(keys);
+  }
+
+  async function refreshCachedAudioIds() {
+    const keys = await idbGetAllKeys('audio');
+    cachedAudioIds = new Set(keys);
   }
 
   // ---------------------------------------------------------------------
@@ -2955,6 +3022,7 @@
   let audioLoadPromise = null;
   let audioCurrentIndex = -1;
   let audioSeekDragging = false;
+  let audioCurrentBlobUrl = null; // révoqué à chaque changement de morceau / fermeture, pour ne pas fuir de mémoire
 
   function buildAudioUrl(f) {
     const segments = [audioBasePath, ...(f.folderPath || []), f.name];
@@ -2968,29 +3036,76 @@
     return `${m}:${String(s).padStart(2, '0')}`;
   }
 
+  // Actualisation silencieuse déclenchée par le bouton ↻ principal, même si
+  // le panneau Écoute n'a jamais été ouvert — pour que la copie locale du
+  // manifeste (nouveaux morceaux ajoutés) reste à jour sans avoir à passer
+  // par ce panneau.
+  async function refreshAudioManifest() {
+    try {
+      const res = await fetchWithShortTimeout(CONFIG.AUDIO_MANIFEST_URL, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const files = Array.isArray(data.files) ? data.files : [];
+      files.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+      await idbPut('catalog', { key: 'audio-manifest', files, basePath: data.basePath || 'audio', fetchedAt: Date.now() }).catch(() => {});
+    } catch (e) { /* pas de réseau : la copie locale existante reste utilisable */ }
+  }
+
   async function loadAudioManifest() {
     if (audioLoadPromise) return audioLoadPromise;
     audioLoadPromise = (async () => {
       audioStatusEl.textContent = 'Chargement…';
       audioStatusEl.classList.remove('hidden');
+
+      // Comme le catalogue de partitions : ça ne change que rarement, donc
+      // on charge la copie locale directement si elle existe — instantané,
+      // et ça marche même hors-ligne. Le réseau n'est sollicité que s'il
+      // n'y a encore rien en local sur cet appareil.
+      const cachedFirst = await idbGet('catalog', 'audio-manifest').catch(() => null);
+      if (cachedFirst && Array.isArray(cachedFirst.files) && cachedFirst.files.length) {
+        audioFiles = cachedFirst.files;
+        audioBasePath = cachedFirst.basePath || 'audio';
+        finishAudioManifestDisplay();
+        return;
+      }
+
+      let loadedFromNetwork = false;
       try {
         const res = await fetchWithShortTimeout(CONFIG.AUDIO_MANIFEST_URL, { cache: 'no-store' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        audioFiles = Array.isArray(data.files) ? data.files : [];
-        audioBasePath = data.basePath || 'audio';
-        audioFiles.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-        if (!audioFiles.length) {
-          audioStatusEl.textContent = 'Aucun fichier audio pour le moment. Dépose des morceaux dans le dossier audio avec generer-audio-local.html.';
+        if (res.ok) {
+          const data = await res.json();
+          audioFiles = Array.isArray(data.files) ? data.files : [];
+          audioBasePath = data.basePath || 'audio';
+          audioFiles.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+          loadedFromNetwork = true;
+          await idbPut('catalog', { key: 'audio-manifest', files: audioFiles, basePath: audioBasePath, fetchedAt: Date.now() }).catch(() => {});
+        }
+      } catch (e) { /* pas de réseau, ou trop lent : on retente le cache local ci-dessous */ }
+
+      if (!loadedFromNetwork) {
+        const cached = await idbGet('catalog', 'audio-manifest').catch(() => null);
+        if (cached && Array.isArray(cached.files) && cached.files.length) {
+          audioFiles = cached.files;
+          audioBasePath = cached.basePath || 'audio';
+        } else {
+          audioFiles = [];
+          audioStatusEl.textContent = "Impossible de charger la liste audio : pas de réseau, et aucune copie locale sur cet appareil.";
           return;
         }
-        audioStatusEl.classList.add('hidden');
-        renderAudioList();
-      } catch (e) {
-        audioStatusEl.textContent = "Impossible de charger la liste audio (audio.json introuvable ou réseau indisponible).";
       }
+      finishAudioManifestDisplay();
     })();
     return audioLoadPromise;
+  }
+
+  function finishAudioManifestDisplay() {
+    if (!audioFiles.length) {
+      audioStatusEl.textContent = 'Aucun fichier audio pour le moment. Dépose des morceaux dans le dossier audio avec generer-audio-local.html.';
+      return;
+    }
+    audioStatusEl.classList.add('hidden');
+    renderAudioList();
+    updateAudioSyncStatus();
   }
 
   function renderAudioList() {
@@ -3000,6 +3115,7 @@
         <span class="audio-track-row-icon">${i === audioCurrentIndex && !audioPlayerEl.paused ? '🔊' : '🎵'}</span>
         <span class="audio-track-row-name">${escapeHtml(f.name.replace(/\.[^.]+$/, ''))}</span>
         ${f.folderPath && f.folderPath.length ? `<span class="audio-track-row-sub">${escapeHtml(f.folderPath[f.folderPath.length - 1])}</span>` : ''}
+        ${cachedAudioIds.has(fileKey(f)) ? '<span class="audio-track-row-cached" title="Téléchargé pour l\'écoute hors-ligne">✓</span>' : ''}
       </button>
     `).join('');
     audioListEl.querySelectorAll('.audio-track-row').forEach(btn => {
@@ -3007,25 +3123,129 @@
     });
   }
 
+  function updateAudioSyncStatus() {
+    if (!audioSyncBtn) return;
+    const total = audioFiles.length;
+    const cachedCount = audioFiles.filter(f => cachedAudioIds.has(fileKey(f))).length;
+    const allSynced = cachedCount === total && total > 0;
+    audioSyncBtn.title = `${cachedCount}/${total} en local`;
+    if (!audioSyncBtn.disabled) {
+      audioSyncBtn.textContent = allSynced
+        ? '✓ Tous les morceaux sont disponibles hors-ligne'
+        : `⇩ Synchroniser pour l'écoute hors-ligne (${cachedCount}/${total} en local)`;
+    }
+    if (audioClearCacheBtn) audioClearCacheBtn.classList.toggle('hidden', cachedCount === 0);
+  }
+
+  async function syncAllAudioFiles() {
+    if (!audioFiles.length) return;
+    const toDownload = audioFiles.filter(f => !cachedAudioIds.has(fileKey(f)));
+    if (!toDownload.length) { updateAudioSyncStatus(); return; }
+
+    audioSyncBtn.disabled = true;
+    let done = 0, failed = 0;
+    const updateProgress = () => {
+      audioSyncBtn.textContent = `⏳ ${done}/${toDownload.length}${failed ? ` (${failed} échec${failed > 1 ? 's' : ''})` : ''}…`;
+    };
+    updateProgress();
+
+    // Fichiers audio potentiellement plus gros que les PDF : on limite le
+    // parallélisme pour ne pas saturer une connexion faible.
+    const CONCURRENT = 2;
+    let idx = 0;
+    async function worker() {
+      while (idx < toDownload.length) {
+        const f = toDownload[idx++];
+        const key = fileKey(f);
+        try {
+          const res = await fetchWithRetry(buildAudioUrl(f), { label: f.name });
+          if (res.ok) {
+            const blob = await res.blob();
+            try {
+              await idbPut('audio', { id: key, name: f.name, folderPath: f.folderPath, size: f.size, blob, cachedAt: Date.now() });
+              cachedAudioIds.add(key);
+            } catch (idbErr) { failed++; }
+          } else { failed++; }
+        } catch (e) { failed++; }
+        done++;
+        updateProgress();
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENT, toDownload.length) }, worker));
+
+    audioSyncBtn.disabled = false;
+    renderAudioList();
+    updateAudioSyncStatus();
+    if (failed > 0) {
+      audioStatusEl.textContent = `⚠ ${failed} téléchargement${failed > 1 ? 's ont' : ' a'} échoué${failed > 1 ? '' : ''}. Relance la synchronisation pour réessayer juste ce qui manque.`;
+      audioStatusEl.classList.remove('hidden');
+    }
+  }
+
+  async function clearAudioCache() {
+    if (!confirm('Supprimer tous les morceaux téléchargés sur cet appareil ? Ils resteront disponibles en streaming si le réseau est là.')) return;
+    await idbClear('audio').catch(() => {});
+    cachedAudioIds.clear();
+    renderAudioList();
+    updateAudioSyncStatus();
+  }
+
   function updateAudioPlayButtonIcon() {
     const playing = !audioPlayerEl.paused && !audioPlayerEl.ended;
     audioPlayBtn.textContent = playing ? '⏸️' : '▶️';
     audioPlayBtn.title = playing ? 'Pause' : 'Lecture';
     if (audioArtEl) audioArtEl.classList.toggle('playing', playing);
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+    }
   }
 
-  function playAudioTrack(index) {
+  async function playAudioTrack(index) {
     if (index < 0 || index >= audioFiles.length) return;
     audioCurrentIndex = index;
     const f = audioFiles[index];
-    audioPlayerEl.src = buildAudioUrl(f);
-    audioTrackTitleEl.textContent = f.name.replace(/\.[^.]+$/, '');
+    const key = fileKey(f);
+
+    // Priorité à la copie locale si elle a été téléchargée (lecture
+    // hors-ligne fiable) ; sinon on diffuse directement depuis le réseau.
+    if (audioCurrentBlobUrl) { URL.revokeObjectURL(audioCurrentBlobUrl); audioCurrentBlobUrl = null; }
+    let url = buildAudioUrl(f);
+    if (cachedAudioIds.has(key)) {
+      try {
+        const cached = await idbGet('audio', key);
+        if (cached && cached.blob) {
+          url = URL.createObjectURL(cached.blob);
+          audioCurrentBlobUrl = url;
+        }
+      } catch (e) { /* copie locale illisible : repli sur le réseau ci-dessus */ }
+    }
+    audioPlayerEl.src = url;
+
+    const cleanTitle = f.name.replace(/\.[^.]+$/, '');
+    audioTrackTitleEl.textContent = cleanTitle;
     audioTrackSubEl.textContent = (f.folderPath && f.folderPath.length) ? f.folderPath.join(' / ') : '';
     audioNowPlaying.classList.remove('hidden');
     audioPrevBtn.disabled = index <= 0;
     audioNextBtn.disabled = index >= audioFiles.length - 1;
+    if (audioDownloadBtn) audioDownloadBtn.disabled = false;
     audioPlayerEl.play().catch(() => { /* lecture bloquée tant qu'aucun geste n'a eu lieu : on laisse le bouton ▶️ visible */ });
     renderAudioList();
+    // Alimente les contrôles système (écran verrouillé, casque/AirPods,
+    // notification média) : c'est ce qui permet à la lecture de continuer
+    // de façon fiable en arrière-plan sur téléphone, avec les vrais
+    // boutons pause/suivant/précédent du système plutôt que seulement
+    // ceux de la page.
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: cleanTitle,
+        artist: 'Banda Esperanza',
+        album: (f.folderPath && f.folderPath.length) ? f.folderPath.join(' / ') : 'Écoute',
+        // La pochette ne s'affiche pas toujours de façon fiable sur iOS
+        // (bug connu de Safari), mais elle est prise en compte sur
+        // Android/macOS/CarPlay — on la fournit quand même, ça ne coûte rien.
+        artwork: [{ src: './icon-180.png', sizes: '180x180', type: 'image/png' }],
+      });
+    }
   }
 
   if (audioReady) {
@@ -3039,6 +3259,7 @@
       audioOverlay.classList.add('hidden');
       document.body.style.overflow = '';
       audioPlayerEl.pause(); // on ne laisse pas un morceau jouer en tâche de fond une fois le panneau fermé
+      if (audioCurrentBlobUrl) { URL.revokeObjectURL(audioCurrentBlobUrl); audioCurrentBlobUrl = null; }
     });
 
     audioPlayBtn.addEventListener('click', () => {
@@ -3049,6 +3270,50 @@
 
     audioPrevBtn.addEventListener('click', () => playAudioTrack(audioCurrentIndex - 1));
     audioNextBtn.addEventListener('click', () => playAudioTrack(audioCurrentIndex + 1));
+
+    if (audioDownloadBtn) {
+      audioDownloadBtn.addEventListener('click', () => {
+        if (audioCurrentIndex === -1) return;
+        const f = audioFiles[audioCurrentIndex];
+        const a = document.createElement('a');
+        a.href = buildAudioUrl(f);
+        a.download = f.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+    }
+
+    if (audioSyncBtn) audioSyncBtn.addEventListener('click', syncAllAudioFiles);
+    if (audioClearCacheBtn) audioClearCacheBtn.addEventListener('click', clearAudioCache);
+
+    // Contrôles depuis l'écran verrouillé / la notification média du
+    // téléphone — indispensable pour une lecture fiable en arrière-plan
+    // (sans ça, iOS coupe parfois le son dès l'écran éteint).
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('play', () => audioPlayerEl.play().catch(() => {}));
+      navigator.mediaSession.setActionHandler('pause', () => audioPlayerEl.pause());
+      navigator.mediaSession.setActionHandler('previoustrack', () => playAudioTrack(audioCurrentIndex - 1));
+      navigator.mediaSession.setActionHandler('nexttrack', () => playAudioTrack(audioCurrentIndex + 1));
+      navigator.mediaSession.setActionHandler('seekbackward', () => {
+        audioPlayerEl.currentTime = Math.max(0, audioPlayerEl.currentTime - 10);
+      });
+      navigator.mediaSession.setActionHandler('seekforward', () => {
+        audioPlayerEl.currentTime = Math.min(audioPlayerEl.duration || Infinity, audioPlayerEl.currentTime + 10);
+      });
+      // Certains systèmes (dont CarPlay) proposent un vrai curseur de
+      // progression plutôt que juste ±10s — sans ce gestionnaire, le
+      // glisser dessus ne ferait rien.
+      try {
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+          if (details.fastSeek && 'fastSeek' in audioPlayerEl) {
+            audioPlayerEl.fastSeek(details.seekTime);
+          } else {
+            audioPlayerEl.currentTime = details.seekTime;
+          }
+        });
+      } catch (e) { /* action non supportée sur ce navigateur : pas grave, ±10s reste dispo */ }
+    }
 
     audioBack10Btn.addEventListener('click', () => {
       audioPlayerEl.currentTime = Math.max(0, audioPlayerEl.currentTime - 10);
@@ -3078,6 +3343,18 @@
       audioTimeCurrentEl.textContent = formatAudioTime(audioPlayerEl.currentTime);
       if (audioPlayerEl.duration) {
         audioSeekEl.value = (audioPlayerEl.currentTime / audioPlayerEl.duration) * 100;
+      }
+      // Sans ça, l'écran verrouillé / CarPlay affiche les boutons mais
+      // pas de curseur de progression ni de durée.
+      if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession
+        && Number.isFinite(audioPlayerEl.duration) && audioPlayerEl.duration > 0) {
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: audioPlayerEl.duration,
+            playbackRate: audioPlayerEl.playbackRate || 1,
+            position: audioPlayerEl.currentTime,
+          });
+        } catch (e) { /* position parfois temporairement invalide pendant un saut de morceau : sans conséquence */ }
       }
     });
     audioPlayerEl.addEventListener('play', updateAudioPlayButtonIcon);
@@ -4501,12 +4778,6 @@
     if (playlistAdminToggleBtn) playlistAdminToggleBtn.classList.toggle('hidden', !chefMode);
     if (qualityToggleBtn) qualityToggleBtn.classList.toggle('hidden', !chefMode);
     if (liveBroadcastToggleBtn) liveBroadcastToggleBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
-    if (audioToggleBtn) audioToggleBtn.classList.toggle('hidden', !chefMode);
-    if (!chefMode && audioOverlay && !audioOverlay.classList.contains('hidden')) {
-      audioOverlay.classList.add('hidden');
-      document.body.style.overflow = '';
-      if (audioPlayerEl) audioPlayerEl.pause();
-    }
     if (!chefMode && qualityPanel) qualityPanel.classList.add('hidden');
     if (!chefMode && liveBroadcastToggleBtn) liveBroadcastToggleBtn.classList.remove('active');
     if (repertoireImportBtn) repertoireImportBtn.classList.toggle('hidden', !(chefMode && firebaseReady && fbDb));
@@ -4553,6 +4824,7 @@
       navigator.storage.persist().catch(() => {});
     }
     refreshCachedIds().then(loadCatalog);
+    refreshCachedAudioIds();
     subscribeToPlaylists();
     subscribeToSongStatuses();
     subscribeToSorties();
