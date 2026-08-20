@@ -3284,8 +3284,9 @@
     audioCloseBtn.addEventListener('click', () => {
       audioOverlay.classList.add('hidden');
       document.body.style.overflow = '';
-      audioPlayerEl.pause(); // on ne laisse pas un morceau jouer en tâche de fond une fois le panneau fermé
-      if (audioCurrentBlobUrl) { URL.revokeObjectURL(audioCurrentBlobUrl); audioCurrentBlobUrl = null; }
+      // Volontairement PAS de pause() ici : on peut vouloir continuer à
+      // écouter le morceau tout en repassant sur la partothèque pour
+      // suivre sa partition — la croix ferme juste la vue, pas le son.
     });
 
     audioPlayBtn.addEventListener('click', () => {
