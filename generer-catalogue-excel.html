@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Générateur du catalogue Excel — Partothèque</title>
+<style>
+  :root {
+    --paper: #F6F3EC;
+    --card: #FFFFFF;
+    --ink: #212B24;
+    --ink-soft: #5B6660;
+    --rule: #DCD5C4;
+    --stamp: #A85C2E;
+    --focus: #2B4A3F;
+    --gold: #D9A24B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  .wrap { max-width: 640px; width: 100%; }
+  h1 {
+    font-family: Georgia, 'Fraunces', serif;
+    font-size: 28px;
+    margin: 0 0 6px;
+    color: var(--focus);
+  }
+  p.lead { color: var(--ink-soft); font-size: 14px; line-height: 1.6; margin: 0 0 28px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    margin: 0 0 14px;
+    font-weight: 600;
+  }
+  .card h2 .optional {
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--ink-soft);
+    opacity: 0.8;
+  }
+  label { display: block; font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; }
+  input[type="file"] {
+    display: block;
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 10px;
+    border: 1.5px dashed var(--rule);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .file-status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--focus);
+    margin-top: 6px;
+    min-height: 16px;
+  }
+  .file-status.error { color: var(--stamp); }
+  button {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 999px;
+    border: 1.5px solid var(--focus);
+    background: var(--focus);
+    color: white;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.gold { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+  .status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 14px;
+    white-space: pre-wrap;
+    line-height: 1.6;
+  }
+  .status.error { color: var(--stamp); }
+  .steps { font-size: 13px; color: var(--ink-soft); line-height: 1.8; padding-left: 20px; margin: 0; }
+  .steps li { margin-bottom: 4px; }
+  code {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Générateur du catalogue Excel</h1>
+  <p class="lead">
+    Produit un fichier Excel propre, morceau par morceau, avec les pupitres disponibles en
+    PDF — pratique pour partager le répertoire du groupe avec une autre association, ou pour
+    une vue d'ensemble imprimable.
+  </p>
+
+  <div class="card">
+    <h2>1 · Fichier catalogue.json</h2>
+    <label>Le fichier généré par <code>generer-catalogue-local.html</code> (celui déjà déposé sur le site fonctionne aussi) :</label>
+    <input type="file" id="catalog-input" accept="application/json,.json">
+    <div class="file-status" id="catalog-status"></div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Répertoire par thème <span class="optional">(facultatif)</span></h2>
+    <label>Si tu as aussi <code>repertoire.json</code> sous la main, une colonne "Thème" sera ajoutée automatiquement :</label>
+    <input type="file" id="repertoire-input" accept="application/json,.json">
+    <div class="file-status" id="repertoire-status"></div>
+  </div>
+
+  <div class="card">
+    <h2>3 · Générer</h2>
+    <ol class="steps">
+      <li>Chaque ligne du fichier Excel correspond à un morceau (le nom du dossier qui contient ses PDF).</li>
+      <li>Une colonne par pupitre, avec le nom exact du fichier PDF présent (ou vide si absent).</li>
+      <li>Une colonne "Parties disponibles" avec le compte total.</li>
+    </ol>
+    <div style="margin-top:18px;">
+      <button type="button" id="generate-btn" class="gold" disabled>⬇ Générer le catalogue Excel</button>
+    </div>
+    <div class="status" id="generate-status"></div>
+  </div>
+</div>
+
+<script>
+  const catalogInput     = document.getElementById('catalog-input');
+  const catalogStatus    = document.getElementById('catalog-status');
+  const repertoireInput  = document.getElementById('repertoire-input');
+  const repertoireStatus = document.getElementById('repertoire-status');
+  const generateBtn      = document.getElementById('generate-btn');
+  const generateStatus   = document.getElementById('generate-status');
+
+  // Mêmes pupitres et mêmes mots-clés que l'appli principale (Partothèque),
+  // pour que le classement par instrument soit identique entre les deux.
+  const FILTERS = [
+    { id: 'conducteur', label: 'Conducteur', startsWith: '00' },
+    { id: 'picolo',     label: 'Piccolo',    keywords: ['picolo', 'piccolo', 'flute', 'flûte'] },
+    { id: 'clarinette', label: 'Clarinette', keywords: ['clarinette'] },
+    { id: 'saxoalto',   label: 'Saxo alto',  keywords: ['saxo alto', 'cor eb', 'cor mib'] },
+    { id: 'saxotenor',  label: 'Saxo tenor', keywords: ['saxo tenor'] },
+    { id: 'trompette',  label: 'Trompette',  keywords: ['trompette'] },
+    { id: 'trombone',   label: 'Trombone',   keywords: ['trombone'] },
+    { id: 'baryton',    label: 'Baryton',    keywords: ['baryton', 'euphonium'], exclude: ['saxo baryton'] },
+    { id: 'souba',      label: 'Souba',      keywords: ['souba'] },
+    { id: 'percussion', label: 'Percussion', keywords: [
+      'percussion', 'percu', 'batterie', 'xylophone', 'xylo', 'glockenspiel', 'glock',
+      'jeu de timbres', 'vibraphone', 'marimba', 'timbales', 'caisse claire', 'grosse caisse',
+      'cymbale', 'crash', 'ride', 'splash', 'charleston', 'hi-hat', 'hihat',
+      'triangle', 'tambourin', 'tambour basque', 'tambour', 'tarole', 'tom basse', 'tom',
+      'congas', 'bongos', 'carillon', 'cloches', 'maracas', 'claves', 'tam-tam', 'tam tam',
+      'gong', 'grelots', 'wood block', 'woodblock', 'cajon', 'shaker', 'cabasa', 'guiro',
+      'djembe', 'castagnettes',
+    ] },
+  ];
+
+  function normalize(str) {
+    return String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function matchesInstrument(fileName, filter) {
+    if (filter.startsWith) return normalize(fileName).startsWith(normalize(filter.startsWith));
+    const hay = normalize(fileName);
+    if (filter.exclude && filter.exclude.some(k => hay.includes(normalize(k)))) return false;
+    return filter.keywords.some(k => hay.includes(normalize(k)));
+  }
+
+  function songNameFromFolderPath(folderPath) {
+    if (!folderPath || !folderPath.length) return '(sans dossier)';
+    return folderPath[folderPath.length - 1];
+  }
+
+  // Transforme un mot-clé en expression régulière insensible aux accents
+  // et à la casse, pour retrouver sa position exacte dans le nom de
+  // fichier ORIGINAL (pas la version normalisée, afin de garder la casse
+  // et les accents dans ce qu'on affiche ensuite — "Sol", pas "sol").
+  const ACCENT_MAP = { a: '[aàâä]', e: '[eéèêë]', i: '[iîï]', o: '[oôö]', u: '[uùûü]', c: '[cç]' };
+  function accentInsensitiveRegex(keyword) {
+    const pattern = keyword.toLowerCase().split('').map(ch => {
+      if (ACCENT_MAP[ch]) return ACCENT_MAP[ch];
+      return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }).join('');
+    return new RegExp(pattern, 'i');
+  }
+
+  // Ce qui distingue plusieurs fichiers pour un même pupitre — un numéro
+  // ("1", "2"), une tonalité ("Sol", "Fa")... : le premier mot qui suit
+  // le mot-clé d'instrument reconnu dans le nom du fichier.
+  function extractPartLabel(fileName, filter, fallbackIndex) {
+    const keyword = filter.startsWith || (filter.keywords && filter.keywords.find(k => normalize(fileName).includes(normalize(k))));
+    if (keyword) {
+      const m = fileName.match(accentInsensitiveRegex(keyword));
+      if (m) {
+        const after = fileName.slice(m.index + m[0].length);
+        const tail = after.match(/^[\s\-–—]*([A-Za-zÀ-ÿ0-9]+)/);
+        if (tail) return tail[1];
+      }
+    }
+    return String(fallbackIndex + 1);
+  }
+
+  let catalogData = null;
+  let repertoireData = null;
+
+  function updateGenerateBtn() {
+    generateBtn.disabled = !catalogData;
+  }
+
+  catalogInput.addEventListener('change', async () => {
+    const file = catalogInput.files[0];
+    if (!file) return;
+    catalogStatus.textContent = 'Lecture…';
+    catalogStatus.classList.remove('error');
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.files)) throw new Error('Format inattendu (pas de liste "files").');
+      catalogData = data;
+      catalogStatus.textContent = `✓ ${data.files.length} fichier(s) PDF trouvé(s) dans le catalogue.`;
+    } catch (e) {
+      catalogData = null;
+      catalogStatus.textContent = '❌ Fichier illisible : ' + (e.message || e);
+      catalogStatus.classList.add('error');
+    }
+    updateGenerateBtn();
+  });
+
+  repertoireInput.addEventListener('change', async () => {
+    const file = repertoireInput.files[0];
+    if (!file) return;
+    repertoireStatus.textContent = 'Lecture…';
+    repertoireStatus.classList.remove('error');
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.songs)) throw new Error('Format inattendu (pas de liste "songs").');
+      repertoireData = data;
+      repertoireStatus.textContent = `✓ ${data.songs.length} morceau(x) référencé(s) par thème.`;
+    } catch (e) {
+      repertoireData = null;
+      repertoireStatus.textContent = '❌ Fichier illisible : ' + (e.message || e);
+      repertoireStatus.classList.add('error');
+    }
+  });
+
+  let exceljsLoadPromise = null;
+  function ensureExcelJsLoaded() {
+    if (window.ExcelJS) return Promise.resolve();
+    if (exceljsLoadPromise) return exceljsLoadPromise;
+    exceljsLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+      const timeoutId = setTimeout(() => { script.remove(); exceljsLoadPromise = null; reject(new Error('Chargement trop long (réseau ?).')); }, 10000);
+      script.onload = () => { clearTimeout(timeoutId); resolve(); };
+      script.onerror = () => { clearTimeout(timeoutId); script.remove(); exceljsLoadPromise = null; reject(new Error('Impossible de charger la bibliothèque Excel.')); };
+      document.head.appendChild(script);
+    });
+    return exceljsLoadPromise;
+  }
+
+  function buildThemeIndex() {
+    // thème par morceau, indexé par titre normalisé — au mieux, on
+    // reste tolérant si aucun repertoire.json n'a été fourni.
+    const index = {};
+    if (!repertoireData) return index;
+    for (const song of repertoireData.songs) {
+      if (song.theme && song.title) index[normalize(song.title)] = song.theme;
+    }
+    return index;
+  }
+
+  generateBtn.addEventListener('click', async () => {
+    if (!catalogData) return;
+    generateBtn.disabled = true;
+    generateStatus.classList.remove('error');
+    generateStatus.textContent = 'Préparation…';
+
+    try {
+      await ensureExcelJsLoaded();
+
+      // Regroupe les fichiers par morceau (dossier).
+      const bySong = new Map();
+      for (const f of catalogData.files) {
+        const song = songNameFromFolderPath(f.folderPath);
+        if (!bySong.has(song)) bySong.set(song, []);
+        bySong.get(song).push(f);
+      }
+
+      const themeIndex = buildThemeIndex();
+      const hasThemes = Object.keys(themeIndex).length > 0;
+
+      const workbook = new window.ExcelJS.Workbook();
+      workbook.creator = 'Partothèque';
+      workbook.created = new Date();
+      const sheet = workbook.addWorksheet('Catalogue', {
+        views: [{ state: 'frozen', ySplit: 1 }],
+      });
+
+      const columns = [{ header: 'Morceau', key: 'morceau', width: 38 }];
+      if (hasThemes) columns.push({ header: 'Thème', key: 'theme', width: 22 });
+      for (const filter of FILTERS) columns.push({ header: filter.label, key: filter.id, width: 13 });
+      columns.push({ header: 'Parties disponibles', key: 'compte', width: 18 });
+      sheet.columns = columns;
+
+      // En-tête : fond sombre, texte clair, en gras — cohérent avec
+      // l'identité visuelle de la partothèque.
+      const headerRow = sheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFF5F2EF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2B4A3F' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      });
+      headerRow.height = 20;
+
+      const songNames = [...bySong.keys()].sort((a, b) => a.localeCompare(b, 'fr'));
+      for (const songName of songNames) {
+        const files = bySong.get(songName);
+        const row = { morceau: songName };
+        if (hasThemes) row.theme = themeIndex[normalize(songName)] || '';
+
+        let count = 0;
+        for (const filter of FILTERS) {
+          const matches = files.filter(f => matchesInstrument(f.name, filter));
+          if (!matches.length) {
+            row[filter.id] = '';
+          } else if (matches.length === 1) {
+            row[filter.id] = '✓';
+          } else {
+            row[filter.id] = matches.map((f, idx) => extractPartLabel(f.name, filter, idx)).join(' + ');
+          }
+          if (matches.length) count++;
+        }
+        row.compte = count;
+        sheet.addRow(row);
+      }
+
+      // Bandes alternées pour la lisibilité sur un long catalogue.
+      for (let i = 2; i <= sheet.rowCount; i++) {
+        if (i % 2 === 0) {
+          sheet.getRow(i).eachCell((cell) => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF6F3EC' } };
+          });
+        }
+      }
+      const centeredCols = [...FILTERS.map(f => f.id), 'compte'];
+      for (const key of centeredCols) {
+        const col = sheet.getColumn(key);
+        for (let i = 2; i <= sheet.rowCount; i++) {
+          sheet.getCell(`${col.letter}${i}`).alignment = { horizontal: 'center' };
+        }
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download = `catalogue-partotheque-${dateStr}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+
+      generateStatus.textContent = `✓ Terminé — ${songNames.length} morceau(x), ${catalogData.files.length} PDF au total.`;
+    } catch (e) {
+      generateStatus.textContent = '❌ ' + (e.message || e);
+      generateStatus.classList.add('error');
+    }
+    generateBtn.disabled = false;
+  });
+</script>
+</body>
+</html>
